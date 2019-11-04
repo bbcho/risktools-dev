@@ -15,3 +15,12 @@ And the following Python libaries
 * rpy2
 * pandas
 * numpy
+
+So far the following functions from RTL have been added
+
+* ir_df_us
+* simGBM
+* simOU
+* simOUJ
+* fitOU
+* npv
