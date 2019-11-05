@@ -1,6 +1,8 @@
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri, numpy2ri
 from rpy2.robjects.pandas2ri import ri2py, py2ri
+from rpy2.robjects.conversion import localconverter
+
 from rpy2.robjects.packages import importr
 
 import pandas as pd
@@ -22,7 +24,7 @@ tv = importr('tidyverse')
 ql = importr('Quandl')
 rtl = importr('RTL')
 
-def ir_df_us(quandlkey=None, ir_sens=0.01) -> pd.DataFrame():
+def ir_df_us(quandlkey=None, ir_sens=0.01):
     """    
     Extracts US Tresury Zero Rates
     
@@ -245,4 +247,39 @@ def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     
     return(myDict)
 
+def _get_RT_data():
+    rFunc = """
+    
+    get_data <- function() {
+    
+        data <- list( 
+                    RTL::cancrudeassays,
+                    RTL::cancrudeprices,
+                    RTL::df_fut,
+                    RTL::dflong,
+                    RTL::dfwide,
+                    RTL::expiry_table,
+                    RTL::holidaysOil,
+                    RTL::tickers_eia,
+                    RTL::.Random.seed)
+        return(data)
+    }
+    
+    """
+    _RTL_data = STAP(rFunc, "get_data")
+    
+    out = _RTL_data.get_data()
+    
+    outDict = {'cancrudeassays':out[0],
+               'cancrudeprices':out[1],
+               'df_fut':out[2],
+               'dflong':out[3],
+               'dfwide':out[4],
+               'expiry_table':out[5],
+               'holidaysOil':out[6],
+               'tickers_eia':out[7],
+               '_Random_seed':out[8]}
+    
+    return(outDict)
+    
 
