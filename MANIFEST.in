@@ -1,0 +1,4 @@
+recursive-include pyRTL *.csv
+recursive-include pyRTL *.docx
+recursive-include pyRTL *.py
+recursive-include pyRTL *.zip
