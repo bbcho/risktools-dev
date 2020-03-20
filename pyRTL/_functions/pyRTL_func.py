@@ -10,7 +10,7 @@ import numpy as np
 # numpy2ri.activate() # No longer needed in rpy3.0+
 
 # R vector of strings
-from rpy2.robjects.vectors import StrVector, FloatVector
+from rpy2.robjects.vectors import StrVector, FloatVector, ListVector
 
 # import R's "base" package
 base = importr('base')
@@ -23,7 +23,35 @@ tv = importr('tidyverse')
 ql = importr('Quandl')
 rtl = importr('RTL')
 
-key = 'WGDZMootvgNBVyY8hxAy'
+from rpy2.robjects.packages import STAP
+string = """
+npv.at.risk <- function(init.cost, C.cost, cf.freq, F, T, disc.factors, simC, X) {
+
+    df <- tibble(t = seq(from = 0, to = T, by = cf.freq), cf = simC) %>% 
+      dplyr::mutate(cf = case_when(cf >= X  ~ (cf - C.cost),cf < X ~ 0),
+                    cf = replace(cf, t == 0, init.cost), cf = replace(cf, t == T, last(simC)+F),
+                    df = spline(x = disc.factors$maturity, y = disc.factors$discountfactor, xout = t)$y, 
+                    pv = cf * df)
+    
+  x = list(df = df, npv = sum(df$pv))
+  return(x)
+}
+"""
+_npv_at_risk = STAP(string, "npv.at.risk")
+
+def p2r(p_df):
+    # Function to convert pandas dataframes to R
+    with localconverter(ro.default_converter + pandas2ri.converter):
+        r_from_pd_df = ro.conversion.py2rpy(p_df)
+
+    return r_from_pd_df
+
+def r2p(r_df):
+    # Function to convert R dataframes to pandas
+    with localconverter(ro.default_converter + pandas2ri.converter):
+        pd_from_r_df = ro.conversion.rpy2py(r_df)
+
+    return pd_from_r_df
 
 def ir_df_us(quandlkey=None, ir_sens=0.01):
     """    
@@ -45,7 +73,7 @@ def ir_df_us(quandlkey=None, ir_sens=0.01):
     
     if quandlkey is not None:
         ir = rtl.ir_df_us(quandlkey, ir_sens)
-        return(rpy2py(ir))
+        return(r2p(ir))
     else:
         print('No Quandl key provided')
 
@@ -74,7 +102,7 @@ def simGBM(S0, drift, sigma, T, dt):
     
     return(np.array(sim))
 
-def simOU(S0=5,mu=5,theta=.5,sigma=0.2,T=1,dt=1/12):
+def simOU(S0=5,mu=5,theta=.5,sigma=0.2,T=1,dt=1/250):
     """
     Simulates a Ornstein–Uhlenbeck process
 
@@ -183,32 +211,10 @@ def npv(init_cost , C, cf_freq, F, T, disc_factors, BreakEven, BE_yield):
     
     myDict = dict()
     
-    myDict['df'] = ri2py(tf[0])
+    myDict['df'] = r2p(tf[0])
     myDict['npv'] = np.array(tf[1])[0]
     
     return(myDict)
-
-
-from rpy2.robjects.packages import STAP
-
-# with open('./pyRTL/_functions/npvAtRisk.R', 'r') as f:
-#     string = f.read()
-
-string = """
-npv.at.risk <- function(init.cost, C.cost, cf.freq, F, T, disc.factors, simC, X) {
-
-    df <- tibble(t = seq(from = 0, to = T, by = cf.freq), cf = simC) %>% 
-      dplyr::mutate(cf = case_when(cf >= X  ~ (cf - C.cost),cf < X ~ 0),
-                    cf = replace(cf, t == 0, init.cost), cf = replace(cf, t == T, last(simC)+F),
-                    df = spline(x = disc.factors$maturity, y = disc.factors$discountfactor, xout = t)$y, 
-                    pv = cf * df)
-    
-  x = list(df = df, npv = sum(df$pv))
-  return(x)
-}
-"""
-
-_npv_at_risk = STAP(string, "npv.at.risk")
 
 def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     """
@@ -243,7 +249,7 @@ def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     
     myDict = dict()
     
-    myDict['df'] = ri2py(tf[0])
+    myDict['df'] = r2p(tf[0])
     myDict['npv'] = np.array(tf[1])[0]
     
     return(myDict)
@@ -261,8 +267,8 @@ def _get_RT_data():
                     RTL::dfwide,
                     RTL::expiry_table,
                     RTL::holidaysOil,
-                    RTL::tickers_eia,
-                    RTL::.Random.seed)
+                    RTL::tickers_eia
+                    )
         return(data)
     }
     
@@ -271,16 +277,93 @@ def _get_RT_data():
     
     out = _RTL_data.get_data()
     
-    outDict = {'cancrudeassays':out[0],
-               'cancrudeprices':out[1],
-               'df_fut':out[2],
-               'dflong':out[3],
-               'dfwide':out[4],
-               'expiry_table':out[5],
-               'holidaysOil':out[6],
-               'tickers_eia':out[7],
-               '_Random_seed':out[8]}
+    outDict = {'cancrudeassays':r2p(out[0]),
+               'cancrudeprices':r2p(out[1]),
+               'df_fut':r2p(out[2]),
+               'dflong':r2p(out[3]),
+               'dfwide':r2p(out[4]),
+               'expiry_table':r2p(out[5]),
+               'holidaysOil':r2p(out[6]),
+               'tickers_eia':r2p(out[7])
+               }
     
     return(outDict)
     
+def trade_stats(df, Rf = 0):
+    """
+    Function to compute list of risk reward metrics
+     
+    Parameters
+    ----------
 
+    df {pd.Series}: pandas Series or SINGLE column DataFrame of returns
+    Rf {float}: Risk-free rate
+
+    Returns
+    -------
+
+    List of risk/reward metrics.
+
+    Examples
+    --------
+
+    >>> from pandas_datareader import data, wb
+    >>> from datetime import datetime
+
+    >>> spy = data.DataReader("SPY",  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
+    >>> spy = spy.diff()
+    >>> trade_stats(df=spy['Adj Close'],Rf=0)
+    """
+
+    # R code to convert R dataframes to xts format
+    rFunc = """    
+    tradeStatsWrapper <- function(df, Rf) {
+        library(xts)
+        df$Date <- as.Date(as.character(df$Date))
+        df$Close <- as.numeric(df$Close)
+        df.xts <- xts(df$Close, order.by=df$Date)
+        x = RTL::tradeStats(df.xts, Rf)
+        return(x)
+    }    
+    """
+
+    # rename datetime index
+    df.index.name = 'Date'
+    
+    # if df is a series, convert to dataframe. If it's a dataframe, only take first column and rename it close
+    if isinstance(df, pd.Series):
+        tf = pd.DataFrame()
+        tf['Close'] = df
+        df = tf.copy()
+    elif isinstance(df, pd.DataFrame):
+        df = df.iloc[:,0]
+        df.columns = ['Close']
+    
+    # init R code
+    fnc = STAP(rFunc, "tradeStatsWrapper")
+
+    # reset index and drop nans
+    df = df.reset_index().dropna()
+    
+    # convert Date to string since the above code converts it back to R datetime. Probably not needed
+    df.Date = pd.to_datetime(df.Date).dt.strftime('%Y-%m-%d')
+    
+    # Convert to pandas df to R df
+    rdf = p2r(df)
+    
+    # Run R code
+    out = fnc.tradeStatsWrapper(rdf, Rf)
+
+    # create dictionary from function return
+    outDict = {'cumReturn':FloatVector(out[0])[0],
+            'retAnnual':FloatVector(out[1])[0],
+            'sdAnnual':FloatVector(out[2])[0],
+            'sharoe':FloatVector(out[3])[0],
+            'omega':FloatVector(out[4])[0],
+            'percWin':FloatVector(out[5])[0],
+            'percInMkt':FloatVector(out[6])[0],
+            'ddLength':FloatVector(out[7])[0],
+            'ddMax':FloatVector(out[8])[0]
+            }
+    
+    return outDict
