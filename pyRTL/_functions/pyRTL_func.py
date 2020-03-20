@@ -1,17 +1,16 @@
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri, numpy2ri
-from rpy2.robjects.pandas2ri import ri2py, py2ri
+from rpy2.robjects.pandas2ri import rpy2py, py2rpy
 from rpy2.robjects.conversion import localconverter
-
 from rpy2.robjects.packages import importr
 
 import pandas as pd
 import numpy as np
-pandas2ri.activate()
-numpy2ri.activate()
+# pandas2ri.activate() # No longer needed in rpy3.0+
+# numpy2ri.activate() # No longer needed in rpy3.0+
 
 # R vector of strings
-from rpy2.robjects.vectors import StrVector
+from rpy2.robjects.vectors import StrVector, FloatVector
 
 # import R's "base" package
 base = importr('base')
@@ -23,6 +22,8 @@ tq = importr('tidyquant')
 tv = importr('tidyverse')
 ql = importr('Quandl')
 rtl = importr('RTL')
+
+key = 'WGDZMootvgNBVyY8hxAy'
 
 def ir_df_us(quandlkey=None, ir_sens=0.01):
     """    
@@ -44,7 +45,7 @@ def ir_df_us(quandlkey=None, ir_sens=0.01):
     
     if quandlkey is not None:
         ir = rtl.ir_df_us(quandlkey, ir_sens)
-        return(ri2py(ir))
+        return(rpy2py(ir))
     else:
         print('No Quandl key provided')
 
@@ -132,7 +133,7 @@ def fitOU(spread):
 
     Parameters
     ----------
-    spread : Spread pandas Series.
+    spread : Spread numpy array.
 
     Returns
     -------
@@ -140,11 +141,11 @@ def fitOU(spread):
 
     Examples
     --------
-    >>> spread = rtl.simOU(mu=5,theta=.5,sigma=0.2,T=5,dt=1/250)
-    >>> rtl.fitOU(spread)
+    >>> spread = simOU(mu=5,theta=.5,sigma=0.2,T=5,dt=1/250)
+    >>> fitOU(spread)
     """
 
-    out = rtl.fitOU(spread)
+    out = rtl.fitOU(FloatVector(spread))
     outDict = dict()
     outDict['theta'] = np.array(out[0])[0]
     outDict['mu'] = np.array(out[1])[0]
@@ -231,7 +232,7 @@ def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     Examples
     --------
     >>> ir = pyRTL.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
-    >>> myDict = pyRTL.npv(init.cost=-375,C_cost=5,cf.freq=.5,F=250,T=1,disc_factors=ir,simC=[50,50,50], X=5)
+    >>> myDict = pyRTL.npv_at_risk(init.cost=-375,C_cost=5,cf.freq=.5,F=250,T=1,disc_factors=ir,simC=[50,50,50], X=5)
     >>> myDict['df']
     >>> myDict['npv']
     """
