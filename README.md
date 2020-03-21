@@ -1,8 +1,8 @@
 # pyRTL
 
-NOTE: Only works with rpy2 version < 3.0. Verified working with version 2.9.5.
-
-Need to upgrade to 3.X
+NOTES: 
+* Only works with rpy2 version >= 3.0. Verified working with version 3.2.6
+* All datetimes are given in UTC
 
 Python wrapper for R library RTL found at https://github.com/risktoollib/RTL
 
@@ -19,6 +19,7 @@ And the following Python libaries
 * rpy2
 * pandas
 * numpy
+* tzlocal
 
 So far the following functions from RTL have been added
 
@@ -28,3 +29,9 @@ So far the following functions from RTL have been added
 * simOUJ
 * fitOU
 * npv
+* tradeStats
+* bond
+* returns
+* rolladjust
+
+

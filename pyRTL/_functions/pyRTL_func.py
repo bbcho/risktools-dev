@@ -41,15 +41,17 @@ _npv_at_risk = STAP(string, "npv.at.risk")
 
 def p2r(p_df):
     # Function to convert pandas dataframes to R
-    with localconverter(ro.default_converter + pandas2ri.converter):
-        r_from_pd_df = ro.conversion.py2rpy(p_df)
+    with localconverter(ro.default_converter + pandas2ri.converter) as cv:
+        # r_from_pd_df = ro.conversion.py2rpy(p_df)
+        r_from_pd_df = cv.py2rpy(p_df)
 
     return r_from_pd_df
 
 def r2p(r_df):
     # Function to convert R dataframes to pandas
-    with localconverter(ro.default_converter + pandas2ri.converter):
-        pd_from_r_df = ro.conversion.rpy2py(r_df)
+    with localconverter(ro.default_converter + pandas2ri.converter) as cv:
+        # pd_from_r_df = ro.conversion.rpy2py(r_df)
+        pd_from_r_df = cv.rpy2py(r_df)
 
     return pd_from_r_df
 
@@ -267,7 +269,16 @@ def _get_RT_data():
                     RTL::dfwide,
                     RTL::expiry_table,
                     RTL::holidaysOil,
-                    RTL::tickers_eia
+                    RTL::tickers_eia,                    
+                    RTL::ng_storage,
+                    RTL::tickers_eia,
+                    RTL::tradeCycle,
+                    RTL::twoott,
+                    RTL::twtrump,
+                    RTL::usSwapCurves,
+                    RTL::usSwapCurvesPar,
+                    RTL::usSwapIR,
+                    RTL::usSwapIRdef
                     )
         return(data)
     }
@@ -284,9 +295,35 @@ def _get_RT_data():
                'dfwide':r2p(out[4]),
                'expiry_table':r2p(out[5]),
                'holidaysOil':r2p(out[6]),
-               'tickers_eia':r2p(out[7])
+               'tickers_eia':r2p(out[7]),
+               'ng_storage':r2p(out[8]),
+               'tickers_eia':r2p(out[9]),
+               'tradeCycle':r2p(out[10]),
+               'twoott':r2p(out[11]),
+               'twtrump':r2p(out[12]),
+               'usSwapCurves':r2p(out[13]),
+               'usSwapCurvesPar':r2p(out[14]),
+               'usSwapIR':r2p(out[15]),
+               'usSwapIRdef':r2p(out[16])
                }
     
+    # For some reason, pure dates (i.e. no times), when converted from R to py breaks dates. 
+    # Need to convert back to pandas datetime using unit 'days'
+    outDict['df_fut'].date = pd.to_datetime(outDict['df_fut'].date,unit='D', utc=True)
+    outDict['dflong'].date = pd.to_datetime(outDict['dflong'].date,unit='D', utc=True)
+    outDict['dfwide'].date = pd.to_datetime(outDict['dfwide'].date,unit='D', utc=True)
+    
+    outDict['expiry_table']['Last.Trade'] = pd.to_datetime(outDict['expiry_table']['Last.Trade'], unit='D', utc=True)
+    outDict['expiry_table']['First.Notice'] = pd.to_datetime(outDict['expiry_table']['First.Notice'], unit='D', utc=True)
+    outDict['expiry_table']['First.Delivery'] = pd.to_datetime(outDict['expiry_table']['First.Delivery'], unit='D', utc=True)
+    outDict['expiry_table']['Last.Delivery'] = pd.to_datetime(outDict['expiry_table']['Last.Delivery'], unit='D', utc=True)
+    
+    outDict['holidaysOil']['value'] = pd.to_datetime(outDict['holidaysOil']['value'], unit='D', utc=True)
+    
+    outDict['usSwapIR']['date'] = pd.to_datetime(outDict['usSwapIR']['date'], unit='D', utc=True)
+    
+    # still need to fix usSwapCurves and Par
+        
     return(outDict)
     
 def trade_stats(df, Rf = 0):
@@ -367,3 +404,138 @@ def trade_stats(df, Rf = 0):
             }
     
     return outDict
+
+def bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "price") :
+    """
+    Compute bond price, cash flow table and duration
+    
+    Parameters
+    ----------
+    
+    ytm{float}: Yield to Maturity
+    C{float}: Coupon rate per annum
+    T2M{float}: Time to maturity in years
+    m{float}: Periods per year for coupon payments e.g semi-annual = 2.
+    output{string}: "price", "df" or "duration"
+    
+    Returns
+    -------
+    
+    Price scalar, cash flows data frame and/or duration scalar
+    
+    Examples
+    --------
+
+    >>> bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "price")
+    >>> bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "df")
+    >>> bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "duration")
+    """
+    
+    out = rtl.bond(ytm, C, T2M, m, output)
+    
+    if (output == 'price') | (output == 'duration'):
+        return out[0]
+    elif output == 'df':
+        return r2p(out)
+    else:
+        return "Error: output variable incorrect"
+    
+def garch(df, out=True):
+    """
+    Computes annualised Garch(1,1) volatilities using fGarch package.
+
+    Parameters
+    ----------
+    
+    df{DataFrame}: Wide dataframe with date column and single series (univariate). 
+    out{str}: "plotly" or "matplotlib" to return respective chart types. "data" to return data or "fit" for garch fit output
+    
+    Returns
+    -------
+    
+    Plotly figure, Matplotlib ax or Pandas df
+    
+    Examples
+    --------
+    
+    >>> import pyRTL as rtl
+    >>> df = rtl.dflong[rtl.dflong['series'] == 'CL01']
+    >>> df = returns(df=df,retType="rel",period.return=1,spread=True)
+    >>> df = rolladjust(df=df,commodityname=c("cmewti"),rolltype=c("Last.Trade"))
+    #' summary(garch(x=x,out="fit"))
+    #' garch(x=x,out="chart")
+    #' garch(x=x,out="data")
+    """
+    
+    # in progress
+
+def returns(df,retType="abs",period_return=1,spread=False):
+    """
+    Computes periodic returns from a dataframe ordered by date
+    
+    Parameters
+    ----------
+    
+    df{DataFrame}: Long dataframe with column names = ["date","value","series"]
+    retType{str}: "abs" for absolute, "rel" for relative, or "log" for log returns.
+    period_return{int}: Number of rows over which to compute returns.
+    spread{bool}: TRUE if you want to spread into a long dataframe.
+    
+    Returns
+    -------
+    
+    A dataframe object of returns.
+    
+    Examples
+    --------
+    
+    >>> import pyRTL
+    >>> returns(df = pyRTL.dflong, retType = "rel", period_return = 1, spread = True)
+    >>> returns(df = pyRTL.dflong, retType = "rel", period_return = 1, spread = False)
+    """
+    if isinstance(df.index, pd.DatetimeIndex):
+        # reset index if the df index is a datetime object
+        df = df.reset_index()
+    
+    ret = rtl.returns(p2r(df),retType,period_return,spread)
+    ret = r2p(ret)
+    ret.date = pd.to_datetime(ret.date, unit='D', utc=True)
+    ret = ret.set_index('date')
+    
+    return r2p(ret)
+
+def rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"], *args):
+    """
+    Returns a xts price or return object adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader. 
+    df{DataFrame}: pandas df object of prices or returns.
+    commodityname{str}: Name of commodity in expiry_table. See example below for values.
+    rolltype{str}: Type of contract roll: "Last.Trade" or "First.Notice".
+    *args: Other parms
+    
+    Returns
+    -------
+    
+    Roll-adjusted pandas dataframe object of returns with datetime index
+    
+    Examples 
+    --------
+    >>> import pyRTL as rtl
+    >>> rtl.expiry_table.cmdty.unique() # for list of commodity names
+    >>> ret = rtl.returns(df=rtl.dflong,retType="abs",period_return=1,spread=True).iloc[:,0:1] 
+    >>> rolladjust(df=ret,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    """
+    
+    if ~isinstance(commodityname, list):
+        commodityname = [commodityname]
+    if ~isinstance(rolltype,list):
+        rolltype = [rolltype]
+        
+    if isinstance(df.index,pd.DatetimeIndex):
+        print('test')
+        df = df.reset_index()
+    
+    ret = r2p(rtl.rolladjust(p2r(df), commodityname, rolltype, *args))
+    ret.date = pd.to_datetime(ret.date, unit='D', utc=True)
+    ret = ret.set_index('date')
+    
+    return ret

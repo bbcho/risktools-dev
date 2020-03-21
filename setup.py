@@ -18,7 +18,7 @@ setuptools.setup(
           'numpy',
           'matplotlib',
           'plotly',
-          'rpy2',
+          'rpy2>=3.2.6',
           'tzlocal'
     ],
 	include_package_data=True,
