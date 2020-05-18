@@ -456,21 +456,55 @@ def garch(df, out=True):
     Returns
     -------
     
-    Plotly figure, Matplotlib ax or Pandas df
+    out = 'data returns a pandas df
     
     Examples
     --------
     
     >>> import pyRTL as rtl
     >>> df = rtl.dflong[rtl.dflong['series'] == 'CL01']
-    >>> df = returns(df=df,retType="rel",period.return=1,spread=True)
-    >>> df = rolladjust(df=df,commodityname=c("cmewti"),rolltype=c("Last.Trade"))
-    #' summary(garch(x=x,out="fit"))
-    #' garch(x=x,out="chart")
-    #' garch(x=x,out="data")
+    >>> df = rtl.returns(df=df,retType="rel",period_return=1,spread=True)
+    >>> df = rtl.rolladjust(df=df,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    >>> rtl.garch(df,out="data")
+    >>> rtl.garch(df,out="fit"))
+    >>> rtl.garch(df,out="chart")    
     """
     
-    # in progress
+    if isinstance(df.index, pd.DatetimeIndex):
+        # reset index if the df index is a datetime object
+        df = df.reset_index()
+        
+    # R code to convert R xts format to tibble, then pandas df for out="data" or summarize fGarch obj if out = "fit"
+    rFunc = """    
+    garchWrap <- function(df, out) {
+        library(xts)
+        library(timetk)
+        
+        x <- RTL::garch(df, out)
+        if(out=="data"){
+            x <- timetk::tk_tbl(x)
+            x <- rename(x, date = index)
+            x <- mutate(x, date = as_date(date))                        
+            }
+                
+        if(out=="fit"){x <- summary(x)}
+                
+        return(x)
+    }    
+    """    
+    # init R code
+    fnc = STAP(rFunc, "garchWrap")
+    
+    if (out == 'fit'):
+        return r2p(fnc.garchWrap(p2r(df), out))
+    elif (out == 'data'):
+        ret = r2p(fnc.garchWrap(p2r(df), out))
+        ret.date = pd.to_datetime(ret.date, unit='D', utc=True)
+        ret = ret.set_index('date')
+        return ret
+    else:
+        p = r2p(fnc.garchWrap(p2r(df), out))
+        return image_png(p)
 
 def returns(df,retType="abs",period_return=1,spread=False):
     """
@@ -576,8 +610,8 @@ def prompt_beta(df, period='all',betatype='all',output = 'chart'):
     if isinstance(df.index,pd.DatetimeIndex):
         df = df.reset_index()
     
-    x = rtl.promptBeta(p2r(df), period=period, betatype=betatype, output=output)
-    
+    # x = rtl.promptBeta(p2r(df), period=period, betatype=betatype, output=output)
+    x = r2p(rtl.promptBeta(p2r(df), period=period, betatype=betatype, output=output))
     
     # Not sure right now...
     # R code to convert R dataframes to xts format
@@ -590,7 +624,7 @@ def prompt_beta(df, period='all',betatype='all',output = 'chart'):
     fnc = STAP(rFunc, "toStr")
     
     if output == 'betas':
-        return r2p(x)
+        return x
     elif output == 'chart':                
         return image_png(x)
     
