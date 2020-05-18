@@ -3,6 +3,9 @@ from rpy2.robjects import pandas2ri, numpy2ri
 from rpy2.robjects.pandas2ri import rpy2py, py2rpy
 from rpy2.robjects.conversion import localconverter
 from rpy2.robjects.packages import importr
+import rpy2.robjects.lib.ggplot2 as ggplot2
+import numpy as np
+from rpy2.ipython.ggplot import image_png
 
 import pandas as pd
 import numpy as np
@@ -506,11 +509,15 @@ def returns(df,retType="abs",period_return=1,spread=False):
 
 def rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"], *args):
     """
-    Returns a xts price or return object adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader. 
-    df{DataFrame}: pandas df object of prices or returns.
-    commodityname{str}: Name of commodity in expiry_table. See example below for values.
-    rolltype{str}: Type of contract roll: "Last.Trade" or "First.Notice".
-    *args: Other parms
+    Returns a df adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader. 
+    
+    Parameters
+    ----------
+    
+    df {DataFrame}: pandas df object of prices or returns.
+    commodityname {str}: Name of commodity in expiry_table. See example below for values.
+    rolltype {str}: Type of contract roll: "Last.Trade" or "First.Notice".
+    *args: Other parms to pass to R function
     
     Returns
     -------
@@ -522,20 +529,87 @@ def rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"], *args):
     >>> import pyRTL as rtl
     >>> rtl.expiry_table.cmdty.unique() # for list of commodity names
     >>> ret = rtl.returns(df=rtl.dflong,retType="abs",period_return=1,spread=True).iloc[:,0:1] 
-    >>> rolladjust(df=ret,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    >>> rtl.rolladjust(df=ret,commodityname=["cmewti"],rolltype=["Last.Trade"])
     """
     
-    if ~isinstance(commodityname, list):
+    if isinstance(commodityname, list) == False:
         commodityname = [commodityname]
-    if ~isinstance(rolltype,list):
+    if isinstance(rolltype,list) == False:
         rolltype = [rolltype]
         
     if isinstance(df.index,pd.DatetimeIndex):
-        print('test')
         df = df.reset_index()
     
-    ret = r2p(rtl.rolladjust(p2r(df), commodityname, rolltype, *args))
+    ret = r2p(rtl.rolladjust(p2r(df), StrVector(commodityname), StrVector(rolltype), *args))
     ret.date = pd.to_datetime(ret.date, unit='D', utc=True)
     ret = ret.set_index('date')
     
     return ret
+
+def prompt_beta(df, period='all',betatype='all',output = 'chart'):
+    """
+    Returns betas of multiple xts prices (by using relative returns).
+         
+    Parameters
+    ----------
+    x Wide dataframe with date column and multiple series columns (multivariate).
+    period {str}: "all" or numeric period of time in last n periods.
+    betatype {str}: "all" "bull" "bear".
+    output {str} "betas", "chart","stats"
+    
+    Returns
+    -------
+    
+    ggplot chart, df of betas or stats
+        
+    Examples
+    --------
+    import pyRTL as rtl
+    x = rtl.dflong[rtl.dflong.series.str.contains('CL')].copy()
+    x = rtl.returns(df=x,retType="abs",period_return=1,spread=True)
+    x = rtl.rolladjust(df=x,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    rtl.prompt_beta(df=x,period="all",betatype="all",output="chart")
+    rtl.prompt_beta(df=x,period="all",betatype="all",output="betas")
+    rtl.prompt_beta(df=x,period="all",betatype="all",output="stats")
+    """
+    
+    if isinstance(df.index,pd.DatetimeIndex):
+        df = df.reset_index()
+    
+    x = rtl.promptBeta(p2r(df), period=period, betatype=betatype, output=output)
+    
+    
+    # Not sure right now...
+    # R code to convert R dataframes to xts format
+    rFunc = """    
+    toStr <- function(x) {                
+        return(summary(x))
+    }
+    """
+    # init R code
+    fnc = STAP(rFunc, "toStr")
+    
+    if output == 'betas':
+        return r2p(x)
+    elif output == 'chart':                
+        return image_png(x)
+    
+    elif output == 'stats':
+        bf = dict()
+        out = dict()
+        
+        betaformula = x[0]
+                
+        for i, c in enumerate(betaformula.names):
+            
+            if isinstance(betaformula[i], FloatVector):
+                bf[c] = np.array(betaformula[i])
+            else:
+                bf[c] = betaformula[i]
+        
+        # bf = fnc.toStr(x[0])
+        
+        out['betaformula'] = bf
+        out['betaformulaObject'] = x[1]
+        
+        return out
