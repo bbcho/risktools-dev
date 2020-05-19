@@ -13,7 +13,7 @@ import numpy as np
 # numpy2ri.activate() # No longer needed in rpy3.0+
 
 # R vector of strings
-from rpy2.robjects.vectors import StrVector, FloatVector, ListVector
+from rpy2.robjects.vectors import StrVector, FloatVector, ListVector, Vector
 
 # import R's "base" package
 base = importr('base')
@@ -58,6 +58,124 @@ def r2p(r_df):
 
     return pd_from_r_df
 
+def convert_usSwapCurves_2p(x):
+    """
+    Function designed to convert nested list usSwapCurves from R package RTL to python
+    
+    x {ListVector}
+    """
+    out = dict()
+    out['times'] = np.array(x[0])
+    out['discounts'] = np.array(x[1])
+    out['forwards'] = np.array(x[2])
+    out['zerorates'] = np.array(x[3])
+    out['flatQuotes'] = bool(np.array(x[4])[0])
+    
+    out['params'] = dict()
+    
+    out['params']['tradeDate'] = pd.to_datetime(x[5][0][0],unit='D', utc=True)
+    out['params']['settleDate'] = pd.to_datetime(x[5][1][0],unit='D', utc=True)
+    out['params']['dt'] = x[5][2][0]
+    out['params']['interpWhat'] = x[5][3][0]
+    out['params']['interpHow'] = x[5][4][0]
+    out['table'] = r2p(x[6])
+    
+    out['table']['date'] = pd.to_datetime(out['table']['date'],unit='D', utc=True)
+    
+    return out
+
+def _get_RT_data():
+    rFunc = """
+    
+    get_data <- function() {
+    
+        data <- list( 
+                    RTL::cancrudeassays,
+                    RTL::cancrudeprices,
+                    RTL::df_fut,
+                    RTL::dflong,
+                    RTL::dfwide,
+                    RTL::expiry_table,
+                    RTL::holidaysOil,
+                    RTL::tickers_eia,                    
+                    RTL::ng_storage,
+                    RTL::tickers_eia,
+                    RTL::tradeCycle,
+                    RTL::twoott,
+                    RTL::twtrump,
+                    RTL::usSwapCurves,
+                    RTL::usSwapCurvesPar,
+                    RTL::usSwapIR,
+                    RTL::usSwapIRdef
+                    )
+        return(data)
+    }
+    
+    """
+    _RTL_data = STAP(rFunc, "get_data")
+    
+    out = _RTL_data.get_data()
+    
+    outDict = {'cancrudeassays':r2p(out[0]),
+               'cancrudeprices':r2p(out[1]),
+               'df_fut':r2p(out[2]),
+               'dflong':r2p(out[3]),
+               'dfwide':r2p(out[4]),
+               'expiry_table':r2p(out[5]),
+               'holidaysOil':r2p(out[6]),
+               'tickers_eia':r2p(out[7]),
+               'ng_storage':r2p(out[8]),
+               'tickers_eia':r2p(out[9]),
+               'tradeCycle':r2p(out[10]),
+               'twoott':r2p(out[11]),
+               'twtrump':r2p(out[12]),
+               'usSwapCurves':r2p(out[13]),
+               'usSwapCurvesPar':r2p(out[14]),
+               'usSwapIR':r2p(out[15]),
+               'usSwapIRdef':r2p(out[16])
+               }
+    
+    # For some reason, pure dates (i.e. no times), when converted from R to py breaks dates. 
+    # Need to convert back to pandas datetime using unit 'days'
+    outDict['df_fut'].date = pd.to_datetime(outDict['df_fut'].date,unit='D', utc=True)
+    outDict['dflong'].date = pd.to_datetime(outDict['dflong'].date,unit='D', utc=True)
+    outDict['dfwide'].date = pd.to_datetime(outDict['dfwide'].date,unit='D', utc=True)
+    
+    outDict['expiry_table']['Last.Trade'] = pd.to_datetime(outDict['expiry_table']['Last.Trade'], unit='D', utc=True)
+    outDict['expiry_table']['First.Notice'] = pd.to_datetime(outDict['expiry_table']['First.Notice'], unit='D', utc=True)
+    outDict['expiry_table']['First.Delivery'] = pd.to_datetime(outDict['expiry_table']['First.Delivery'], unit='D', utc=True)
+    outDict['expiry_table']['Last.Delivery'] = pd.to_datetime(outDict['expiry_table']['Last.Delivery'], unit='D', utc=True)
+    
+    outDict['holidaysOil']['value'] = pd.to_datetime(outDict['holidaysOil']['value'], unit='D', utc=True)
+    
+    outDict['usSwapIR']['date'] = pd.to_datetime(outDict['usSwapIR']['date'], unit='D', utc=True)
+    
+    # still need to fix usSwapCurves and Par
+        
+    return(outDict)
+
+_data = _get_RT_data()
+
+cancrudeassays = _data['cancrudeassays']
+cancrudeprices = _data['cancrudeprices']
+df_fut = _data['df_fut']
+dflong = _data['dflong']
+dfwide = _data['dfwide']
+expiry_table = _data['expiry_table']
+holidaysOil = _data['holidaysOil']
+tickers_eia = _data['tickers_eia']
+
+ng_storage = _data['ng_storage']
+tickers_eia = _data['tickers_eia']
+tradeCycle = _data['tradeCycle']
+twoott = _data['twoott']
+twtrump = _data['twtrump']
+# usSwapCurves = convert_usSwapCurves_2p(_data['usSwapCurves'])
+usSwapCurves = _data['usSwapCurves']
+usSwapCurvesPar = _data['usSwapCurvesPar']
+usSwapIR = _data['usSwapIR']
+usSwapIRdef = _data['usSwapIRdef']
+    
 def ir_df_us(quandlkey=None, ir_sens=0.01):
     """    
     Extracts US Tresury Zero Rates
@@ -258,76 +376,6 @@ def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     myDict['npv'] = np.array(tf[1])[0]
     
     return(myDict)
-
-def _get_RT_data():
-    rFunc = """
-    
-    get_data <- function() {
-    
-        data <- list( 
-                    RTL::cancrudeassays,
-                    RTL::cancrudeprices,
-                    RTL::df_fut,
-                    RTL::dflong,
-                    RTL::dfwide,
-                    RTL::expiry_table,
-                    RTL::holidaysOil,
-                    RTL::tickers_eia,                    
-                    RTL::ng_storage,
-                    RTL::tickers_eia,
-                    RTL::tradeCycle,
-                    RTL::twoott,
-                    RTL::twtrump,
-                    RTL::usSwapCurves,
-                    RTL::usSwapCurvesPar,
-                    RTL::usSwapIR,
-                    RTL::usSwapIRdef
-                    )
-        return(data)
-    }
-    
-    """
-    _RTL_data = STAP(rFunc, "get_data")
-    
-    out = _RTL_data.get_data()
-    
-    outDict = {'cancrudeassays':r2p(out[0]),
-               'cancrudeprices':r2p(out[1]),
-               'df_fut':r2p(out[2]),
-               'dflong':r2p(out[3]),
-               'dfwide':r2p(out[4]),
-               'expiry_table':r2p(out[5]),
-               'holidaysOil':r2p(out[6]),
-               'tickers_eia':r2p(out[7]),
-               'ng_storage':r2p(out[8]),
-               'tickers_eia':r2p(out[9]),
-               'tradeCycle':r2p(out[10]),
-               'twoott':r2p(out[11]),
-               'twtrump':r2p(out[12]),
-               'usSwapCurves':r2p(out[13]),
-               'usSwapCurvesPar':r2p(out[14]),
-               'usSwapIR':r2p(out[15]),
-               'usSwapIRdef':r2p(out[16])
-               }
-    
-    # For some reason, pure dates (i.e. no times), when converted from R to py breaks dates. 
-    # Need to convert back to pandas datetime using unit 'days'
-    outDict['df_fut'].date = pd.to_datetime(outDict['df_fut'].date,unit='D', utc=True)
-    outDict['dflong'].date = pd.to_datetime(outDict['dflong'].date,unit='D', utc=True)
-    outDict['dfwide'].date = pd.to_datetime(outDict['dfwide'].date,unit='D', utc=True)
-    
-    outDict['expiry_table']['Last.Trade'] = pd.to_datetime(outDict['expiry_table']['Last.Trade'], unit='D', utc=True)
-    outDict['expiry_table']['First.Notice'] = pd.to_datetime(outDict['expiry_table']['First.Notice'], unit='D', utc=True)
-    outDict['expiry_table']['First.Delivery'] = pd.to_datetime(outDict['expiry_table']['First.Delivery'], unit='D', utc=True)
-    outDict['expiry_table']['Last.Delivery'] = pd.to_datetime(outDict['expiry_table']['Last.Delivery'], unit='D', utc=True)
-    
-    outDict['holidaysOil']['value'] = pd.to_datetime(outDict['holidaysOil']['value'], unit='D', utc=True)
-    
-    outDict['usSwapIR']['date'] = pd.to_datetime(outDict['usSwapIR']['date'], unit='D', utc=True)
-    
-    # still need to fix usSwapCurves and Par
-        
-    return(outDict)
     
 def trade_stats(df, Rf = 0):
     """
@@ -647,3 +695,159 @@ def prompt_beta(df, period='all',betatype='all',output = 'chart'):
         out['betaformulaObject'] = x[1]
         
         return out
+    
+def chart_perf_summary(df, geometric=True, main="Cumulative Returns and Drawdowns", linesize=1.25):
+    """
+    Multi Asset Display of Cumulative Performance and Drawdowns
+
+    Parameters
+    ----------
+    
+    df{DataFrame}: Wide dataframe univariate or multivariate of percentage returns
+    geometric{bool}: Use geometric returns True or False
+    main{str}: Chart title    
+    linesize{float}: Size of lines in chart and legend
+
+    Returns
+    -------
+    
+    Cumulative performance and drawdown charts as png binary
+
+    import pyRTL as rtl
+    df = rtl.dflong[rtl.dflong.series.isin(["CL01","CL12","CL36"])]
+    df = rtl.returns(df,retType="rel",period_return=1,spread=True)
+    df = rtl.rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    rtl.chart_perf_summary(df, geometric=True, main="Cumulative Returns and Drawdowns",linesize=1.25)
+    """
+    if isinstance(df.index,pd.DatetimeIndex):
+        df = df.reset_index()
+        
+    x = r2p(rtl.chart_PerfSummary(p2r(df), geometric, main, linesize))
+    return image_png(x)
+
+def swapIRS(trade_date = pd.Timestamp.now(),
+            eff_date = pd.Timestamp.now() + pd.DateOffset(days=2),
+            mat_date = pd.Timestamp.now() + pd.DateOffset(days=2) + pd.DateOffset(years=2),
+            notional = 1000000,
+            pay_rec = "Rec",
+            fixed_rate=0.05,
+            float_curve = usSwapCurves,
+            reset_freq = 3,
+            disc_curve = usSwapCurves,
+            convention = ["act",360],
+            bus_calendar="NY",
+            output = "price"):
+    """
+    Commodity swap pricing from exchange settlement
+    
+    Parameters
+    ----------
+    
+    trade_date {Timestamp|str}: Defaults to today().
+    eff_date {Timestamp|str}: Defaults to today() + 2 days.
+    mat_date {Timestamp|str}: Defaults to today() + 2 years.
+    notional {long int}: Numeric value of notional. Defaults to 1,000,000.
+    pay_rec {str}: "Pay" or "Rec" fixed.
+    fixed_rate {float}: fixed interest rate. Defaults to 0.05.
+    float_curve {R DicountCurve Obj}: List of interest rate curves. Defaults to data("usSwapCurves").
+    reset_freq {int}: 1 = "monthly", 3 = quarterly, 6 = Semi annual 12 = yearly.
+    disc_curve {R DicountCurve Obj}: List of interest rate curves. Defaults to data("usSwapCurves").
+    convention {list}: Vector of convention e.g. c("act",360) c(30,360),...
+    bus_calendar {str}: Banking day calendar. Not implemented.
+    output {str}: "price" for swap price or "all" for price, cash flow data frame, duration.
+    
+    Returns
+    -------
+    Dictionary with swap price, cash flow data frame and duration.
+    
+    Examples
+    --------
+    
+    import pyRTL as rtl
+    usSwapCurves = rtl.usSwapCurves
+    rtl.swapIRS(trade_date = "2020-01-04", eff_date = "2020-01-06",mat_date = "2022-01-06", notional = 1000000,pay_rec = "Rec", fixed_rate=0.05, float_curve = usSwapCurves, reset_freq=3,disc_curve = usSwapCurves, convention = ["act",360],bus_calendar = "NY", output = "all")
+    
+    """
+    
+    # convert python dates to R
+    if isinstance(trade_date,str) == True:
+        tdt = base.as_Date(trade_date)
+    else:
+        tdt = base.as_Date(trade_date.strftime('%Y-%m-%d'))
+        
+    if isinstance(eff_date,str) == True:
+        edt = base.as_Date(eff_date)
+    else:
+        edt = base.as_Date(eff_date.strftime('%Y-%m-%d'))
+        
+    if isinstance(mat_date,str) == True:
+        mdt = base.as_Date(mat_date)
+    else:
+        mdt = base.as_Date(mat_date.strftime('%Y-%m-%d'))
+        
+            
+    x = rtl.swapIRS(
+        trade_date = tdt,
+        eff_date = edt,
+        mat_date = mdt,
+        notional = notional,
+        PayRec = pay_rec,
+        fixed_rate = fixed_rate,
+        float_curve = float_curve,
+        reset_freq = reset_freq,                
+        disc_curve = disc_curve,
+        convention = convention,
+        bus_calendar = bus_calendar,                
+        output = output)
+    
+    if output == "price":
+        out = x[0]
+    else:
+        out = dict()
+        out['price'] = x[0][0]
+        out['cashflow'] = r2p(x[1])
+        out['duration'] = x[2][0]
+        
+        out['cashflow']['dates'] = pd.to_datetime(out['cashflow']['dates'], unit='D', utc=True)
+        
+    return out
+    
+    
+
+
+# def chart_pairs(df, title):
+#     """
+#     import pyRTL as rtl
+#     df = rtl.dfwide.reset_index()[['date','CL01','NG01','HO01','RB01']]
+#     """
+#     x = rtl.chart_pairs(p2r(df), title)
+
+# def chart_fwd_curves(df, cmdty = 'cmewti', weekly=False, **kwargs):
+#     """    
+#     Returns a plot of forward curves through time
+    
+#     Parameters
+#     ----------
+    
+#     df{DataFrame}: Wide dataframe with date column and multiple series columns (multivariate)
+#     cmdty{str}: Futures contract code in expiry_table object: unique(expiry_table$cmdty)
+#     weekly{bool}: True if you want weekly forward curves
+#     *kwargs: other NAMED graphical parameters
+    
+#     Returns
+#     -------
+    
+#     plot of forward curves through time
+    
+#     Examples
+#     --------
+    
+#     import pyRTL as rtl
+#     rtl.chart_fwd_curves(df=rtl.dfwide,cmdty="cmewti",weekly=True, main="WTI Forward Curves",ylab="$ per bbl",xlab="",cex=2)
+#     """
+#     if isinstance(df.index,pd.DatetimeIndex):
+#         df = df.reset_index()
+    
+#     x = r2p(rtl.chart_fwd_curves(p2r(df), cmdty, weekly))
+    
+#     return x
