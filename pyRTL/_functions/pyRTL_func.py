@@ -866,7 +866,6 @@ def chart_fwd_curves(df, cmdty = 'cmewti', weekly=False, width = 1024, height = 
     with r_inline_plot(width=width, height=height, dpi=dpi):
         r2p(rtl.chart_fwd_curves(p2r(df), cmdty, weekly, **kwargs))
     
-    
 def dist_desc_plot(df, width = 1024, height = 896, dpi = 150):
     """
     Provides a summary of returns distribution
