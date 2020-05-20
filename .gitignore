@@ -4,6 +4,7 @@
 .vscode/
 .ipynb_checkpoints/
 
+/mytest/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
