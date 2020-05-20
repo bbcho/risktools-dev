@@ -7,6 +7,10 @@ import rpy2.robjects.lib.ggplot2 as ggplot2
 import numpy as np
 from rpy2.ipython.ggplot import image_png
 
+from contextlib import contextmanager
+from rpy2.robjects.lib import grdevices
+from IPython.display import Image, display
+
 import pandas as pd
 import numpy as np
 # pandas2ri.activate() # No longer needed in rpy3.0+
@@ -811,9 +815,154 @@ def swapIRS(trade_date = pd.Timestamp.now(),
         out['cashflow']['dates'] = pd.to_datetime(out['cashflow']['dates'], unit='D', utc=True)
         
     return out
-    
-    
 
+##################
+# r_inline_plot needed to display outputs from graphics library in R
+# for chart_fwd_curves
+##################
+
+@contextmanager
+def r_inline_plot(width=600, height=600, dpi=100):
+
+    with grdevices.render_to_bytesio(grdevices.png, 
+                                     width=width,
+                                     height=height, 
+                                     res=dpi) as b:
+
+        yield
+
+    data = b.getvalue()
+    display(Image(data=data, format='png', embed=True))
+
+def chart_fwd_curves(df, cmdty = 'cmewti', weekly=False, width = 1024, height = 896, dpi = 150, **kwargs):
+    """    
+    Returns a plot of forward curves through time
+    
+    Parameters
+    ----------
+    
+    df{DataFrame} -- Wide dataframe with date column and multiple series columns (multivariate)
+    cmdty{str} -- Futures contract code in expiry_table object: unique(expiry_table$cmdty)
+    weekly{bool} -- True if you want weekly forward curves
+    width {int} -- width in pixels (needed to display in IPython)
+    height {int} -- height in pixels (needed to display in IPython)
+    dpi {int} -- dpi in pixels (needed to display in IPython)
+    *kwargs -- other NAMED graphical parameters to pass to R graphics package
+    
+    Returns
+    -------
+    
+    plot of forward curves through time
+    
+    Examples
+    --------
+    
+    import pyRTL as rtl
+    rtl.chart_fwd_curves(df=rtl.dfwide,cmdty="cmewti",weekly=True, main="WTI Forward Curves",ylab="$ per bbl",xlab="",cex=2)
+    """
+    if isinstance(df.index,pd.DatetimeIndex):
+        df = df.reset_index()
+    
+    with r_inline_plot(width=width, height=height, dpi=dpi):
+        r2p(rtl.chart_fwd_curves(p2r(df), cmdty, weekly, **kwargs))
+    
+    
+def dist_desc_plot(df, width = 1024, height = 896, dpi = 150):
+    """
+    Provides a summary of returns distribution
+    
+    Parameters
+    ----------
+    
+    df {DataFrame} -- Wide dataframe with date column/index and single series (univariate)
+    width {int} -- width in pixels (needed to display in IPython)
+    height {int} -- height in pixels (needed to display in IPython)
+    dpi {int} -- dpi in pixels (needed to display in IPython)
+    
+    Returns
+    -------
+    
+    Multiple plots describing the distribution
+    
+    Examples
+    --------
+    
+    import pyRTL as rtl
+    df = rtl.dflong[rtl.dflong.series == "CL01"]
+    df = rtl.returns(df,retType="rel",period_return=1,spread=True)
+    df = rtl.rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    rtl.dist_desc_plot(df)
+    """
+    
+    if isinstance(df.index,pd.DatetimeIndex):
+        df = df.reset_index()
+    
+    with r_inline_plot(width=width, height=height, dpi=dpi):
+        rtl.distdescplot(p2r(df))
+
+# Not ready yet, eiaStocks not in main CRAN pkg 
+# def chart_pairs(df, title = 'TIme Series Pairs Plot'):
+#     """
+#     Pairwise scatter chart for timeseries
+    
+#     Parameters
+#     ----------
+    
+#     df {DataFrame} -- Wide data frame
+#     title {str} -- Chart titles
+    
+#     Returns
+#     -------
+    
+#     plotly figure object
+    
+#     Examples
+
+#     """
+
+
+
+# Not ready yet, eiaStocks not in main CRAN pkg    
+# def chart_zscore(df, title = "NG Storage Z Score", per = "yearweek", output = "zscore", chart = "seasons"):
+#     """
+#     Supports analytics and display of seasonal data. Z-Score is
+#     computed on residuals conditional on their seasonal period.
+#     Beware that most seasonal charts in industry e.g. (NG Storage)
+#     is not detrended so results once you apply an STL decompostion
+#     will vary from the unajusted seasonal plot.
+
+#     Parameters
+#     ----------
+    
+#     df {DataFrame} -- Long data frame with columns series, date and value
+#     title {str} -- Default is a blank space returning the unique value in df$series.
+#     per {str} -- Frequency of seasonality "yearweek" (DEFAULT). "yearmonth", "yearquarter"
+#     output {str} -- "stl" for STL decomposition chart, "stats" for STL statistical test results. "zscore" for residuals Z-score, "seasonal" for standard seasonal chart.
+#     chart {str} -- "seasons" for feasts::gg_season() (DEFAULT). "series" for feasts::gg_subseries()
+
+#     Returns
+#     -------
+    
+#     Time series of STL decomposition residuals Z-Scores, or standard seasonal chart with feast package.
+
+#     Examples
+#     --------
+    
+#     import pyRTL as rtl
+#     df = rtl.eiaStocks[rtl.eiaStocks.series == "NGLower48"]
+#     rtl.chart_zscore(df = df, title = "NG Storage Z Score", per = "yearweek", output = "stl", chart = "seasons")
+#     rtl.chart_zscore(df = df, title = "NG Storage Z Score", per = "yearweek", output = "stats", chart = "seasons")
+#     rtl.chart_zscore(df = df, title = "NG Storage Z Score" ,per = "yearweek", output = "zscore", chart = "seasons")
+#     rtl.chart_zscore(df = df, title = "NG Storage Z Score" ,per = "yearweek", output = "seasonal", chart = "seasons")
+#     """
+
+#     if isinstance(df.index,pd.DatetimeIndex):
+#         df = df.reset_index()
+
+#     x = rtl.chart_zscore(p2r(df), title, per, output, chart)
+    
+#     if output == "stl":
+#         return image_png(x)
 
 # def chart_pairs(df, title):
 #     """
@@ -822,32 +971,3 @@ def swapIRS(trade_date = pd.Timestamp.now(),
 #     """
 #     x = rtl.chart_pairs(p2r(df), title)
 
-# def chart_fwd_curves(df, cmdty = 'cmewti', weekly=False, **kwargs):
-#     """    
-#     Returns a plot of forward curves through time
-    
-#     Parameters
-#     ----------
-    
-#     df{DataFrame}: Wide dataframe with date column and multiple series columns (multivariate)
-#     cmdty{str}: Futures contract code in expiry_table object: unique(expiry_table$cmdty)
-#     weekly{bool}: True if you want weekly forward curves
-#     *kwargs: other NAMED graphical parameters
-    
-#     Returns
-#     -------
-    
-#     plot of forward curves through time
-    
-#     Examples
-#     --------
-    
-#     import pyRTL as rtl
-#     rtl.chart_fwd_curves(df=rtl.dfwide,cmdty="cmewti",weekly=True, main="WTI Forward Curves",ylab="$ per bbl",xlab="",cex=2)
-#     """
-#     if isinstance(df.index,pd.DatetimeIndex):
-#         df = df.reset_index()
-    
-#     x = r2p(rtl.chart_fwd_curves(p2r(df), cmdty, weekly))
-    
-#     return x
