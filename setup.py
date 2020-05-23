@@ -4,7 +4,7 @@ with open("README.md","r") as fh:
 	long_description = fh.read()
 
 setuptools.setup(
-	name="pyRTL",
+	name="risktools",
 	version="0.0.1",
 	author="Ben Cho",
  	license='gpl-3.0',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
@@ -15,8 +15,8 @@ setuptools.setup(
 	packages=setuptools.find_packages(),
 	package_data={'': ['*.csv']},
 	keywords = ['RTL', 'Risk', 'Tools', 'Trading', 'Crude', 'Oil'],
-	url = "https://github.com/bbcho/pyRTL-dev",
-	download_url = "https://github.com/bbcho/pyRTL-dev/archive/v0.0.1-beta.1.tar.gz",
+	url = "https://github.com/bbcho/risktools-dev",
+	download_url = "https://github.com/bbcho/risktools-dev/archive/v0.0.1-beta.1.tar.gz",
 	install_requires=[
           'pandas',
           'numpy',
