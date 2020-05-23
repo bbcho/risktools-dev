@@ -1,4 +1,4 @@
-# pyRTL
+# risktools
 
 Python wrapper for R library RTL found at https://github.com/risktoollib/RTL
 
