@@ -195,7 +195,8 @@ def ir_df_us(quandlkey=None, ir_sens=0.01):
 
     Examples
     --------
-    >>> ir = pyRTL.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
+    >>> import risktools as rt
+    >>> ir = rt.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
     """
     
     if quandlkey is not None:
@@ -222,7 +223,8 @@ def simGBM(S0, drift, sigma, T, dt):
     
     Examples
     --------
-    >>> pyRTL.simGBM(S0=5, drift=0, sigma=0.2, T=2, dt=0.25)
+    >>> import risktools as rt
+    >>> rt.simGBM(S0=5, drift=0, sigma=0.2, T=2, dt=0.25)
     """
     
     sim = rtl.simGBM(S0, drift, sigma, T, dt)
@@ -248,7 +250,8 @@ def simOU(S0=5,mu=5,theta=.5,sigma=0.2,T=1,dt=1/250):
 
     Examples
     --------
-    >>> pyRTL.simOU(S0=5,mu=5,theta=.5,sigma=0.2,T=1,dt=1/12)
+    >>> import risktools as rt
+    >>> rt.simOU(S0=5,mu=5,theta=.5,sigma=0.2,T=1,dt=1/12)
     """
     
     sim = rtl.simOU(S0,mu,theta,sigma,T,dt)
@@ -260,7 +263,6 @@ def simOUJ(S0=5,mu=5,theta=10,sigma=0.2,jump_prob=0.05,jump_avesize = 2,jump_std
 
     Parameters
     ----------
-
     S0 : S at t=0
     mu : Mean reversion level
     theta : Mean reversion speed
@@ -277,7 +279,8 @@ def simOUJ(S0=5,mu=5,theta=10,sigma=0.2,jump_prob=0.05,jump_avesize = 2,jump_std
 
     Examples
     --------
-    >>> pyRTL.simOUJ(S0=5,mu=5,theta=.5,sigma=0.2,jump_prob=0.05,jump_avesize = 3,jump_stdv = 0.05,T=1,dt=1/12)
+    >>> import risktools as rt
+    >>> rt.simOUJ(S0=5,mu=5,theta=.5,sigma=0.2,jump_prob=0.05,jump_avesize = 3,jump_stdv = 0.05,T=1,dt=1/12)
     """
     sim = rtl.simOUJ(S0,mu,theta,sigma,jump_prob,jump_avesize,jump_stdv,T,dt)
     return(np.array(sim))
@@ -296,8 +299,9 @@ def fitOU(spread):
 
     Examples
     --------
-    >>> spread = simOU(mu=5,theta=.5,sigma=0.2,T=5,dt=1/250)
-    >>> fitOU(spread)
+    >>> import risktools as rt
+    >>> spread = rt.simOU(mu=5,theta=.5,sigma=0.2,T=5,dt=1/250)
+    >>> rt.fitOU(spread)
     """
 
     out = rtl.fitOU(FloatVector(spread))
@@ -329,8 +333,9 @@ def npv(init_cost , C, cf_freq, F, T, disc_factors, BreakEven, BE_yield):
     
     Examples
     --------
-    >>> ir = pyRTL.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
-    >>> myDict = pyRTL.npv(init.cost=-375,C=50,cf.freq=.5,F=250,T=2,disc_factors=ir,BreakEven=True,BE_yield=.0399)
+    >>> import risktools as rt
+    >>> ir = rt.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
+    >>> myDict = rt.npv(init.cost=-375,C=50,cf.freq=.5,F=250,T=2,disc_factors=ir,BreakEven=True,BE_yield=.0399)
     >>> myDict['df']
     >>> myDict['npv']
     """
@@ -364,8 +369,9 @@ def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     
     Examples
     --------
-    >>> ir = pyRTL.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
-    >>> myDict = pyRTL.npv_at_risk(init.cost=-375,C_cost=5,cf.freq=.5,F=250,T=1,disc_factors=ir,simC=[50,50,50], X=5)
+    >>> import risktools as rt
+    >>> ir = rt.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
+    >>> myDict = rt.npv_at_risk(init.cost=-375,C_cost=5,cf.freq=.5,F=250,T=1,disc_factors=ir,simC=[50,50,50], X=5)
     >>> myDict['df']
     >>> myDict['npv']
     """
@@ -398,13 +404,12 @@ def trade_stats(df, Rf = 0):
 
     Examples
     --------
-
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
-
     >>> spy = data.DataReader("SPY",  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> spy = spy.diff()
-    >>> trade_stats(df=spy['Adj Close'],Rf=0)
+    >>> rt.trade_stats(df=spy['Adj Close'],Rf=0)
     """
 
     # R code to convert R dataframes to xts format
@@ -466,7 +471,6 @@ def bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "price") :
     
     Parameters
     ----------
-    
     ytm{float}: Yield to Maturity
     C{float}: Coupon rate per annum
     T2M{float}: Time to maturity in years
@@ -475,15 +479,14 @@ def bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "price") :
     
     Returns
     -------
-    
     Price scalar, cash flows data frame and/or duration scalar
     
     Examples
     --------
-
-    >>> bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "price")
-    >>> bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "df")
-    >>> bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "duration")
+    >>> import risktools as rt
+    >>> rt.bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "price")
+    >>> rt.bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "df")
+    >>> rt.bond(ytm = 0.05, C = 0.05, T2M = 1, m = 2, output = "duration")
     """
     
     out = rtl.bond(ytm, C, T2M, m, output)
@@ -501,25 +504,23 @@ def garch(df, out=True):
 
     Parameters
     ----------
-    
     df{DataFrame}: Wide dataframe with date column and single series (univariate). 
     out{str}: "plotly" or "matplotlib" to return respective chart types. "data" to return data or "fit" for garch fit output
     
     Returns
     -------
-    
     out = 'data returns a pandas df
     
     Examples
     --------
     
-    >>> import pyRTL as rtl
-    >>> df = rtl.dflong[rtl.dflong['series'] == 'CL01']
-    >>> df = rtl.returns(df=df,retType="rel",period_return=1,spread=True)
-    >>> df = rtl.rolladjust(df=df,commodityname=["cmewti"],rolltype=["Last.Trade"])
-    >>> rtl.garch(df,out="data")
-    >>> rtl.garch(df,out="fit"))
-    >>> rtl.garch(df,out="chart")    
+    >>> import risktools as rt
+    >>> df = rt.dflong[rt.dflong['series'] == 'CL01']
+    >>> df = rt.returns(df=df,retType="rel",period_return=1,spread=True)
+    >>> df = rt.rolladjust(df=df,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    >>> rt.garch(df,out="data")
+    >>> rt.garch(df,out="fit"))
+    >>> rt.garch(df,out="chart")    
     """
     
     if isinstance(df.index, pd.DatetimeIndex):
@@ -564,7 +565,6 @@ def returns(df,retType="abs",period_return=1,spread=False):
     
     Parameters
     ----------
-    
     df{DataFrame}: Long dataframe with column names = ["date","value","series"]
     retType{str}: "abs" for absolute, "rel" for relative, or "log" for log returns.
     period_return{int}: Number of rows over which to compute returns.
@@ -572,15 +572,13 @@ def returns(df,retType="abs",period_return=1,spread=False):
     
     Returns
     -------
-    
     A dataframe object of returns.
     
     Examples
     --------
-    
-    >>> import pyRTL
-    >>> returns(df = pyRTL.dflong, retType = "rel", period_return = 1, spread = True)
-    >>> returns(df = pyRTL.dflong, retType = "rel", period_return = 1, spread = False)
+    >>> import risktools as rt
+    >>> returns(df = rt.dflong, retType = "rel", period_return = 1, spread = True)
+    >>> returns(df = rt.dflong, retType = "rel", period_return = 1, spread = False)
     """
     if isinstance(df.index, pd.DatetimeIndex):
         # reset index if the df index is a datetime object
@@ -599,7 +597,6 @@ def rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"], *args):
     
     Parameters
     ----------
-    
     df {DataFrame}: pandas df object of prices or returns.
     commodityname {str}: Name of commodity in expiry_table. See example below for values.
     rolltype {str}: Type of contract roll: "Last.Trade" or "First.Notice".
@@ -607,15 +604,14 @@ def rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"], *args):
     
     Returns
     -------
-    
     Roll-adjusted pandas dataframe object of returns with datetime index
     
     Examples 
     --------
-    >>> import pyRTL as rtl
-    >>> rtl.expiry_table.cmdty.unique() # for list of commodity names
-    >>> ret = rtl.returns(df=rtl.dflong,retType="abs",period_return=1,spread=True).iloc[:,0:1] 
-    >>> rtl.rolladjust(df=ret,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    >>> import risktools as rt
+    >>> rt.expiry_table.cmdty.unique() # for list of commodity names
+    >>> ret = rt.returns(df=rt.dflong,retType="abs",period_return=1,spread=True).iloc[:,0:1] 
+    >>> rt.rolladjust(df=ret,commodityname=["cmewti"],rolltype=["Last.Trade"])
     """
     
     if isinstance(commodityname, list) == False:
@@ -645,18 +641,17 @@ def prompt_beta(df, period='all',betatype='all',output = 'chart'):
     
     Returns
     -------
-    
     ggplot chart, df of betas or stats
         
     Examples
     --------
-    import pyRTL as rtl
-    x = rtl.dflong[rtl.dflong.series.str.contains('CL')].copy()
-    x = rtl.returns(df=x,retType="abs",period_return=1,spread=True)
-    x = rtl.rolladjust(df=x,commodityname=["cmewti"],rolltype=["Last.Trade"])
-    rtl.prompt_beta(df=x,period="all",betatype="all",output="chart")
-    rtl.prompt_beta(df=x,period="all",betatype="all",output="betas")
-    rtl.prompt_beta(df=x,period="all",betatype="all",output="stats")
+    import risktools as rt
+    x = rt.dflong[rt.dflong.series.str.contains('CL')].copy()
+    x = rt.returns(df=x,retType="abs",period_return=1,spread=True)
+    x = rt.rolladjust(df=x,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    rt.prompt_beta(df=x,period="all",betatype="all",output="chart")
+    rt.prompt_beta(df=x,period="all",betatype="all",output="betas")
+    rt.prompt_beta(df=x,period="all",betatype="all",output="stats")
     """
     
     if isinstance(df.index,pd.DatetimeIndex):
@@ -706,7 +701,6 @@ def chart_perf_summary(df, geometric=True, main="Cumulative Returns and Drawdown
 
     Parameters
     ----------
-    
     df{DataFrame}: Wide dataframe univariate or multivariate of percentage returns
     geometric{bool}: Use geometric returns True or False
     main{str}: Chart title    
@@ -714,14 +708,15 @@ def chart_perf_summary(df, geometric=True, main="Cumulative Returns and Drawdown
 
     Returns
     -------
-    
     Cumulative performance and drawdown charts as png binary
 
-    import pyRTL as rtl
-    df = rtl.dflong[rtl.dflong.series.isin(["CL01","CL12","CL36"])]
-    df = rtl.returns(df,retType="rel",period_return=1,spread=True)
-    df = rtl.rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"])
-    rtl.chart_perf_summary(df, geometric=True, main="Cumulative Returns and Drawdowns",linesize=1.25)
+    Examples
+    --------
+    import risktools as rt
+    df = rt.dflong[rt.dflong.series.isin(["CL01","CL12","CL36"])]
+    df = rt.returns(df,retType="rel",period_return=1,spread=True)
+    df = rt.rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    rt.chart_perf_summary(df, geometric=True, main="Cumulative Returns and Drawdowns",linesize=1.25)
     """
     if isinstance(df.index,pd.DatetimeIndex):
         df = df.reset_index()
@@ -746,7 +741,6 @@ def swapIRS(trade_date = pd.Timestamp.now(),
     
     Parameters
     ----------
-    
     trade_date {Timestamp|str}: Defaults to today().
     eff_date {Timestamp|str}: Defaults to today() + 2 days.
     mat_date {Timestamp|str}: Defaults to today() + 2 years.
@@ -766,11 +760,9 @@ def swapIRS(trade_date = pd.Timestamp.now(),
     
     Examples
     --------
-    
-    import pyRTL as rtl
-    usSwapCurves = rtl.usSwapCurves
-    rtl.swapIRS(trade_date = "2020-01-04", eff_date = "2020-01-06",mat_date = "2022-01-06", notional = 1000000,pay_rec = "Rec", fixed_rate=0.05, float_curve = usSwapCurves, reset_freq=3,disc_curve = usSwapCurves, convention = ["act",360],bus_calendar = "NY", output = "all")
-    
+    import risktools as rt
+    usSwapCurves = rt.usSwapCurves
+    rt.swapIRS(trade_date = "2020-01-04", eff_date = "2020-01-06",mat_date = "2022-01-06", notional = 1000000,pay_rec = "Rec", fixed_rate=0.05, float_curve = usSwapCurves, reset_freq=3,disc_curve = usSwapCurves, convention = ["act",360],bus_calendar = "NY", output = "all")
     """
     
     # convert python dates to R
@@ -840,7 +832,6 @@ def chart_fwd_curves(df, cmdty = 'cmewti', weekly=False, width = 1024, height = 
     
     Parameters
     ----------
-    
     df{DataFrame} -- Wide dataframe with date column and multiple series columns (multivariate)
     cmdty{str} -- Futures contract code in expiry_table object: unique(expiry_table$cmdty)
     weekly{bool} -- True if you want weekly forward curves
@@ -851,14 +842,12 @@ def chart_fwd_curves(df, cmdty = 'cmewti', weekly=False, width = 1024, height = 
     
     Returns
     -------
-    
     plot of forward curves through time
     
     Examples
     --------
-    
-    import pyRTL as rtl
-    rtl.chart_fwd_curves(df=rtl.dfwide,cmdty="cmewti",weekly=True, main="WTI Forward Curves",ylab="$ per bbl",xlab="",cex=2)
+    import risktools as rt
+    rt.chart_fwd_curves(df=rt.dfwide,cmdty="cmewti",weekly=True, main="WTI Forward Curves",ylab="$ per bbl",xlab="",cex=2)
     """
     if isinstance(df.index,pd.DatetimeIndex):
         df = df.reset_index()
@@ -872,7 +861,6 @@ def dist_desc_plot(df, width = 1024, height = 896, dpi = 150):
     
     Parameters
     ----------
-    
     df {DataFrame} -- Wide dataframe with date column/index and single series (univariate)
     width {int} -- width in pixels (needed to display in IPython)
     height {int} -- height in pixels (needed to display in IPython)
@@ -880,17 +868,15 @@ def dist_desc_plot(df, width = 1024, height = 896, dpi = 150):
     
     Returns
     -------
-    
     Multiple plots describing the distribution
     
     Examples
     --------
-    
-    import pyRTL as rtl
-    df = rtl.dflong[rtl.dflong.series == "CL01"]
-    df = rtl.returns(df,retType="rel",period_return=1,spread=True)
-    df = rtl.rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"])
-    rtl.dist_desc_plot(df)
+    import risktools as rt
+    df = rt.dflong[rt.dflong.series == "CL01"]
+    df = rt.returns(df,retType="rel",period_return=1,spread=True)
+    df = rt.rolladjust(df,commodityname=["cmewti"],rolltype=["Last.Trade"])
+    rt.dist_desc_plot(df)
     """
     
     if isinstance(df.index,pd.DatetimeIndex):
@@ -947,12 +933,12 @@ def dist_desc_plot(df, width = 1024, height = 896, dpi = 150):
 #     Examples
 #     --------
     
-#     import pyRTL as rtl
-#     df = rtl.eiaStocks[rtl.eiaStocks.series == "NGLower48"]
-#     rtl.chart_zscore(df = df, title = "NG Storage Z Score", per = "yearweek", output = "stl", chart = "seasons")
-#     rtl.chart_zscore(df = df, title = "NG Storage Z Score", per = "yearweek", output = "stats", chart = "seasons")
-#     rtl.chart_zscore(df = df, title = "NG Storage Z Score" ,per = "yearweek", output = "zscore", chart = "seasons")
-#     rtl.chart_zscore(df = df, title = "NG Storage Z Score" ,per = "yearweek", output = "seasonal", chart = "seasons")
+#     import risktools as rt
+#     df = rt.eiaStocks[rt.eiaStocks.series == "NGLower48"]
+#     rt.chart_zscore(df = df, title = "NG Storage Z Score", per = "yearweek", output = "stl", chart = "seasons")
+#     rt.chart_zscore(df = df, title = "NG Storage Z Score", per = "yearweek", output = "stats", chart = "seasons")
+#     rt.chart_zscore(df = df, title = "NG Storage Z Score" ,per = "yearweek", output = "zscore", chart = "seasons")
+#     rt.chart_zscore(df = df, title = "NG Storage Z Score" ,per = "yearweek", output = "seasonal", chart = "seasons")
 #     """
 
 #     if isinstance(df.index,pd.DatetimeIndex):
@@ -965,8 +951,8 @@ def dist_desc_plot(df, width = 1024, height = 896, dpi = 150):
 
 # def chart_pairs(df, title):
 #     """
-#     import pyRTL as rtl
-#     df = rtl.dfwide.reset_index()[['date','CL01','NG01','HO01','RB01']]
+#     import risktools as rt
+#     df = rt.dfwide.reset_index()[['date','CL01','NG01','HO01','RB01']]
 #     """
 #     x = rtl.chart_pairs(p2r(df), title)
 
