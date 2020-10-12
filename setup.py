@@ -23,7 +23,8 @@ setuptools.setup(
           'matplotlib',
           'plotly',
           'rpy2>=3.2.6',
-          'tzlocal'
+          'tzlocal',
+		  'geopandas'
     ],
 	include_package_data=True,
 	classifiers=[

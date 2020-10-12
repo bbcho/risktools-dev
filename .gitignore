@@ -56,3 +56,10 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# conda env
+env/
+
+# misc files
+*.R
+*.ipynb
