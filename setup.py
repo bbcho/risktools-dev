@@ -5,26 +5,26 @@ with open("README.md","r") as fh:
 
 setuptools.setup(
 	name="risktools",
-	version="0.0.1",
+	version="0.5.0",
 	author="Ben Cho",
  	license='gpl-3.0',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
 	author_email="ben.cho@gmail.com",
-	description="Python wrapper for the R package RTL",
+	description="Python imnplementation of the R package RTL",
 	long_description=long_description,
 	long_description_content_type="text/markdown",
 	packages=setuptools.find_packages(),
 	package_data={'': ['*.csv']},
 	keywords = ['RTL', 'Risk', 'Tools', 'Trading', 'Crude', 'Oil'],
 	url = "https://github.com/bbcho/risktools-dev",
-	download_url = "https://github.com/bbcho/risktools-dev/archive/v0.0.1-beta.1.tar.gz",
+	download_url = "https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
 	install_requires=[
           'pandas',
           'numpy',
           'matplotlib',
           'plotly',
-          'rpy2>=3.2.6',
           'tzlocal',
-		  'geopandas'
+		  'geopandas',
+		  'quandl'
     ],
 	include_package_data=True,
 	classifiers=[
