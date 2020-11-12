@@ -1,4 +1,4 @@
-from rpy2.robjects.pandas2ri import rpy2py, py2rpy
+# from rpy2.robjects.pandas2ri import rpy2py, py2rpy
 
 # from ._functions.pyRTL_func import ir_df_us
 # from ._functions.pyRTL_func import simGBM
@@ -9,4 +9,5 @@ from rpy2.robjects.pandas2ri import rpy2py, py2rpy
 # from ._functions.pyRTL_func import npv
 
 # from ._functions.pyRTL_func import _get_RT_data
-from ._functions.pyRTL_func import *
+from ._rtl_functions import *
+from . import data

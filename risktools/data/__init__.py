@@ -1,89 +1,96 @@
-import pandas as pd
-import geopandas
-import os
-import json
-import numpy as np
+import pandas as _pd
+import geopandas as _geopandas
+import os as _os
+import json as _json
+import numpy as _np
 
-def norm_df(fn):
-    rf = pd.DataFrame() # create results df
+def _norm_df(fn):
+    rf = _pd.DataFrame() # create results df
     
     # read json files with nested dataframes from R
-    df = pd.read_json(fn)
+    df = _pd.read_json(fn)
     
     for c in df.columns:
-        tmp = pd.json_normalize(df[c])
+        tmp = _pd.json_normalize(df[c])
 
-        tmp = pd.concat([tmp.set_index(tmp.columns[0])], keys=[c], axis=1).T
+        tmp = _pd.concat([tmp.set_index(tmp.columns[0])], keys=[c], axis=1).T
         rf = rf.append(tmp)
 
     rf.columns.name='specifications'
     rf.index = rf.index.set_names(['crude','cut'])
     return rf.sort_index()
 
-def read_curves(fn):
+def _read_curves(fn):
     # open SwapCurve files (based on R S3 class Discount Curves) and convert to 
     # dictionary with nested arrays, dictionaries and one nested dataframe
 
     with open(fn) as f:
-        dd = json.load(f)
+        dd = _json.load(f)
 
     for key in dd.keys():
         if isinstance(dd[key],list) == True:
-            dd[key] = np.array(dd[key])
+            dd[key] = _np.array(dd[key])
 
-    dd['table'] = pd.DataFrame(dd['table'])
-    dd['table']['date'] = pd.to_datetime(dd['table']['date'], utc=True, unit='D')
+    dd['table'] = _pd.DataFrame(dd['table'])
+    dd['table']['date'] = _pd.to_datetime(dd['table']['date'], utc=True, unit='D')
 
     return dd
 
-file_actions = {
-    'cancrudeassays.json':{'date_fields':['YM'], 'load_func':pd.read_json},
-    'cancrudeassayssum.json':{'date_fields':['YM'], 'load_func':pd.read_json},
-    'cancrudeprices.json':{'date_fields':['YM'], 'load_func':pd.read_json},
-    'crudeassaysBP.json':{'date_fields':None, 'load_func':norm_df},
-    'crudeassaysXOM.json':{'date_fields':None, 'load_func':norm_df},
-    'crudepipelines.geojson':{'date_fields':None, 'load_func':geopandas.read_file},
-    'crudes.json':{'date_fields':None,'load_func':pd.read_json},
-    'dflong.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'dfwide.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'df_fut.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'eiaStocks.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'eiaStorageCap.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'expiry_table.json':{'date_fields':['Last_Trade','First_Notice','First_Delivery','Last_Delivery'],'load_func':pd.read_json},
-    'fizdiffs.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'holidaysOil.json':{'date_fields':['value'],'load_func':pd.read_json},
-    'planets.json':{'date_fields':None,'load_func':pd.read_json},
-    'productspipelines.geojson':{'date_fields':None, 'load_func':geopandas.read_file},
-    'productsterminals.geojson':{'date_fields':None, 'load_func':geopandas.read_file},
-    'ref.opt.inputs.json':{'date_fields':None,'load_func':pd.read_json},
-    'ref.opt.outputs.json':{'date_fields':None,'load_func':pd.read_json},
-    'refineries.geojson':{'date_fields':None, 'load_func':geopandas.read_file},
-    'tickers_eia.json':{'date_fields':None,'load_func':pd.read_json},
-    'tradeCycle.json':{'date_fields':['flowmonth','trade_cycle_end'],'load_func':pd.read_json},
-    'tradeprocess.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'usSwapCurves.json':{'date_fields':None, 'load_func':read_curves},
-    'usSwapCurvesPar.json':{'date_fields':None, 'load_func':read_curves},
-    'usSwapIR.json':{'date_fields':['date'],'load_func':pd.read_json},
-    'usSwapIRdef.json':{'date_fields':None,'load_func':pd.read_json},
+_file_actions = {
+    'cancrudeassays':{'file':'cancrudeassays.json','date_fields':['YM'], 'load_func':_pd.read_json},
+    'cancrudeassayssum':{'file':'cancrudeassayssum.json','date_fields':['YM'], 'load_func':_pd.read_json},
+    'cancrudeprices':{'file':'cancrudeprices.json','date_fields':['YM'], 'load_func':_pd.read_json},
+    'crudeassaysBP':{'file':'crudeassaysBP.json','date_fields':None, 'load_func':_norm_df},
+    'crudeassaysXOM':{'file':'crudeassaysXOM.json','date_fields':None, 'load_func':_norm_df},
+    'crudepipelines':{'file':'crudepipelines.geojson','date_fields':None, 'load_func':_geopandas.read_file},
+    'crudes':{'file':'crudes.json','date_fields':None,'load_func':_pd.read_json},
+    'dflong':{'file':'dflong.json','date_fields':['date'],'load_func':_pd.read_json},
+    'dfwide':{'file':'dfwide.json','date_fields':['date'],'load_func':_pd.read_json},
+    'df_fut':{'file':'df_fut.json','date_fields':['date'],'load_func':_pd.read_json},
+    'eiaStocks':{'file':'eiaStocks.json','date_fields':['date'],'load_func':_pd.read_json},
+    'eiaStorageCap':{'file':'eiaStorageCap.json','date_fields':['date'],'load_func':_pd.read_json},
+    'expiry_table':{'file':'expiry_table.json','date_fields':['Last_Trade','First_Notice','First_Delivery','Last_Delivery'],'load_func':_pd.read_json},
+    'fizdiffs':{'file':'fizdiffs.json','date_fields':['date'],'load_func':_pd.read_json},
+    'holidaysOil':{'file':'holidaysOil.json','date_fields':['value'],'load_func':_pd.read_json},
+    'planets':{'file':'planets.json','date_fields':None,'load_func':_pd.read_json},
+    'productspipelines':{'file':'productspipelines.geojson','date_fields':None, 'load_func':_geopandas.read_file},
+    'productsterminals':{'file':'productsterminals.geojson','date_fields':None, 'load_func':_geopandas.read_file},
+    'ref_opt_inputs':{'file':'ref.opt.i_nputs.json','date_fields':None,'load_func':_pd.read_json},
+    'ref_opt_outputs':{'file':'ref.opt.outputs.json','date_fields':None,'load_func':_pd.read_json},
+    'refineries':{'file':'refineries.geojson','date_fields':None, 'load_func':_geopandas.read_file},
+    'tickers':{'file':'tickers_eia.json','date_fields':None,'load_func':_pd.read_json},
+    'tradeCycle':{'file':'tradeCycle.json','date_fields':['flowmonth','trade_cycle_end'],'load_func':_pd.read_json},
+    'tradeprocess':{'file':'tradeprocess.json','date_fields':['date'],'load_func':_pd.read_json},
+    'usSwapCurves':{'file':'usSwapCurves.json','date_fields':None, 'load_func':_read_curves},
+    'usSwapCurvesPar':{'file':'usSwapCurvesPar.json','date_fields':None, 'load_func':_read_curves},
+    'usSwapIR':{'file':'usSwapIR.json','date_fields':['date'],'load_func':_pd.read_json},
+    'usSwapIRdef':{'file':'usSwapIRdef.json','date_fields':None,'load_func':_pd.read_json},
 }
 
-files = os.listdir('./')
+_path = _os.path.dirname(__file__)
 
-for fn in files:
-    # assert fn in file_actions.keys(), f'{fn} not defined in file_actions dictionary'
-    if fn in file_actions.keys():
-        df = file_actions[fn]['load_func'](fn)
+def get_names():
+    return list(_file_actions.keys())
 
-        if isinstance(df, pd.DataFrame):
-            # convert "." to "_" in column names
-            df.columns = df.columns.str.replace('.','_')
+def open_data(nm):
+    fn = ''
+    path = _os.path.dirname(__file__)
+    try:
+        fn = _file_actions[nm]['file']
+    except ValueError:
+        print(f"{nm} is not a valid file name to open")
+    
+    fp = _os.path.join(_path, fn)
+    df = _file_actions[nm]['load_func'](fp)
 
-        # convert datetime fields
-        if file_actions[fn]['date_fields'] is not None:
-            for d in file_actions[fn]['date_fields']:
-                df[d] = pd.to_datetime(df[d])
+    if isinstance(df, _pd.DataFrame):
+        # convert "." to "_" in column names
+        df.columns = df.columns.str.replace('.','_')
 
-        var = fn.replace('.json','').replace('.geojson','').replace('.','_')
-        
-        # save results to variable named the same as the filename, excluding file extension
-        exec(f"{var}=df")
+    # convert datetime fields
+    if _file_actions[nm]['date_fields'] is not None:
+        for d in _file_actions[nm]['date_fields']:
+            df[d] = _pd.to_datetime(df[d])
+    
+    return df
+

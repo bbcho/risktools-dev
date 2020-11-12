@@ -22,7 +22,6 @@ setuptools.setup(
           'numpy',
           'matplotlib',
           'plotly',
-          'tzlocal',
 		  'geopandas',
 		  'quandl'
     ],

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from pandas.core.frame import DataFrame
 import quandl
 from math import sqrt
 
@@ -602,7 +601,8 @@ def return_excess(R, Rf=0):
     Parameters
     ----------
     R : Series or DataFrame
-        A time series of asset returns
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        cummmulative returns on each column
     Rf : float
         risk free rate, in same period as your returns, or as a single
         digit average
@@ -656,7 +656,8 @@ def sd_annualized(x, scale=None, *args):
     ----------
 
     x : Series or DataFrame
-        A time series of asset returns
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        cummmulative returns on each column
     scale : int (optional)
         number of periods in a year (daily scale = 252, monthly scale =
         12, quarterly scale = 4). By default None. Note that if scale is None,
@@ -724,7 +725,8 @@ def omega_sharpe_ratio(R, MAR, *args):
     Parameters
     ----------
     R : Series or DataFrame
-        A time series of asset returns
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        cummmulative returns on each column
     MAR : int or array_like
         Minimum Acceptable Return, in the same periodicity as your
         returns
@@ -790,8 +792,9 @@ def upside_risk(R, MAR=0, method='full', stat='risk'):
 
     Parameters
     ----------
-    R : array_like, Series or DataFrame
-        An array or time series of asset returns
+    R : Series or DataFrame
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        cummmulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
         returns
@@ -868,8 +871,9 @@ def downside_deviation(R, MAR=0, method='full', potential=False):
 
     Parameters
     ----------
-    R : array_like, Series or DataFrame
-        An array or time series of asset returns
+    R : Series or DataFrame
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        cummmulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
         returns
@@ -1093,6 +1097,25 @@ def find_drawdowns(R, geometric=True, *args):
     *args
         any pass-through parameters
 
+    Returns
+    -------
+    Nested dictionary with asset name(s) as the top level key(s). Nested below that as another
+    dictionary are the following keys and values:
+        'return': numpy array of minimum of returns below the risk free rate of return (Rf) for each 
+            trough. If returns are positive, array has 0 value
+        'from' : array index positiion of beginning of each trough or recovery period corresponding to each 
+            element of 'return'
+        'trough' : array index position of peak trough period corresponding to each 
+            element of 'return'. Returns beginning of recovery periods
+        'to' : array index positiion of end of each trough or recovery period corresponding to each 
+            element of 'return'
+        'length' : length of each trough period corresponding to each element of 'return' as given by
+            the difference in to and from index positions
+        'peaktotrough' : array index distance from the peak of each trough or recovery period from the
+            beginning of each trough or recovery period, corresponding to each element of 'return'
+        'recovery' : array index distance from the peak of each trough or recovery period to the
+            end of each trough or recovery period, corresponding to each element of 'return'
+
     References
     ----------
     Bacon, C. \emph{Practical Portfolio Performance Measurement and
@@ -1100,14 +1123,24 @@ def find_drawdowns(R, geometric=True, *args):
     
     Examples
     --------
-    data(edhec)
-    findDrawdowns(edhec[,"Funds of Funds", drop=FALSE])
-    sortDrawdowns(findDrawdowns(edhec[,"Funds of Funds", drop=FALSE]))
+    >>> from pandas_datareader import data, wb
+    >>> from datetime import datetime
+    >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
+    >>> df = df.pct_change()
+    >>> df = df.asfreq('B')
+    >>> rs = find_drawdowns(df['Adj Close'])
+    >>> print(rs['SPY']['peaktotrough'])
     """
     dd = drawdowns(R, geometric=geometric).dropna()
 
     # init result dict
     rs = dict()
+
+    # convert series into dataframe for flexibility
+    series_flag = False
+    if isinstance(dd, pd.Series):
+        dd = pd.DataFrame({'drawdown':dd})
+        series_flag = True
 
     for lab, con in dd.iteritems():
         rs[lab] = dict()
@@ -1156,11 +1189,68 @@ def find_drawdowns(R, geometric=True, *args):
         rs[lab]['to'] = np.append(rs[lab]['to'],to)
 
         rs[lab]['length'] = rs[lab]['to'] - rs[lab]['from'] + 1
-        rs[lab]['peaktrough'] = rs[lab]['trough'] - rs[lab]['from'] + 1
+        rs[lab]['peaktotrough'] = rs[lab]['trough'] - rs[lab]['from'] + 1
         rs[lab]['recovery'] = rs[lab]['to'] - rs[lab]['trough']
+
+        # if original parameter was a series, remove top layer of
+        # results dictionary
+        if series_flag == True:
+            rs = rs['drawdown']
+
     return rs
 
 
+def trade_stats(R, Rf=0):
+    """
+    Compute list of risk reward metrics
+
+    Parameters
+    ----------
+    R : Series or DataFrame
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        cummmulative returns on each column
+    Rf : float
+        risk free rate, in same period as your returns, or as a single
+        digit average
+
+    Returns
+    -------
+    Dictionary with cummulative returns, annual returns, Annualized Sharpe ratio, Omega Sharpe ratio, 
+    Win &, % in the market, and drawdown specs
+
+    Examples
+    --------
+    >>>
+    """
+
+    # r = R.dropna() # don't use, messes up freq check
+    r = R.copy()
+
+    rs = dict()
+
+    # convert series into dataframe for flexibility
+    series_flag = False
+    if isinstance(r, pd.Series):
+        r = pd.DataFrame({'trade_stats':r})
+        series_flag = True
+
+    for lab, con in r.iteritems():
+        rs[lab] = dict()
+        y = find_drawdowns(con)
+        rs[lab]['cum_ret'] = return_cumulative(con, geometric=True)
+        rs[lab]['ret_ann'] = return_annualized(con, scale=252)
+        rs[lab]['sd_ann'] = sd_annualized(con, scale=252)
+        rs[lab]['omega'] = omega_sharpe_ratio(con, MAR=Rf)*sqrt(252)
+        rs[lab]['sharpe'] = sharpe_ratio_annualized(con, Rf=Rf)    
+        rs[lab]['perc_win'] = con[con>0].shape[0]/con[con != 0].shape[0]
+        rs[lab]['perc_in_mkt'] = con[con != 0].shape[0]/con.shape[0]
+        rs[lab]['dd_length'] = max(y['length'])
+        rs[lab]['dd_max'] = min(y['return'])
+
+    if series_flag == True:
+        rs = rs['trade_stats']
+
+    return rs
 
 
 if __name__ == "__main__":
@@ -1180,14 +1270,23 @@ if __name__ == "__main__":
     df = df.pct_change()
     df = df.asfreq('B')
 
+    R = df[('Adj Close','SPY')]
+
+    # print(y)
+
+    # print(_check_ts(R.dropna(), scale=252))
+
+    # print(trade_stats(df[('Adj Close','SPY')]))
+    print(trade_stats(df['Adj Close']))
+
     # tt = _sr(df['Adj Close'], Rf=0, scale=252)
     # print(tt)
 
     # print(drawdowns(df['Adj Close']))
     # print(drawdowns(df[('Adj Close','SPY')]))
 
-    rs = find_drawdowns(df['Adj Close'])
-    print(rs['SPY']['return'])
+    # rs = find_drawdowns(df['Adj Close'])
+    # print(rs['SPY']['peaktotrough'])
     # print(find_drawdowns(df[('Adj Close','SPY')]))
 
     # print(sharpe_ratio_annualized(df['Adj Close']))
