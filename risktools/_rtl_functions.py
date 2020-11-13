@@ -1,7 +1,14 @@
+import warnings
 import pandas as pd
 import numpy as np
 import quandl
 from math import sqrt
+import warnings as _warnings
+from . import data
+import arch
+import statsmodels.api as sm
+from sklearn.linear_model import LinearRegression
+
 
 def ir_df_us(quandl_key=None, ir_sens=0.01):
     """    
@@ -1253,6 +1260,510 @@ def trade_stats(R, Rf=0):
     return rs
 
 
+def returns(df, ret_type="abs", period_return=1, spread=False):
+    """
+    Computes periodic returns from a dataframe ordered by date
+    
+    Parameters
+    ----------
+    df : Series or DataFrame
+        If pandas series, series must have a single datetime index or a multi-index in the same of ('asset name','date'). Values must be asset prices
+        If pandas dataframe, dataframe must have a single datetime index with asset prices as columns
+    ret_type : str
+        "abs" for absolute, "rel" for relative, or "log" for log returns. By default "abs"
+    period_return : int
+        Number of rows over which to compute returns. By default 1
+    spread : bool
+        True if you want to spread into a wide dataframe. By default False
+    
+    Returns
+    -------
+    A pandas series of returns.
+    
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.returns(df = rt.data.open_data('dflong'), ret_type = "rel", period_return = 1, spread = True)
+    >>> rt.returns(df = rt.data.open_data('dflong'), ret_type = "rel", period_return = 1, spread = False)
+    """
+    df = _check_df(df)
+
+    if isinstance(df, pd.Series):
+        df = pd.DataFrame({df.name:df})
+    elif isinstance(df, pd.DataFrame) == False:
+        raise ValueError("df is not a pandas Series or DataFrame")
+
+    index_flag = False
+    if (len(df.index.names) == 1):
+        # convert single index into multi-index by adding dummy index in position 0 to allow for groupby
+        df['dummy'] = 'dummy'
+        df = df.set_index('dummy',append=True)
+        df = df.swaplevel()
+        index_flag = True
+
+    if (spread == True) & (len(df.index.names) == 1):
+        raise ValueError("You have set spread to True but only passed a single index, not a multi-index. There is nothing to spread")
+
+    # calc return type
+    if ret_type == "abs":
+        df = df.groupby(level=0).apply(lambda x: x.diff())
+    elif ret_type == 'rel':
+        df = df.groupby(level=0).apply(lambda x: x/x.shift(period_return)-1)
+    elif ret_type == 'log':
+        if (df[df<0].count().sum() > 0):
+            warnings.warn("Negative values passed to log returns. You will likely get NaN values using log returns", RuntimeWarning)
+        df = df.groupby(level=0).apply(lambda x: np.log(x/x.shift(period_return)))
+    else:
+        raise ValueError("ret_type is not valid")
+
+    if spread:
+        # return spread df
+        df = (df.unstack(level=0)
+                .droplevel(level=0, axis=1)
+                )
+        return df.dropna()
+    else:
+        if index_flag == True:
+            # drop dummy index to return single index
+            df = df.droplevel(0)
+        return df.dropna().iloc[:,0]
+
+
+def _returns(df, ret_type="abs", period_return=1, spread=False):
+    """
+    Computes periodic returns from a dataframe ordered by date
+    
+    Parameters
+    ----------
+    df : Series or DataFrame
+        pandas series or dataframe with a multi-index in the shape ('asset name','date'). Values should be asset prices
+    ret_type : str
+        "abs" for absolute, "rel" for relative, or "log" for log returns. By default "abs"
+    period_return : int
+        Number of rows over which to compute returns. By default 1
+    spread : bool
+        True if you want to spread into a wide dataframe. By default False
+    
+    Returns
+    -------
+    A pandas series of returns.
+    
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.returns(df = rt.data.open_data('dflong'), ret_type = "rel", period_return = 1, spread = True)
+    >>> rt.returns(df = rt.data.open_data('dflong'), ret_type = "rel", period_return = 1, spread = False)
+    """
+    df = _check_df(df)
+
+    if isinstance(df, pd.Series):
+        df = pd.DataFrame({'value':df})
+    elif isinstance(df, pd.DataFrame):
+        df = pd.concat([df], keys='value', axis=1)
+    else:
+        raise ValueError("df is not a pandas Series or DataFrame")
+
+    index_flag = False
+    if isinstance(df.index, pd.Index):
+        # convert single index into multi-index to allow for groupby
+        df['dummy'] = 'dummy'
+        df = df.set_index('dummy',append=True)
+        df = df.swaplevel()
+        index_flag = True
+
+    if (spread == True) & isinstance(df.index, pd.Index):
+        raise ValueError("You have set spread to True but only passed a single index, not a multi-index")
+
+    if ret_type == "abs":
+        df['returns'] = df.groupby(level=0).value.apply(lambda x: x.diff())
+    elif ret_type == 'rel':
+        df['returns'] = df.groupby(level=0).value.apply(lambda x: x/x.shift(period_return)-1)
+    elif ret_type == 'log':
+        if (df.loc[df['value']<0,'value'].count() > 0) & (df.loc[df['value']>0,'value'].count() > 0):
+            warnings.warn("value column as both negative and positive values. You will likely get NaN values using log returns", RuntimeWarning)
+        df['returns'] = df.groupby(level=0).value.apply(lambda x: np.log(x/x.shift(period_return)))
+    else:
+        raise ValueError("ret_type is not valid")
+
+    if spread:
+        df = (df.drop('value', axis=1)
+                .unstack(level=0)
+                .droplevel(level=0, axis=1)
+                )
+        return df.dropna()
+    else:
+        if index_flag == True:
+            # drop dummy index to return single index
+            df = df.droplevel(0)
+        return df.dropna().returns
+    
+
+def roll_adjust(df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=None, *args):
+    """
+    Returns a pandas series adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on 
+    the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at 
+    each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader. 
+    
+    Parameters
+    ----------
+    df : Series
+        pandas series with a with a datetime index and values which are asset prices or with a multi-index in the shape ('asset name','date')
+    commodity_name : str
+        Name of commodity in expiry_table. See example below for values.
+    roll_type : str
+        Type of contract roll: "Last_Trade" or "First_Notice". By default "Last_Trade"
+    roll_sch : Series
+        For future capability. Optional
+    *args: Other parms to pass to function
+    
+    Returns
+    -------
+    Roll-adjusted pandas series object of returns with datetime index or multi-index with the shape ('asset name','date')
+    
+    Examples 
+    --------
+    >>> import risktools as rt
+    >>> dflong = rt.data.open_data('dflong')
+    >>> rt.data.open_data('expiry_table').cmdty.unique() # for list of commodity names
+    >>> ret = rt.returns(df=dflong, ret_type="abs", period_return=1, spread=True)
+    >>> ret = ret.iloc[:,0] 
+    >>> rt.roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade")
+    """
+
+    df = _check_df(df)
+    
+    if isinstance(df, pd.Series):
+        df = pd.DataFrame({df.name:df})
+    else:
+        raise ValueError("df is not a pandas Series")
+
+    if roll_sch is None:
+        roll_sch = data.open_data('expiry_table')
+        roll_sch = roll_sch[roll_sch.cmdty==commodity_name]
+        roll_sch = roll_sch[roll_type]
+
+    df['expiry'] = df.index.isin(roll_sch, level=-1)
+    df['expiry'] = df['expiry'].shift()
+
+    df = df[df.expiry==False].drop('expiry', axis=1)
+
+    return df.iloc[:,0]
+
+
+def garch(df, out='data', scale=None, show_fig=True, forecast_horizon=1, **kwargs):
+    """
+    Computes annualised Garch(1,0,1) volatilities using arch package.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Wide dataframe with date column and single series (univariate). 
+    out : str 
+        "plotly" or "matplotlib" to return respective chart types. "data" to return data or "fit" for garch fit output. By default 'data'
+    show_fig : bool
+        Only used if out is 'matplotlib' or 'plotly'. If True, function will display plots as well as return their respective fig object
+    **kwargs
+        key-word parameters to pass tp arch_model. if none, sets p=1, o=0, q=1
+    
+    Returns
+    -------
+    out='data' returns a pandas df
+    out='fit' returns an arch_model object from the package arch
+    out='matplotlib' returns matplotlib figure and axes objects and displays the plot
+    out='plotly' returns a plotly figure object and displays the plot
+    
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> dflong = rt.data.open_data('dflong')
+    >>> dflong = dflong['CL01']
+    >>> df = rt.returns(df=dflong, ret_type="rel", period_return=1)
+    >>> df = rt.roll_adjust(df=df, commodity_name="cmewti", roll_type="Last_Trade")
+    >>> rt.garch(df, out="data")
+    >>> rt.garch(df, out="fit")
+    >>> rt.garch(df, out="plotly")
+    >>> rt.garch(df, out="matplotlib")
+    """
+    df = _check_df(df)
+
+    if kwargs is None:
+        kwargs = {'p':1, 'o':0, 'q':1}
+
+    df = df - df.mean()
+
+    freq = pd.infer_freq(df.index[0:10])
+
+    if scale is None:
+        if (freq == 'B') or (freq == 'D'):
+            scale = 252
+        elif (freq[0] == 'W'):
+            scale = 52
+        elif (freq == 'M') or (freq == 'MS'):
+            scale = 12
+        elif (freq == 'Q') or (freq == 'QS'):
+            scale = 4
+        elif (freq == 'Y') or (freq == 'YS'):
+            scale = 1
+        else:
+            raise ValueError("Could not infer frequency of timeseries, please provide scale parameter instead")
+            
+
+    # a standard GARCH(1,1) model
+    garch = arch.arch_model(df, vol='garch', **kwargs)
+    garch_fitted = garch.fit()
+
+    # # calc annualized volatility from variance
+    yhat = np.sqrt(garch_fitted.forecast(horizon=forecast_horizon, start=0).variance)*sqrt(scale)
+
+    if out == 'data':
+        return yhat
+    elif out == 'fit':
+        return garch_fitted
+    elif out == 'plotly':
+        import plotly.express as px
+        fig = px.line(yhat)
+        fig.show()
+        return fig
+    elif out =='matplotlib':
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1,1)
+        yhat.plot(ax=ax)
+        fig.show()
+        return fig, ax
+
+
+def _beta(y, x, subset=None):
+    """
+    Function to perform a linear regression on y = f(x) -> y = beta*x + const and returns
+    beta
+
+    Parameters
+    ----------
+    y : array-like
+        dependent variable
+    x : array-like
+        independent variable
+    subset : array-like of type bool
+        array/series/list of bool to subset x and Y
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import risktools as rt
+    >>> x = np.array([1,2,3,4,5,6,7,8])
+    >>> y = x + 5
+    >>> rt._beta(x,y)
+    """
+    x = x.dropna()
+    y = y.dropna()
+        
+    if subset is None:
+        subset = np.repeat(True, len(x))
+    else:
+        subset = subset.dropna().astype(bool)
+
+    if ((isinstance(x, (np.ndarray, pd.Series)) == False) 
+            & (isinstance(y, (np.ndarray, pd.Series)) == False) 
+            & (isinstance(subset, (np.ndarray, pd.Series)) == False)):
+        raise ValueError("all arguements of _beta must be pandas Series or numpy arrays")
+
+    # convert to arrays
+    x = np.array(x)
+    y = np.array(y)
+    subset = np.array(subset)
+
+    # subset
+    x = x[subset]
+    y = y[subset]
+
+    model = LinearRegression()
+    model.fit(x.reshape((-1, 1)),y)
+    beta = model.coef_
+
+    return beta[0]
+
+
+def CAPM_beta(Ra, Rb, Rf=0, kind='all'):
+    """
+    calculate single factor model (CAPM) beta
+
+    The single factor model or CAPM Beta is the beta of an asset to the variance 
+    and covariance of an initial portfolio.  Used to determine diversification potential.
+
+    This function uses a linear intercept model to achieve the same results as
+    the symbolic model used by \code{\link{BetaCoVariance}}
+
+    \deqn{\beta_{a,b}=\frac{CoV_{a,b}}{\sigma_{b}}=\frac{\sum((R_{a}-\bar{R_{a}})(R_{b}-\bar{R_{b}}))}{\sum(R_{b}-\bar{R_{b}})^{2}}}{beta
+    = cov(Ra,Rb)/var(R)}
+
+    Ruppert(2004) reports that this equation will give the estimated slope of
+    the linear regression of \eqn{R_{a}}{Ra} on \eqn{R_{b}}{Rb} and that this
+    slope can be used to determine the risk premium or excess expected return
+    (see Eq. 7.9 and 7.10, p. 230-231).
+
+    kind='bull' and kind='bear' apply the same notion of best fit to positive and
+    negative market returns, separately. kind='bull' is a
+    regression for only positive market returns, which can be used to understand
+    the behavior of the asset or portfolio in positive or 'bull' markets.
+    Alternatively, kind='bear' provides the calculation on negative
+    market returns.
+
+    The function \code{TimingRatio} may help assess whether the manager is a good timer
+    of asset allocation decisions.  The ratio, which is calculated as
+    \deqn{TimingRatio =\frac{\beta^{+}}{\beta^{-}}}{Timing Ratio = beta+/beta-}
+    is best when greater than one in a rising market and less than one in a
+    falling market.
+
+    While the classical CAPM has been almost completely discredited by the 
+    literature, it is an example of a simple single factor model, 
+    comparing an asset to any arbitrary benchmark.
+    
+    Parameters
+    ----------
+    Ra : array-like or DataFrame
+        Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark 
+    Rb : array-like
+        Benchmark returns to use to test Ra
+    Rf : array-like | float
+        risk free rate, in same period as your returns, or as a single
+        digit average
+    kind : str
+        Market type to return, by default 'all'
+        'all' : returns beta for all market types
+        'bear' : returns beta for bear markets
+        'bull' : returns beta for bull markets
+
+    Returns
+    -------
+    If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return 
+    a series indexed with asset names from df columns
+
+    References
+    ----------
+    Sharpe, W.F. Capital Asset Prices: A theory of market
+    equilibrium under conditions of risk. \emph{Journal of finance}, vol 19,
+    1964, 425-442. 
+    Ruppert, David. \emph{Statistics and Finance, an Introduction}. Springer. 2004. 
+    Bacon, Carl. \emph{Practical portfolio performance measurement and attribution}. Wiley. 2004. \cr
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> from pandas_datareader import data, wb
+    >>> from datetime import datetime
+    >>> df = data.DataReader(["XOM","AAPL","SPY"],  "yahoo", datetime(2010,1,1), datetime(2017,12,31))
+    >>> df = df.pct_change()['Adj Close']
+    >>> df = df.asfreq('B')
+    >>> print(rt.CAPM_beta(df[['XOM','AAPL']], df['SPY'], Rf=0, kind='bear'))
+    >>> print(rt.CAPM_beta(df[['XOM','AAPL']], df['SPY'], Rf=0, kind='bull'))
+    >>> print(rt.CAPM_beta(df[['XOM','AAPL']], df['SPY'], Rf=0))
+    """
+
+    xRa = return_excess(Ra, Rf)
+    xRb = return_excess(Rb, Rf)
+
+    if kind == 'bear':
+        subset = xRb.lt(0).mask(xRb.isna(),np.nan) # need to include the mask, otherwise lt/gt returns False for NaN
+    elif kind == 'bull':
+        subset = xRb.gt(0).mask(xRb.isna(),np.nan) # need to include the mask, otherwise lt/gt returns False for NaN
+    else:
+        subset = None
+
+    rs = xRa.apply(lambda x: _beta(x, xRb, subset), axis=0)
+
+    return rs
+
+    
+def timing_ratio(Ra, Rb, Rf=0):
+    """
+    The function \code{TimingRatio} may help assess whether the manager is a good timer
+    of asset allocation decisions.  The ratio, which is calculated as
+    \deqn{TimingRatio =\frac{\beta^{+}}{\beta^{-}}}{Timing Ratio = beta+/beta-}
+    is best when greater than one in a rising market and less than one in a
+    falling market.
+    
+    Parameters
+    ----------
+    Ra : array-like or DataFrame
+        Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark 
+    Rb : array-like
+        Benchmark returns to use to test Ra
+    Rf : array-like | float
+        risk free rate, in same period as your returns, or as a single
+        digit average
+    
+    Returns
+    -------
+    If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return 
+    a series indexed with asset names from df columns
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> from pandas_datareader import data, wb
+    >>> from datetime import datetime
+    >>> df = data.DataReader(["XOM","AAPL","SPY"],  "yahoo", datetime(2010,1,1), datetime(2017,12,31))
+    >>> df = df.pct_change()['Adj Close']
+    >>> df = df.asfreq('B')
+    >>> rt.timing_ratio(df[['XOM','AAPL']], df['SPY'], Rf=0)
+    """
+
+    beta_bull = CAPM_beta(Ra, Rb, Rf=Rf, kind='bull')
+    beta_bear = CAPM_beta(Ra, Rb, Rf=Rf, kind='bear')
+
+    result = beta_bull/beta_bear
+
+    return result
+
+
+
+# def prompt_beta(df, period='all', beta_type='all', output='plotly'):
+#     """
+#     Returns betas of multiple prices (by using relative returns).
+         
+#     Parameters
+#     ----------
+#     df : DataFrame
+#         Wide dataframe with datetime index and multiple series columns (multivariate).
+#     period : str
+#         "all" or numeric period of time in last n periods, by default 'all'
+#     beta_type : str
+#         "all" "bull" "bear", by default 'all'
+#     output : str
+#         'betas', 'plotly','stats', by default 'plotly'
+    
+#     Returns
+#     -------
+#     chart, df of betas or stats
+        
+#     Examples
+#     --------
+#     >>> import risktools as rt
+#     >>> dfwide = rt.data.open_data('dfwide')
+#     dfwide = rt.data.open_data('dfwide')
+#     col_mask = dfwide.columns[dfwide.columns.str.contains('CL')]
+#     dfwide = dfwide[col_mask]
+#     x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
+#     x = rt.rolladjust(df=x,commodityname=["cmewti"],rolltype=["Last.Trade"])
+#     rt.prompt_beta(df=x,period="all",betatype="all",output="chart")
+#     rt.prompt_beta(df=x,period="all",betatype="all",output="betas")
+#     rt.prompt_beta(df=x,period="all",betatype="all",output="stats")
+#     """
+
+
+def _check_df(df):
+    # if isinstance(df.index, pd.DatetimeIndex):
+    #     # reset index if the df index is a datetime object
+    #     df = df.reset_index().copy()
+
+    return df
+
+
+# def _infer_freq(x):
+
+#     for c in range(0,10):
+#         np.random.
+
 if __name__ == "__main__":
     np.random.seed(42)
 
@@ -1263,21 +1774,28 @@ if __name__ == "__main__":
     # print(bond(output='price'))
     # print(bond(output='duration'))
     # print(bond(output='df'))
-    
-    from pandas_datareader import data, wb
-    from datetime import datetime
-    df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
-    df = df.pct_change()
-    df = df.asfreq('B')
 
-    R = df[('Adj Close','SPY')]
+    # dflong = data.open_data('dflong')
+    # ret = returns(df=dflong, ret_type="abs", period_return=1, spread=True).iloc[:,0:2] 
+    # roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade").head(50)
+    
+    # from pandas_datareader import data, wb
+    # from datetime import datetime
+    # df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
+    # df = df.pct_change()
+    # df = df.asfreq('B')
+
+    # R = df[('Adj Close','SPY')]
+
+    # rt.returns(df = rt.data.open_data('dflong'), ret_type = "rel", period_return = 1, spread = False)
+    # rt.returns(df = rt.data.open_data('dflong'), ret_type = "log", period_return = 1, spread = True)
 
     # print(y)
 
     # print(_check_ts(R.dropna(), scale=252))
 
     # print(trade_stats(df[('Adj Close','SPY')]))
-    print(trade_stats(df['Adj Close']))
+    # print(trade_stats(df['Adj Close']))
 
     # tt = _sr(df['Adj Close'], Rf=0, scale=252)
     # print(tt)

@@ -23,7 +23,9 @@ setuptools.setup(
           'matplotlib',
           'plotly',
 		  'geopandas',
-		  'quandl'
+		  'quandl',
+		  'scikit-learn',
+		  'arch'
     ],
 	include_package_data=True,
 	classifiers=[

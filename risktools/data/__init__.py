@@ -44,9 +44,9 @@ _file_actions = {
     'crudeassaysXOM':{'file':'crudeassaysXOM.json','date_fields':None, 'load_func':_norm_df},
     'crudepipelines':{'file':'crudepipelines.geojson','date_fields':None, 'load_func':_geopandas.read_file},
     'crudes':{'file':'crudes.json','date_fields':None,'load_func':_pd.read_json},
-    'dflong':{'file':'dflong.json','date_fields':['date'],'load_func':_pd.read_json},
-    'dfwide':{'file':'dfwide.json','date_fields':['date'],'load_func':_pd.read_json},
-    'df_fut':{'file':'df_fut.json','date_fields':['date'],'load_func':_pd.read_json},
+    'dflong':{'file':'dflong.json','date_fields':['date'],'load_func':_pd.read_json,'index':['series','date']},
+    'dfwide':{'file':'dfwide.json','date_fields':['date'],'load_func':_pd.read_json,'index':'date'},
+    'df_fut':{'file':'df_fut.json','date_fields':['date'],'load_func':_pd.read_json,'index':['series','date']},
     'eiaStocks':{'file':'eiaStocks.json','date_fields':['date'],'load_func':_pd.read_json},
     'eiaStorageCap':{'file':'eiaStorageCap.json','date_fields':['date'],'load_func':_pd.read_json},
     'expiry_table':{'file':'expiry_table.json','date_fields':['Last_Trade','First_Notice','First_Delivery','Last_Delivery'],'load_func':_pd.read_json},
@@ -63,7 +63,7 @@ _file_actions = {
     'tradeprocess':{'file':'tradeprocess.json','date_fields':['date'],'load_func':_pd.read_json},
     'usSwapCurves':{'file':'usSwapCurves.json','date_fields':None, 'load_func':_read_curves},
     'usSwapCurvesPar':{'file':'usSwapCurvesPar.json','date_fields':None, 'load_func':_read_curves},
-    'usSwapIR':{'file':'usSwapIR.json','date_fields':['date'],'load_func':_pd.read_json},
+    'usSwapIR':{'file':'usSwapIR.json','date_fields':['date'],'load_func':_pd.read_json,'index':'date'},
     'usSwapIRdef':{'file':'usSwapIRdef.json','date_fields':None,'load_func':_pd.read_json},
 }
 
@@ -91,6 +91,11 @@ def open_data(nm):
     if _file_actions[nm]['date_fields'] is not None:
         for d in _file_actions[nm]['date_fields']:
             df[d] = _pd.to_datetime(df[d])
+
+    if 'index' in _file_actions[nm].keys():
+        df = df.set_index(_file_actions[nm]['index']).sort_index()
+        if len(df.columns) < 2:
+            df = df.iloc[:,0]
     
     return df
 
