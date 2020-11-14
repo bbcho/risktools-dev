@@ -8,6 +8,10 @@ from . import data
 import arch
 import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
+from scipy.optimize import least_squares
+import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 
 
 def ir_df_us(quandl_key=None, ir_sens=0.01):
@@ -1326,7 +1330,10 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
         if index_flag == True:
             # drop dummy index to return single index
             df = df.droplevel(0)
-        return df.dropna().iloc[:,0]
+        if len(df.columns) == 1:
+            return df.dropna().iloc[:,0]
+        else:
+            return df.dropna()
 
 
 def _returns(df, ret_type="abs", period_return=1, spread=False):
@@ -1403,11 +1410,14 @@ def roll_adjust(df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=No
     Returns a pandas series adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on 
     the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at 
     each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader. 
+
+    Note that this will apply a single expiry schedule to all assets passed to this function. To apply different roll schedules
+    by asset type, perform a separate function call.
     
     Parameters
     ----------
-    df : Series
-        pandas series with a with a datetime index and values which are asset prices or with a multi-index in the shape ('asset name','date')
+    df : Series | DataFrame
+        pandas series or dataframe with a with a datetime index and which columns are asset prices or with a dataframe with a multi-index in the shape ('asset name','date')
     commodity_name : str
         Name of commodity in expiry_table. See example below for values.
     roll_type : str
@@ -1434,8 +1444,8 @@ def roll_adjust(df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=No
     
     if isinstance(df, pd.Series):
         df = pd.DataFrame({df.name:df})
-    else:
-        raise ValueError("df is not a pandas Series")
+    elif isinstance(df, pd.DataFrame) == False:
+        raise ValueError("df is not a pandas Series or DataFrame")
 
     if roll_sch is None:
         roll_sch = data.open_data('expiry_table')
@@ -1447,7 +1457,10 @@ def roll_adjust(df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=No
 
     df = df[df.expiry==False].drop('expiry', axis=1)
 
-    return df.iloc[:,0]
+    if len(df.columns) == 1:
+        return df.dropna().iloc[:,0]
+    else:
+        return df.dropna()
 
 
 def garch(df, out='data', scale=None, show_fig=True, forecast_horizon=1, **kwargs):
@@ -1520,12 +1533,10 @@ def garch(df, out='data', scale=None, show_fig=True, forecast_horizon=1, **kwarg
     elif out == 'fit':
         return garch_fitted
     elif out == 'plotly':
-        import plotly.express as px
         fig = px.line(yhat)
         fig.show()
         return fig
     elif out =='matplotlib':
-        import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1,1)
         yhat.plot(ax=ax)
         fig.show()
@@ -1716,39 +1727,173 @@ def timing_ratio(Ra, Rb, Rf=0):
     return result
 
 
+def prompt_beta(df, period='all', beta_type='all', output='chart'):
+    """
+    Returns array/dataframe of betas for futures contract returns of a commodity 
+    with it's front contract (i.e. next most expirying contract). For use with futures
+    contracts (i.e. NYMEX WTI: CL01, CL02, CL03 and so forth) with standardized expiry periods.
 
-# def prompt_beta(df, period='all', beta_type='all', output='plotly'):
-#     """
-#     Returns betas of multiple prices (by using relative returns).
-         
-#     Parameters
-#     ----------
-#     df : DataFrame
-#         Wide dataframe with datetime index and multiple series columns (multivariate).
-#     period : str
-#         "all" or numeric period of time in last n periods, by default 'all'
-#     beta_type : str
-#         "all" "bull" "bear", by default 'all'
-#     output : str
-#         'betas', 'plotly','stats', by default 'plotly'
+    Using the WTI example, the betas will represent the covariance of daily returns of
+    CL02, CL03, CL04 with CL01. The covariance of CL01 with CL01 is also returned, but is
+    always 1. 
     
-#     Returns
-#     -------
-#     chart, df of betas or stats
+    This function uses the single factor model (CAPM) beta. See the function CAPM_beta
+    for more details
+
+    Parameters
+    ----------
+    df : DataFrame
+        Wide dataframe with datetime index and multiple series columns for each futures contract.
+        Always use continuous contracts for columns.
+    period : str | int | float
+        Timeframe to use to calculate beta. "all" to use all data available or scalar number 
+        n to only use the last n periods/rows of data from the last, by default 'all'. i.e.
+        for WTI contracts (CL), 30 would be the last 30 days. Recommend running roll_adjust 
+        function prior to using prompt_beta to remove swings from contract expiry
+    beta_type : str
+        'all', 'bull', or 'bear', by default 'all'
+    output : str
+        'betas', 'chart', 'stats', by default 'chart'
+    
+    Returns
+    -------
+    output='chart' : A plotly figure with the beta lines charted for 'all', 'bear' and 'bull' markets
+    output='betas' : A dataframe of betas by contract order for 'all', 'bear' and 'bull' markets
+    output='stats' : A scipy object from a least_squares fit of the betas by market type. Model used
+                        to fit betas was of the form:
+                            \{beta} = x0 * exp(x1*t) + x2
+                        where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
+    
+    chart, df of betas or stats
         
-#     Examples
-#     --------
-#     >>> import risktools as rt
-#     >>> dfwide = rt.data.open_data('dfwide')
-#     dfwide = rt.data.open_data('dfwide')
-#     col_mask = dfwide.columns[dfwide.columns.str.contains('CL')]
-#     dfwide = dfwide[col_mask]
-#     x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
-#     x = rt.rolladjust(df=x,commodityname=["cmewti"],rolltype=["Last.Trade"])
-#     rt.prompt_beta(df=x,period="all",betatype="all",output="chart")
-#     rt.prompt_beta(df=x,period="all",betatype="all",output="betas")
-#     rt.prompt_beta(df=x,period="all",betatype="all",output="stats")
-#     """
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> dfwide = rt.data.open_data('dfwide')
+    >>> col_mask = dfwide.columns[dfwide.columns.str.contains('CL')]
+    >>> dfwide = dfwide[col_mask]
+    >>> x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
+    >>> x = rt.roll_adjust(df=x, commodity_name="cmewti", roll_type="Last_Trade")
+    >>> rt.prompt_beta(df=x, period="all", beta_type="all", output="chart")
+    >>> rt.prompt_beta(df=x, period="all", beta_type="all", output="betas")
+    >>> rt.prompt_beta(df=x, period="all", beta_type="all", output="stats")
+    >>> rt.prompt_beta(df=x, period=30, beta_type="all", output="plotly")
+    """
+    df = df.copy()
+    # this assumes that the numeric component of the column name represents 
+    # an order to the asset contract
+    term = df.columns.str.replace("[^0-9]","").astype(int)
+
+    if isinstance(period, (int, float)):
+        df = df.sort_index()
+        df = df.iloc[-period:]
+
+    # leave only contract # in column names
+    df.columns = term
+    df = df.sort_index()
+
+    # calculate betas by market type (mkt is all types) using front contract as the benchmark
+    mkt = CAPM_beta(df, df.iloc[:,0])
+    bull = CAPM_beta(df, df.iloc[:,0], kind='bull')
+    bear = CAPM_beta(df, df.iloc[:,0], kind = 'bear')
+
+    # create array for non-linear least squares exponential
+    prompt = np.arange(0,mkt.shape[0]) + 1
+
+    # proposed model for beta as a function of prompt
+    def beta_model(x, prompt):
+        return x[0]*np.exp(x[1]*prompt)+x[2]
+
+    # cost function for residuals. Final equation that we're trying to minimize is
+    # beta - x0*exp(x1*prompt) + x2
+    def beta_residuals(x, beta, prompt):
+        return beta - beta_model(x, prompt)
+
+    # run least squares fit. Note that I ignore the first row of mkt and prompt arrays since
+    # correlation of a var with itself should always be 1. Also, the beta of the second contract
+    # will likely be a lot less then 1, and so ignoring the 1st contract will allow for a better fit
+    r = least_squares(beta_residuals, x0=[-1,-1,-1], args=(np.array(mkt[1:]), prompt[1:]))
+
+    # construct output df
+    out = pd.DataFrame()
+    out['all'] = mkt
+    out['bull'] = bull
+    out['bear'] = bear
+
+    if output == 'stats':
+        return r
+    elif output == 'betas':
+        return out
+    elif output == 'chart':
+        out = out[1:] # exclude beta of front contract with itself (always 1, no information)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=out.index, y=out['all'], mode='lines', name='all'))
+        fig.add_trace(go.Scatter(x=out.index, y=out['bear'], mode='lines', name='bear'))
+        fig.add_trace(go.Scatter(x=out.index, y=out['bull'], mode='lines', name='bear'))
+        fig.update_xaxes(range=[out.index.min()-1, out.index.max()+1])
+        fig.update_layout(
+            title='Contract Betas vs Front Contract: Bear (Bull) = Beta in Down (Up) Moves',
+            xaxis_title='Contract',
+            yaxis_title='Beta',
+            legend_title='Market Type'
+        )
+        return fig
+
+
+def swapIRS(trade_date=pd.Timestamp.now(),
+            eff_date=pd.Timestamp.now() + pd.DateOffset(days=2),
+            mat_date=pd.Timestamp.now() + pd.DateOffset(days=2) + pd.DateOffset(years=2),
+            notional=1000000,
+            pay_rec="Rec",
+            fixed_rate=0.05,
+            float_curve=data.open_data('usSwapCurves'),
+            reset_freq='M',
+            disc_curve=data.open_data('usSwapCurves'),
+            convention=["act",360],
+            bus_calendar="NY",
+            output="price"):
+    """
+    Commodity swap pricing from exchange settlement
+    
+    Parameters
+    ----------
+    trade_date : Timestamp | str
+        Defaults to today().
+    eff_date : Timestamp | str
+        Defaults to today() + 2 days.
+    mat_date : Timestamp | str
+        Defaults to today() + 2 years.
+    notional : long int
+        Numeric value of notional. Defaults to 1,000,000.
+    pay_rec : str
+        "Pay" or "Rec" fixed.
+    fixed_rate : float
+        fixed interest rate. Defaults to 0.05.
+    float_curve : DataFrame
+        {R DicountCurve Obj}: List of interest rate curves. Defaults to data("usSwapCurves").
+    reset_freq : str
+        Pandas/datetime Timestamp frequency (allowable values are 'M', 'Q', 'Y')
+    disc_curve : 
+        {R DicountCurve Obj}: List of interest rate curves. Defaults to data("usSwapCurves").
+    convention : list
+        Vector of convention e.g. c("act",360) c(30,360),...
+    bus_calendar : str
+        Banking day calendar. Not implemented.
+    output : str
+        "price" for swap price or "all" for price, cash flow data frame, duration.
+    
+    Returns
+    -------
+    Dictionary with swap price, cash flow data frame and duration.
+    
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> usSwapCurves = rt.data.open_data('usSwapCurves')
+    >>> rt.swapIRS(trade_date = "2020-01-04", eff_date = "2020-01-06",mat_date = "2022-01-06", notional = 1000000,pay_rec = "Rec", fixed_rate=0.05, float_curve = usSwapCurves, reset_freq=3,disc_curve = usSwapCurves, convention = ["act",360],bus_calendar = "NY", output = "all")
+    """
+
+    return None
 
 
 def _check_df(df):
@@ -1756,7 +1901,7 @@ def _check_df(df):
     #     # reset index if the df index is a datetime object
     #     df = df.reset_index().copy()
 
-    return df
+    return df.copy()
 
 
 # def _infer_freq(x):
