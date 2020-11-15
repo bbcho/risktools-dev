@@ -9,15 +9,19 @@ import arch
 import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from scipy.optimize import least_squares
+from scipy import interpolate
 import plotly.express as px
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
+from datetime import datetime
+
+us_swap = data.open_data("usSwapCurves")
 
 
 def ir_df_us(quandl_key=None, ir_sens=0.01):
-    """    
+    """
     Extracts US Tresury Zero Rates using Quandl
-    
+
     Parameters
     ----------
     quandl_key : str
@@ -33,51 +37,55 @@ def ir_df_us(quandl_key=None, ir_sens=0.01):
     Examples
     --------
     >>> import risktools as rt
-    >>> ir = rt.ir_df_us() 
+    >>> ir = rt.ir_df_us()
     """
     # Last 30 days
-    sdt = pd.Timestamp.now().floor('D') - pd.DateOffset(days=30)
-    
+    sdt = pd.Timestamp.now().floor("D") - pd.DateOffset(days=30)
+
     if quandl_key is not None:
         quandl.ApiConfig.api_key = quandl_key
 
     fedsfund = quandl.get("FED/RIFSPFF_N_D", start_date=sdt).dropna()
-    fedsfund['FedsFunds0'] = np.log((1+fedsfund.Value/360)**365)
-    fedsfund.drop('Value', axis=1, inplace=True)
+    fedsfund["FedsFunds0"] = np.log((1 + fedsfund.Value / 360) ** 365)
+    fedsfund.drop("Value", axis=1, inplace=True)
 
     zero_1yr_plus = quandl.get("FED/SVENY")
 
-    zero_tb = quandl.get(["FED/RIFLGFCM01_N_B", "FED/RIFLGFCM03_N_B", "FED/RIFLGFCM06_N_B"], start_date=sdt).dropna()
-    zero_tb.columns = zero_tb.columns.str.replace(" - Value","")
+    zero_tb = quandl.get(
+        ["FED/RIFLGFCM01_N_B", "FED/RIFLGFCM03_N_B", "FED/RIFLGFCM06_N_B"],
+        start_date=sdt,
+    ).dropna()
+    zero_tb.columns = zero_tb.columns.str.replace(" - Value", "")
 
     # get most recent full curve (some more recent days will have NA columns)
-    x = fedsfund.join(zero_tb).join(zero_1yr_plus).dropna().iloc[-1,:].reset_index()
-    x.columns = ['maturity','yield']
-    x['yield'] /= 100 
-    x['maturity'] = x.maturity.str.extract('(\d+)').astype('int')
+    x = fedsfund.join(zero_tb).join(zero_1yr_plus).dropna().iloc[-1, :].reset_index()
+    x.columns = ["maturity", "yield"]
+    x["yield"] /= 100
+    x["maturity"] = x.maturity.str.extract("(\d+)").astype("int")
 
     # change maturity numbers to year fraction for first four rows
-    x.maturity[1:4] /= 12
-    x.maturity[0] = 1/365
+    x.iloc[1:4, x.columns.get_loc("maturity")] /= 12
+    x.iloc[0, x.columns.get_loc("maturity")] = 1 / 365
+    # x.maturity[1:4] /= 12
+    # x.maturity[0] = 1/365
 
     # add new row for today, same yield as tomorrow
     x = pd.concat(
-                [pd.DataFrame({'maturity':[0], 'yield':[x['yield'][0]]}), 
-                x], 
-                ignore_index=True
-            )
-    
-    x['discountfactor'] = np.exp(-x['yield']*x.maturity)
-    x['discountfactor_plus'] = np.exp(-(x['yield']+ir_sens)*x.maturity)
-    x['discountfactor_minus'] = np.exp(-(x['yield']-ir_sens)*x.maturity)
+        [pd.DataFrame({"maturity": [0], "yield": [x["yield"][0]]}), x],
+        ignore_index=True,
+    )
+
+    x["discountfactor"] = np.exp(-x["yield"] * x.maturity)
+    x["discountfactor_plus"] = np.exp(-(x["yield"] + ir_sens) * x.maturity)
+    x["discountfactor_minus"] = np.exp(-(x["yield"] - ir_sens) * x.maturity)
 
     return x
 
 
-def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1/12):
+def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1 / 12):
     """
     Simulates a Geometric Brownian Motion process
-    
+
     Parameters
     ----------
     s0 : spot price at time = 0
@@ -85,29 +93,29 @@ def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1/12):
     sigma : standard deviation
     T : maturity in years
     dt : time step in period e.g. 1/250 = 1 business day
-    
+
     Returns
     -------
     A list of simulated values
-    
+
     Examples
     --------
     >>> import risktools as rt
     >>> rt.simGBM(s0=5, drift=0, sigma=0.2, T=2, dt=0.25)
     """
-    periods = T/dt
-    s = [s0]*int(periods)
+    periods = T / dt
+    s = [s0] * int(periods)
 
-    for i in range(1,int(periods)):
-        s[i] = s[i-1] * np.exp(
-            (drift - (sigma**2)/2) * dt +
-            sigma * np.random.normal(loc=0, scale=1) * sqrt(dt)
+    for i in range(1, int(periods)):
+        s[i] = s[i - 1] * np.exp(
+            (drift - (sigma ** 2) / 2) * dt
+            + sigma * np.random.normal(loc=0, scale=1) * sqrt(dt)
         )
 
     return s
-    
 
-def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252, sims=1000):
+
+def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -116,31 +124,31 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252, sims=1000):
 
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
 
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process, 
-    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions, 
-    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift 
-    towards its mean function: such a process is called mean-reverting. 
+    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
+    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
+    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
+    towards its mean function: such a process is called mean-reverting.
 
     Parameters
     ----------
-    s0 : float 
+    s0 : float
         Starting value for mean reverting random walk at time = 0
     mu : float, int or pandas Series
-        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a 
+        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a
         time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float 
+    sigma : float
         Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
-    dt : float 
+    dt : float
         Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
         days in a year
     sims : int
         Number of simulations to run
 
-    Returns 
+    Returns
     -------
     A pandas dataframe with the time steps as rows and the number of simulations as columns
 
@@ -153,40 +161,51 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252, sims=1000):
     bdays_in_year = 252
 
     # number of periods dt in T
-    periods = int(T/dt)
+    periods = int(T / dt)
 
     if isinstance(mu, list):
-        assert (len(mu) == (periods-1)), 'Time dependent mu used, but the length of mu is not equal to the number of periods calculated.'
+        assert len(mu) == (
+            periods - 1
+        ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
     out = np.zeros((periods, sims))
     out = pd.DataFrame(data=out)
 
     # set first row as starting value of sim
-    out.loc[0,:] = s0
+    out.loc[0, :] = s0
 
     # print half-life of theta
-    print('Half-life of theta in days = ', np.log(2)/theta*bdays_in_year)
+    print("Half-life of theta in days = ", np.log(2) / theta * bdays_in_year)
 
     if isinstance(mu, list):
         mu = pd.Series(mu)
 
     for i, _ in out.iterrows():
-        if i == 0: continue # skip first row
-    
+        if i == 0:
+            continue  # skip first row
+
         # calc gaussian vector
         ep = pd.Series(np.random.normal(size=sims))
 
         # calc step
         if isinstance(mu, list) | isinstance(mu, pd.Series):
-            out.iloc[i,:] = out.iloc[i-1,:] + theta*(mu.iloc[i-1] - out.iloc[i-1,:])*dt + sigma*ep*sqrt(dt)
+            out.iloc[i, :] = (
+                out.iloc[i - 1, :]
+                + theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) * dt
+                + sigma * ep * sqrt(dt)
+            )
         else:
-            out.iloc[i,:] = out.iloc[i-1,:] + theta*(mu - out.iloc[i-1,:])*dt + sigma*ep*sqrt(dt)
+            out.iloc[i, :] = (
+                out.iloc[i - 1, :]
+                + theta * (mu - out.iloc[i - 1, :]) * dt
+                + sigma * ep * sqrt(dt)
+            )
 
     return out
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252):
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk)
 
@@ -194,28 +213,28 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252):
 
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
 
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process, 
-    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions, 
-    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift 
-    towards its mean function: such a process is called mean-reverting. 
+    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
+    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
+    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
+    towards its mean function: such a process is called mean-reverting.
 
     Parameters
     ----------
-    s0 : float 
+    s0 : float
         Starting value for mean reverting random walk at time = 0
     mu : float, int or pandas Series
         Mean that the function will revert to
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float 
+    sigma : float
         Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
-    dt : float 
+    dt : float
         Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
         days in a year
 
-    Returns 
+    Returns
     -------
     A numpy array of simulated values
 
@@ -224,12 +243,23 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252):
     >>> import risktools as rt
     >>> rt.simOU()
     """
-    s = np.array(simOU_arr(s0, mu, theta, sigma, T, dt, sims=1).iloc[:,0])
+    s = np.array(simOU_arr(s0, mu, theta, sigma, T, dt, sims=1).iloc[:, 0])
 
     return s
 
 
-def simOUJ_arr(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3, jump_stdv=0.05, T=1, dt=1/12, sims=1000):
+def simOUJ_arr(
+    s0=5,
+    mu=5,
+    theta=0.5,
+    sigma=0.2,
+    jump_prob=0.05,
+    jump_avgsize=3,
+    jump_stdv=0.05,
+    T=1,
+    dt=1 / 12,
+    sims=1000,
+):
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -238,21 +268,21 @@ def simOUJ_arr(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3,
 
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
 
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process, 
-    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions, 
-    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift 
-    towards its mean function: such a process is called mean-reverting. 
+    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
+    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
+    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
+    towards its mean function: such a process is called mean-reverting.
 
     Parameters
     ----------
-    s0 : float 
+    s0 : float
         Starting value for mean reverting random walk at time = 0
     mu : float, int or pandas Series
-        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a 
+        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a
         time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float 
+    sigma : float
         Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
     jump_prob : float
         Probablity of jumps
@@ -262,13 +292,13 @@ def simOUJ_arr(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3,
         Standard deviation of average jump size
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
-    dt : float 
+    dt : float
         Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
         days in a year
     sims : int
         Number of simulations to run
 
-    Returns 
+    Returns
     -------
     A pandas dataframe with the time steps as rows and the number of simulations as columns
 
@@ -281,50 +311,73 @@ def simOUJ_arr(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3,
     bdays_in_year = 252
 
     # number of periods dt in T
-    periods = int(T/dt)
+    periods = int(T / dt)
 
     if isinstance(mu, list):
-        assert (len(mu) == (periods-1)), 'Time dependent mu used, but the length of mu is not equal to the number of periods calculated.'
+        assert len(mu) == (
+            periods - 1
+        ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
     s = np.zeros((periods, sims))
     s = pd.DataFrame(data=s)
 
     # set first row as starting value of sim
-    s.loc[0,:] = s0
+    s.loc[0, :] = s0
 
     # print half-life of theta
-    print('Half-life of theta in days = ', np.log(2)/theta*bdays_in_year)
+    print("Half-life of theta in days = ", np.log(2) / theta * bdays_in_year)
 
     if isinstance(mu, list):
         mu = pd.Series(mu)
 
     for i, _ in s.iterrows():
-        if i == 0: continue # skip first row
-    
+        if i == 0:
+            continue  # skip first row
+
         # calc gaussian and poisson vectors
         ep = pd.Series(np.random.normal(size=sims))
-        elp = pd.Series(np.random.lognormal(mean=np.log(jump_avgsize), sigma=jump_stdv, size=sims))
-        jp = pd.Series(np.random.poisson(lam=jump_prob*dt, size=sims))
+        elp = pd.Series(
+            np.random.lognormal(mean=np.log(jump_avgsize), sigma=jump_stdv, size=sims)
+        )
+        jp = pd.Series(np.random.poisson(lam=jump_prob * dt, size=sims))
 
         # calc step
         if isinstance(mu, list) | isinstance(mu, pd.Series):
-            s.iloc[i,:] = (s.iloc[i-1,:] 
-                + theta*(mu.iloc[i-1] - jump_prob*jump_avgsize - s.iloc[i-1,:])*s.iloc[i-1,:]*dt 
-                + sigma*s.iloc[i-1,:]*ep*sqrt(dt)
-                + jp*elp
-                )
+            s.iloc[i, :] = (
+                s.iloc[i - 1, :]
+                + theta
+                * (mu.iloc[i - 1] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
+                * s.iloc[i - 1, :]
+                * dt
+                + sigma * s.iloc[i - 1, :] * ep * sqrt(dt)
+                + jp * elp
+            )
         else:
-            s.iloc[i,:] = (s.iloc[i-1,:] 
-                + theta*(mu - jump_prob*jump_avgsize - s.iloc[i-1,:])*s.iloc[i-1,:]*dt 
-                + sigma*s.iloc[i-1,:]*ep*sqrt(dt)
-                + jp*elp
-                )
+            s.iloc[i, :] = (
+                s.iloc[i - 1, :]
+                + theta
+                * (mu - jump_prob * jump_avgsize - s.iloc[i - 1, :])
+                * s.iloc[i - 1, :]
+                * dt
+                + sigma * s.iloc[i - 1, :] * ep * sqrt(dt)
+                + jp * elp
+            )
 
     return s
 
 
-def simOUJ(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3, jump_stdv=0.05, T=1, dt=1/12):
+def simOUJ(
+    s0=5,
+    mu=5,
+    theta=0.5,
+    sigma=0.2,
+    jump_prob=0.05,
+    jump_avgsize=3,
+    jump_stdv=0.05,
+    T=1,
+    dt=1 / 12,
+):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with Jump
 
@@ -332,21 +385,21 @@ def simOUJ(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3, jum
 
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
 
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process, 
-    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions, 
-    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift 
-    towards its mean function: such a process is called mean-reverting. 
+    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
+    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
+    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
+    towards its mean function: such a process is called mean-reverting.
 
     Parameters
     ----------
-    s0 : float 
+    s0 : float
         Starting value for mean reverting random walk at time = 0
     mu : float, int or pandas Series
-        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a 
+        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a
         time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float 
+    sigma : float
         Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
     jump_prob : float
         Probablity of jumps
@@ -356,13 +409,13 @@ def simOUJ(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3, jum
         Standard deviation of average jump size
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
-    dt : float 
+    dt : float
         Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
         days in a year
     sims : int
         Number of simulations to run
 
-    Returns 
+    Returns
     -------
     A pandas dataframe with the time steps as rows and the number of simulations as columns
 
@@ -371,7 +424,11 @@ def simOUJ(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05, jump_avgsize=3, jum
     >>> import risktools as rt
     >>> rt.simOUJ()
     """
-    s = np.array(simOUJ_arr(s0, mu, theta, sigma, jump_prob, jump_avgsize, jump_stdv, T, dt, sims=1).iloc[:,0])
+    s = np.array(
+        simOUJ_arr(
+            s0, mu, theta, sigma, jump_prob, jump_avgsize, jump_stdv, T, dt, sims=1
+        ).iloc[:, 0]
+    )
 
     return s
 
@@ -384,7 +441,7 @@ def fitOU(spread):
     ----------
     spread : array-like
         OU process as a list or series to estimate parameters for
-    
+
     Returns
     -------
     Dictionary of alpha, mu and theta
@@ -401,25 +458,37 @@ def fitOU(spread):
 
     Sx = spread[:-1].sum()
     Sy = spread[1:].sum()
-    Sxx = (spread[:-1]**2).sum()
-    Syy = (spread[1:]**2).sum()
+    Sxx = (spread[:-1] ** 2).sum()
+    Syy = (spread[1:] ** 2).sum()
     Sxy = (spread[:-1] * spread[1:]).sum()
 
-    mu = (Sy * Sxx - Sx * Sxy)/((n - 1) * (Sxx - Sxy) - (Sx**2 - Sx * Sy))
-    theta = -np.log((Sxy - mu * Sx - mu * Sy + (n - 1) * mu**2)/(Sxx - 2 * mu * Sx + (n - 1) * mu**2))/delta
+    mu = (Sy * Sxx - Sx * Sxy) / ((n - 1) * (Sxx - Sxy) - (Sx ** 2 - Sx * Sy))
+    theta = (
+        -np.log(
+            (Sxy - mu * Sx - mu * Sy + (n - 1) * mu ** 2)
+            / (Sxx - 2 * mu * Sx + (n - 1) * mu ** 2)
+        )
+        / delta
+    )
     a = np.exp(-theta * delta)
-    sigmah2 = (Syy - 2 * a * Sxy + a**2 * Sxx - 2 * mu * (1 - a) * (Sy - a * Sx) + (n - 1) * mu**2 * (1 - a)**2)/(n - 1)
-    print((sigmah2) * 2 * theta/(1 - a**2))
-    sigma = sqrt((sigmah2) * 2 * theta/(1 - a**2))
-    theta = {'theta':theta, 'mu':mu, 'sigma':sigma}
+    sigmah2 = (
+        Syy
+        - 2 * a * Sxy
+        + a ** 2 * Sxx
+        - 2 * mu * (1 - a) * (Sy - a * Sx)
+        + (n - 1) * mu ** 2 * (1 - a) ** 2
+    ) / (n - 1)
+    print((sigmah2) * 2 * theta / (1 - a ** 2))
+    sigma = sqrt((sigmah2) * 2 * theta / (1 - a ** 2))
+    theta = {"theta": theta, "mu": mu, "sigma": sigma}
 
     return theta
 
 
-def bond(ytm=0.05, c=0.05, T=1, m=2, output='price'):
+def bond(ytm=0.05, c=0.05, T=1, m=2, output="price"):
     """
     Compute bond price, cash flow table and duration
-    
+
     Parameters
     ----------
     ytm : float
@@ -432,11 +501,11 @@ def bond(ytm=0.05, c=0.05, T=1, m=2, output='price'):
         Periods per year for coupon payments e.g semi-annual = 2.
     output : string
         "price", "df" or "duration", by default "df"
-    
+
     Returns
     -------
     Price scalar, cash flows data frame and/or duration scalar
-    
+
     Examples
     --------
     >>> import risktools as rt
@@ -444,22 +513,28 @@ def bond(ytm=0.05, c=0.05, T=1, m=2, output='price'):
     >>> rt.bond(ytm = 0.05, c = 0.05, T = 1, m = 2, output = "df")
     >>> rt.bond(ytm = 0.05, c = 0.05, T = 1, m = 2, output = "duration")
     """
-    assert output in ['df','price','duration'], "output not a member of ['df','price','duration']"
+    assert output in [
+        "df",
+        "price",
+        "duration",
+    ], "output not a member of ['df','price','duration']"
 
     # init df
-    df = pd.DataFrame({'t_years':np.arange(1/m,T+1/m,1/m),'cf':[c*100/m]*(T*m)})
-    df['t_periods'] = df.t_years*m
-    df.loc[df.t_years==T, 'cf'] = c*100/m+100
-    df['disc_factor'] = 1/((1+ytm/m)**df['t_periods'])
-    df['pv'] = df.cf*df.disc_factor
+    df = pd.DataFrame(
+        {"t_years": np.arange(1 / m, T + 1 / m, 1 / m), "cf": [c * 100 / m] * (T * m)}
+    )
+    df["t_periods"] = df.t_years * m
+    df.loc[df.t_years == T, "cf"] = c * 100 / m + 100
+    df["disc_factor"] = 1 / ((1 + ytm / m) ** df["t_periods"])
+    df["pv"] = df.cf * df.disc_factor
     price = df.pv.sum()
-    df['duration'] = df.pv*df.t_years/price
+    df["duration"] = df.pv * df.t_years / price
 
-    if output == 'price':
+    if output == "price":
         ret = price
-    elif output == 'df':
+    elif output == "df":
         ret = df
-    elif output == 'duration':
+    elif output == "duration":
         ret = df.duration.sum()
     else:
         ret = None
@@ -473,22 +548,22 @@ def return_cumulative(r, geometric=True):
     by Peter Carl and Brian G. Peterson
 
     Calculate a compounded (geometric) cumulative return. Based om R's PerformanceAnalytics
-     
+
     This is a useful function for calculating cumulative return over a period of
     time, say a calendar year.  Can produce simple or geometric return.
-    
+
     product of all the individual period returns
-     
+
     \deqn{(1+r_{1})(1+r_{2})(1+r_{3})\ldots(1+r_{n})-1=prod(1+R)-1}{prod(1+R)-1}
-    
+
     Parameters
     ----------
     r : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
-    
+
     Returns
     -------
     floating point number if r is a Series, or pandas Series if r is a DataFrame
@@ -505,7 +580,7 @@ def return_cumulative(r, geometric=True):
     r = r.dropna()
 
     if geometric:
-        r = r.add(1).cumprod()-1
+        r = r.add(1).cumprod() - 1
     else:
         r = r.sum()
 
@@ -519,23 +594,23 @@ def return_annualized(r, scale=None, geometric=True):
 
     Calculate an annualized return for comparing instruments with different
     length history
-     
+
     An average annualized return is convenient for comparing returns.
-    
+
     Annualized returns are useful for comparing two assets.  To do so, you must
     scale your observations to an annual scale by raising the compound return to
     the number of periods in a year, and taking the root to the number of total
     observations:
     \deqn{prod(1+R_{a})^{\frac{scale}{n}}-1=\sqrt[n]{prod(1+R_{a})^{scale}}-1}{prod(1
     + Ra)^(scale/n) - 1}
-    
+
     where scale is the number of periods in a year, and n is the total number of
     periods for which you have observations.
-    
+
     For simple returns (geometric=FALSE), the formula is:
-    
+
     \deqn{\overline{R_{a}} \cdot scale}{mean(R)*scale}
-    
+
     Parameters
     ----------
     r : Series or DataFrame
@@ -544,12 +619,12 @@ def return_annualized(r, scale=None, geometric=True):
         number of periods in a year (daily scale = 252, monthly scale =
         12, quarterly scale = 4). By default None. Note that if scale is None,
         the function will calculate a scale based on the index frequency. If however
-        you wish to override this (becuase maybe there is no index freq), 
+        you wish to override this (becuase maybe there is no index freq),
         specify your own scale to use.
     geometric : bool
         utilize geometric chaining (True) or simple/arithmetic chaining (False) to aggregate returns,
         by default True
-    
+
     Returns
     -------
     floating point number if r is a Series, or pandas Series if r is a DataFrame
@@ -571,38 +646,38 @@ def return_annualized(r, scale=None, geometric=True):
     >>> return_annualized(r=df['Adj Close'], geometric=True)
     >>> return_annualized(r=df['Adj Close'], geometric=False)
     """
-    r, scale = _check_ts(r,scale, name='r')
-    
+    r, scale = _check_ts(r, scale, name="r")
+
     r = r.dropna()
     n = r.shape[0]
 
-    if geometric:    
-        res = (r.add(1).cumprod()**(scale/n)-1).iloc[-1]
+    if geometric:
+        res = (r.add(1).cumprod() ** (scale / n) - 1).iloc[-1]
     else:
-        res = r.mean()*scale
+        res = r.mean() * scale
     return res
 
 
 def return_excess(R, Rf=0):
     """
     Calculates the returns of an asset in excess of the given risk free rate
-    
+
     Calculates the returns of an asset in excess of the given "risk free rate"
     for the period.
-    
+
     Ideally, your risk free rate will be for each period you have returns
     observations, but a single average return for the period will work too.
-    
+
     Mean of the period return minus the period risk free rate
-    
+
     \deqn{\overline{(R_{a}-R_{f})}}{mean(Ra-Rf=0)}
-    
+
     OR
-    
+
     mean of the period returns minus a single numeric risk free rate
-    
+
     \deqn{\overline{R_{a}}-R_{f}}{mean(R)-rf}
-    
+
     Note that while we have, in keeping with common academic usage, assumed that
     the second parameter will be a risk free rate, you may also use any other
     timeseries as the second argument.  A common alteration would be to use a
@@ -612,17 +687,17 @@ def return_excess(R, Rf=0):
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     Rf : float
         risk free rate, in same period as your returns, or as a single
         digit average
-    
+
     References
     ----------
     Bacon, Carl. \emph{Practical Portfolio Performance Measurement
     and Attribution}. Wiley. 2004. p. 47-52
-    
+
     Examples
     --------
     data(managers)
@@ -639,11 +714,11 @@ def return_excess(R, Rf=0):
 def sd_annualized(x, scale=None, *args):
     """
     calculate a multiperiod or annualized Standard Deviation
-     
+
     Standard Deviation of a set of observations \eqn{R_{a}} is given by:
-    
+
     \deqn{\sigma = variance(R_{a}) , std=\sqrt{\sigma} }{std = sqrt(var(R))}
-    
+
     It should follow that the variance is not a linear function of the number of
     observations.  To determine possible variance over multiple periods, it
     wouldn't make sense to multiply the single-period variance by the total
@@ -657,27 +732,27 @@ def sd_annualized(x, scale=None, *args):
     multiple periods, we multiply by the square root of the number of periods we
     wish to calculate over. To annualize standard deviation, we multiply by the
     square root of the number of periods per year.
-    
+
     \deqn{\sqrt{\sigma}\cdot\sqrt{periods}}
-    
+
     Note that any multiperiod or annualized number should be viewed with
     suspicion if the number of observations is small.
-     
+
     Parameters
     ----------
 
     x : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     scale : int (optional)
         number of periods in a year (daily scale = 252, monthly scale =
         12, quarterly scale = 4). By default None. Note that if scale is None,
         the function will calculate a scale based on the index frequency. If however
-        you wish to override this (becuase maybe there is no index freq), 
+        you wish to override this (becuase maybe there is no index freq),
         specify your own scale to use.
     *args
         any other passthru parameters
-    
+
     Returns
     -------
     floating point number if r is a Series, or pandas Series if r is a DataFrame
@@ -697,53 +772,57 @@ def sd_annualized(x, scale=None, *args):
 
     if isinstance(x.index, pd.DatetimeIndex):
         if scale is None:
-            if (x.index.freq == 'D') | (x.index.freq == 'B'):
+            if (x.index.freq == "D") | (x.index.freq == "B"):
                 scale = 252
-            elif x.index.freq == 'W':
+            elif x.index.freq == "W":
                 scale = 52
-            elif (x.index.freq == 'M') | (x.index.freq == 'MS'):
+            elif (x.index.freq == "M") | (x.index.freq == "MS"):
                 scale = 12
-            elif (x.index.freq == 'Q') | (x.index.freq == 'QS'):
+            elif (x.index.freq == "Q") | (x.index.freq == "QS"):
                 scale = 4
-            elif (x.index.freq == 'Y') | (x.index.freq == 'YS'):
+            elif (x.index.freq == "Y") | (x.index.freq == "YS"):
                 scale = 1
             else:
-                raise ValueError("parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'")
+                raise ValueError(
+                    "parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'"
+                )
     else:
-        raise ValueError("parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'")
-    
+        raise ValueError(
+            "parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'"
+        )
+
     x = x.dropna()
-    res = x.std()*sqrt(scale)
-    
-    return res    
+    res = x.std() * sqrt(scale)
+
+    return res
 
 
 def omega_sharpe_ratio(R, MAR, *args):
     """
     Omega-Sharpe ratio of the return distribution
-    
-    The Omega-Sharpe ratio is a conversion of the omega ratio to a ranking statistic 
+
+    The Omega-Sharpe ratio is a conversion of the omega ratio to a ranking statistic
     in familiar form to the Sharpe ratio.
-    
+
     To calculate the Omega-Sharpe ration we subtract the target (or Minimum
     Acceptable Returns (MAR)) return from the portfolio return and we divide
     it by the opposite of the Downside Deviation.
-    
+
     \deqn{OmegaSharpeRatio(R,MAR) = \frac{r_p - r_t}{\sum^n_{t=1}\frac{max(r_t - r_i, 0)}{n}}}{OmegaSharpeRatio(R,MAR) = (Rp - Rt) / -DownsidePotential(R,MAR)}
-    
+
     where \eqn{n} is the number of observations of the entire series
-     
+
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     MAR : int or array_like
         Minimum Acceptable Return, in the same periodicity as your
         returns
     *args:
         any other passthru parameters
-    
+
     Returns
     -------
 
@@ -753,34 +832,47 @@ def omega_sharpe_ratio(R, MAR, *args):
     >>> print(omega_sharpe_ratio(portfolio_bacon[,1], MAR))
     """
     if isinstance(R, (pd.Series, pd.DataFrame)):
-        if isinstance(R.index, pd.DatetimeIndex) & isinstance(MAR, (pd.Series, pd.DataFrame)):
+        if isinstance(R.index, pd.DatetimeIndex) & isinstance(
+            MAR, (pd.Series, pd.DataFrame)
+        ):
             if ~isinstance(MAR.index, pd.DatetimeIndex):
-                raise ValueError("MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index")
-        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(MAR, (pd.Series, pd.DataFrame)):
+                raise ValueError(
+                    "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
+                )
+        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(
+            MAR, (pd.Series, pd.DataFrame)
+        ):
             if isinstance(MAR.index, pd.DatetimeIndex):
-                raise ValueError("R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same")
+                raise ValueError(
+                    "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
+                )
 
     R = R.dropna()
     r = R[R.gt(MAR)]
 
-    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(R, (pd.Series, pd.DataFrame)):
+    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(
+        R, (pd.Series, pd.DataFrame)
+    ):
         # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
         # indices are of the same type
         MAR = MAR[r.index]
     else:
         # works for any array_like MAR. Scalars will just return itself
-        # if MAR is array_like, we have to assume that R and MAR both 
+        # if MAR is array_like, we have to assume that R and MAR both
         # cover the same time period
         MAR = np.mean(MAR)
 
-    result = (upside_risk(R, MAR, stat='potential') - downside_deviation(R, MAR, potential=True)) / downside_deviation(R, MAR, potential=True)
+    result = (
+        upside_risk(R, MAR, stat="potential")
+        - downside_deviation(R, MAR, potential=True)
+    ) / downside_deviation(R, MAR, potential=True)
     return result
 
 
-def upside_risk(R, MAR=0, method='full', stat='risk'):
+def upside_risk(R, MAR=0, method="full", stat="risk"):
     """
     upside risk, variance and potential of the return distribution
-    
+
     Upside Risk is the similar of semideviation taking the return above the
     Minimum Acceptable Return instead of using the mean return or zero.
 
@@ -788,15 +880,15 @@ def upside_risk(R, MAR=0, method='full', stat='risk'):
     (or Minimum Acceptable Returns (MAR)) returns and take the differences of
     those to the target.  We sum the squares and divide by the total number of
     returns and return the square root.
-    
+
     \deqn{ UpsideRisk(R , MAR) = \sqrt{\sum^{n}_{t=1}\frac{
     max[(R_{t} - MAR), 0]^2}{n}}}{UpsideRisk(R, MAR) = sqrt(1/n * sum(t=1..n)
     ((max(R(t)-MAR, 0))^2))}
-    
+
     \deqn{ UpsideVariance(R, MAR) = \sum^{n}_{t=1}\frac{max[(R_{t} - MAR), 0]^2} {n}}{UpsideVariance(R, MAR) = 1/n * sum(t=1..n)((max(R(t)-MAR, 0))^2)}
-    
+
     \deqn{UpsidePotential(R, MAR) = \sum^{n}_{t=1}\frac{max[(R_{t} - MAR), 0]} {n}}{DownsidePotential(R, MAR) =  1/n * sum(t=1..n)(max(R(t)-MAR, 0))}
-    
+
     where \eqn{n} is either the number of observations of the entire series or
     the number of observations in the subset of the series falling below the
     MAR.
@@ -804,7 +896,7 @@ def upside_risk(R, MAR=0, method='full', stat='risk'):
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
@@ -813,13 +905,13 @@ def upside_risk(R, MAR=0, method='full', stat='risk'):
         Either "full" or "subset", indicating whether to use the
         length of the full series or the length of the subset of the series below
         the MAR as the denominator, defaults to "full"
-    stat : str 
+    stat : str
         one of "risk", "variance" or "potential" indicating whether
         to return the Upside risk, variance or potential. By default,
         'risk'
     *args :
         any other passthru parameters
-    
+
     Examples
     --------
     >>> from pandas_datareader import data, wb
@@ -834,34 +926,44 @@ def upside_risk(R, MAR=0, method='full', stat='risk'):
     """
 
     if isinstance(R, (pd.Series, pd.DataFrame)):
-        if isinstance(R.index, pd.DatetimeIndex) & isinstance(MAR, (pd.Series, pd.DataFrame)):
+        if isinstance(R.index, pd.DatetimeIndex) & isinstance(
+            MAR, (pd.Series, pd.DataFrame)
+        ):
             if ~isinstance(MAR.index, pd.DatetimeIndex):
-                raise ValueError("MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index")
-        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(MAR, (pd.Series, pd.DataFrame)):
+                raise ValueError(
+                    "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
+                )
+        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(
+            MAR, (pd.Series, pd.DataFrame)
+        ):
             if isinstance(MAR.index, pd.DatetimeIndex):
-                raise ValueError("R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same")
+                raise ValueError(
+                    "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
+                )
 
     R = R.dropna()
     r = R[R.gt(MAR)]
 
-    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(R, (pd.Series, pd.DataFrame)):
+    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(
+        R, (pd.Series, pd.DataFrame)
+    ):
         # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
         # indices are of the same type
         MAR = MAR[r.index]
     else:
         # works for any array_like MAR. Scalars will just return itself
-        # if MAR is array_like, we have to assume that R and MAR both 
+        # if MAR is array_like, we have to assume that R and MAR both
         # cover the same time period
         MAR = np.mean(MAR)
 
-    if method == 'full':
+    if method == "full":
         length = len(R)
     else:
         length = len(r)
 
-    if stat == 'risk':
+    if stat == "risk":
         result = np.sqrt(r.sub(MAR).pow(2).div(length).sum())
-    elif stat == 'variance':
+    elif stat == "variance":
         result = r.sub(MAR).pow(2).div(length).sum()
     else:
         result = r.sub(MAR).div(length).sum()
@@ -869,7 +971,7 @@ def upside_risk(R, MAR=0, method='full', stat='risk'):
     return result
 
 
-def downside_deviation(R, MAR=0, method='full', potential=False):
+def downside_deviation(R, MAR=0, method="full", potential=False):
     """
     Downside deviation, similar to semi deviation, eliminates positive returns
     when calculating risk.  To calculate it, we take the returns that are less
@@ -883,7 +985,7 @@ def downside_deviation(R, MAR=0, method='full', potential=False):
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
@@ -892,11 +994,11 @@ def downside_deviation(R, MAR=0, method='full', potential=False):
         Either "full" or "subset", indicating whether to use the
         length of the full series or the length of the subset of the series below
         the MAR as the denominator, defaults to "full"
-    potential : bool 
+    potential : bool
         potential if True, calculate downside potential instead, by default False
     *args :
         any other passthru parameters
-    
+
     Examples
     --------
     >>> from pandas_datareader import data, wb
@@ -909,27 +1011,37 @@ def downside_deviation(R, MAR=0, method='full', potential=False):
     """
 
     if isinstance(R, (pd.Series, pd.DataFrame)):
-        if isinstance(R.index, pd.DatetimeIndex) & isinstance(MAR, (pd.Series, pd.DataFrame)):
+        if isinstance(R.index, pd.DatetimeIndex) & isinstance(
+            MAR, (pd.Series, pd.DataFrame)
+        ):
             if ~isinstance(MAR.index, pd.DatetimeIndex):
-                raise ValueError("MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index")
-        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(MAR, (pd.Series, pd.DataFrame)):
+                raise ValueError(
+                    "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
+                )
+        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(
+            MAR, (pd.Series, pd.DataFrame)
+        ):
             if isinstance(MAR.index, pd.DatetimeIndex):
-                raise ValueError("R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same")
+                raise ValueError(
+                    "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
+                )
 
     R = R.dropna()
     r = R[R.lt(MAR)]
 
-    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(R, (pd.Series, pd.DataFrame)):
+    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(
+        R, (pd.Series, pd.DataFrame)
+    ):
         # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
         # indices are of the same type
         MAR = MAR[r.index]
     else:
         # works for any array_like MAR. Scalars will just return itself
-        # if MAR is array_like, we have to assume that R and MAR both 
+        # if MAR is array_like, we have to assume that R and MAR both
         # cover the same time period
         MAR = np.mean(MAR)
 
-    if method == 'full':
+    if method == "full":
         length = len(R)
     else:
         length = len(r)
@@ -938,12 +1050,12 @@ def downside_deviation(R, MAR=0, method='full', potential=False):
         result = r.mul(-1).add(MAR).div(length).sum()
     else:
         result = np.sqrt(r.mul(-1).add(MAR).pow(2).div(length).sum())
-        # result = r.mul(-1).add(MAR).pow(2).div(length).sum().apply(np.sqrt)    
+        # result = r.mul(-1).add(MAR).pow(2).div(length).sum().apply(np.sqrt)
 
     return result
 
 
-def _check_ts(R, scale, name='R'):
+def _check_ts(R, scale, name="R"):
     """
     Function to check frequency of R, a time series Series or Dataframe
 
@@ -955,7 +1067,7 @@ def _check_ts(R, scale, name='R'):
         number of periods in a year (daily scale = 252, monthly scale =
         12, quarterly scale = 4). By default None. Note that if scale is None,
         the function will calculate a scale based on the index frequency. If however
-        you wish to override this (becuase maybe there is no index freq), 
+        you wish to override this (becuase maybe there is no index freq),
         specify your own scale to use.
 
     Returns
@@ -967,20 +1079,24 @@ def _check_ts(R, scale, name='R'):
 
     if isinstance(R.index, pd.DatetimeIndex):
         if scale is None:
-            if (R.index.freq == 'D') | (R.index.freq == 'B'):
+            if (R.index.freq == "D") | (R.index.freq == "B"):
                 scale = 252
-            elif R.index.freq == 'W':
+            elif R.index.freq == "W":
                 scale = 52
-            elif (R.index.freq == 'M') | (R.index.freq == 'MS'):
+            elif (R.index.freq == "M") | (R.index.freq == "MS"):
                 scale = 12
-            elif (R.index.freq == 'Q') | (R.index.freq == 'QS'):
+            elif (R.index.freq == "Q") | (R.index.freq == "QS"):
                 scale = 4
-            elif (R.index.freq == 'Y') | (R.index.freq == 'YS'):
+            elif (R.index.freq == "Y") | (R.index.freq == "YS"):
                 scale = 1
             else:
-                raise ValueError(f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'")
+                raise ValueError(
+                    f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"
+                )
     else:
-        raise ValueError(f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'")
+        raise ValueError(
+            f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"
+        )
 
     return R, scale
 
@@ -988,23 +1104,23 @@ def _check_ts(R, scale, name='R'):
 def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
     """
     calculate annualized Sharpe Ratio
-    
+
     The Sharpe Ratio is a risk-adjusted measure of return that uses standard
     deviation to represent risk.
-    
+
     The Sharpe ratio is simply the return per unit of risk (represented by
     variance).  The higher the Sharpe ratio, the better the combined performance
     of "risk" and return.
-    
+
     This function annualizes the number based on the scale parameter.
-    
+
     \deqn{\frac{\sqrt[n]{prod(1+R_{a})^{scale}}-1}{\sqrt{scale}\cdot\sqrt{\sigma}}}
-    
+
     Using an annualized Sharpe Ratio is useful for comparison of multiple return
     streams.  The annualized Sharpe ratio is computed by dividing the annualized
     mean monthly excess return by the annualized monthly standard deviation of
     excess return.
-    
+
     William Sharpe now recommends Information Ratio preferentially to the
     original Sharpe Ratio.
 
@@ -1021,16 +1137,16 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
     geometric : bool
         utilize geometric chaining (True) or simple/arithmetic chaining (False) to aggregate returns,
         default True
-    
+
     see also \code{\link{SharpeRatio}} \cr \code{\link{InformationRatio}} \cr
     \code{\link{TrackingError}} \cr \code{\link{ActivePremium}} \cr
     \code{\link{SortinoRatio}}
-    
+
     References
     ----------
     Sharpe, W.F. The Sharpe Ratio,\emph{Journal of Portfolio
     Management},Fall 1994, 49-58.
-    
+
     Examples
     --------
     >>> from pandas_datareader import data, wb
@@ -1040,9 +1156,9 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
     >>> df = df.asfreq('B')
 
     data(managers)
-    SharpeRatio.annualized(managers[,1,drop=FALSE], Rf=.035/12) 
+    SharpeRatio.annualized(managers[,1,drop=FALSE], Rf=.035/12)
     SharpeRatio.annualized(managers[,1,drop=FALSE], Rf = managers[,10,drop=FALSE])
-    SharpeRatio.annualized(managers[,1:6], Rf=.035/12) 
+    SharpeRatio.annualized(managers[,1:6], Rf=.035/12)
     SharpeRatio.annualized(managers[,1:6], Rf = managers[,10,drop=FALSE])
     SharpeRatio.annualized(managers[,1:6], Rf = managers[,10,drop=FALSE],geometric=FALSE)
     """
@@ -1062,7 +1178,7 @@ def drawdowns(R, geometric=True, *args):
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
@@ -1072,9 +1188,9 @@ def drawdowns(R, geometric=True, *args):
     if geometric:
         res = R.add(1).cumprod()
     else:
-        res = R.cumsum()+1
+        res = R.cumsum() + 1
 
-    res = res/res.clip(lower=1).cummax()-1
+    res = res / res.clip(lower=1).cummax() - 1
 
     return res
 
@@ -1082,26 +1198,26 @@ def drawdowns(R, geometric=True, *args):
 def find_drawdowns(R, geometric=True, *args):
     """
     Find the drawdowns and drawdown levels in a timeseries.
-    
+
     find_drawdowns() will find the starting period, the ending period, and
     the amount and length of the drawdown.
-    
+
     Often used with sort_drawdowns() to get the largest drawdowns.
-    
+
     drawdowns() will calculate the drawdown levels as percentages, for use
     in \code{\link{chart.Drawdown}}.
-    
-    Returns an dictionary: \cr 
-    \itemize{ 
+
+    Returns an dictionary: \cr
+    \itemize{
       \item return depth of drawdown
-      \item from starting period 
-      \item to ending period \item length length in periods 
+      \item from starting period
+      \item to ending period \item length length in periods
     }
-    
+
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
@@ -1112,13 +1228,13 @@ def find_drawdowns(R, geometric=True, *args):
     -------
     Nested dictionary with asset name(s) as the top level key(s). Nested below that as another
     dictionary are the following keys and values:
-        'return': numpy array of minimum of returns below the risk free rate of return (Rf) for each 
+        'return': numpy array of minimum of returns below the risk free rate of return (Rf) for each
             trough. If returns are positive, array has 0 value
-        'from' : array index positiion of beginning of each trough or recovery period corresponding to each 
+        'from' : array index positiion of beginning of each trough or recovery period corresponding to each
             element of 'return'
-        'trough' : array index position of peak trough period corresponding to each 
+        'trough' : array index position of peak trough period corresponding to each
             element of 'return'. Returns beginning of recovery periods
-        'to' : array index positiion of end of each trough or recovery period corresponding to each 
+        'to' : array index positiion of end of each trough or recovery period corresponding to each
             element of 'return'
         'length' : length of each trough period corresponding to each element of 'return' as given by
             the difference in to and from index positions
@@ -1131,7 +1247,7 @@ def find_drawdowns(R, geometric=True, *args):
     ----------
     Bacon, C. \emph{Practical Portfolio Performance Measurement and
     Attribution}. Wiley. 2004. p. 88 \cr
-    
+
     Examples
     --------
     >>> from pandas_datareader import data, wb
@@ -1150,16 +1266,16 @@ def find_drawdowns(R, geometric=True, *args):
     # convert series into dataframe for flexibility
     series_flag = False
     if isinstance(dd, pd.Series):
-        dd = pd.DataFrame({'drawdown':dd})
+        dd = pd.DataFrame({"drawdown": dd})
         series_flag = True
 
     for lab, con in dd.iteritems():
         rs[lab] = dict()
-        rs[lab]['return'] = np.array([]).astype(float)
-        rs[lab]['from'] = np.array([]).astype(int)
-        rs[lab]['to'] = np.array([]).astype(int)
-        rs[lab]['length'] = np.array([]).astype(int)
-        rs[lab]['trough'] = np.array([]).astype(int)
+        rs[lab]["return"] = np.array([]).astype(float)
+        rs[lab]["from"] = np.array([]).astype(int)
+        rs[lab]["to"] = np.array([]).astype(int)
+        rs[lab]["length"] = np.array([]).astype(int)
+        rs[lab]["trough"] = np.array([]).astype(int)
 
         if con[0] >= 0:
             prior_sign = 1
@@ -1171,7 +1287,7 @@ def find_drawdowns(R, geometric=True, *args):
         dmin = 0
         sofar = con[0]
 
-        for i, r in enumerate(con): #.iteritems():
+        for i, r in enumerate(con):  # .iteritems():
             if r < 0:
                 this_sign = 0
             else:
@@ -1181,32 +1297,32 @@ def find_drawdowns(R, geometric=True, *args):
                 if r < sofar:
                     sofar = r
                     dmin = i
-                to = i+1
+                to = i + 1
             else:
-                rs[lab]['return'] = np.append(rs[lab]['return'],sofar)
-                rs[lab]['from'] = np.append(rs[lab]['from'],frm)
-                rs[lab]['trough'] = np.append(rs[lab]['trough'],dmin)
-                rs[lab]['to'] = np.append(rs[lab]['to'],to)
+                rs[lab]["return"] = np.append(rs[lab]["return"], sofar)
+                rs[lab]["from"] = np.append(rs[lab]["from"], frm)
+                rs[lab]["trough"] = np.append(rs[lab]["trough"], dmin)
+                rs[lab]["to"] = np.append(rs[lab]["to"], to)
 
                 frm = i
                 sofar = r
-                to = i+1
+                to = i + 1
                 dmin = i
                 prior_sign = this_sign
 
-        rs[lab]['return'] = np.append(rs[lab]['return'],sofar)
-        rs[lab]['from'] = np.append(rs[lab]['from'],frm)
-        rs[lab]['trough'] = np.append(rs[lab]['trough'],dmin)
-        rs[lab]['to'] = np.append(rs[lab]['to'],to)
+        rs[lab]["return"] = np.append(rs[lab]["return"], sofar)
+        rs[lab]["from"] = np.append(rs[lab]["from"], frm)
+        rs[lab]["trough"] = np.append(rs[lab]["trough"], dmin)
+        rs[lab]["to"] = np.append(rs[lab]["to"], to)
 
-        rs[lab]['length'] = rs[lab]['to'] - rs[lab]['from'] + 1
-        rs[lab]['peaktotrough'] = rs[lab]['trough'] - rs[lab]['from'] + 1
-        rs[lab]['recovery'] = rs[lab]['to'] - rs[lab]['trough']
+        rs[lab]["length"] = rs[lab]["to"] - rs[lab]["from"] + 1
+        rs[lab]["peaktotrough"] = rs[lab]["trough"] - rs[lab]["from"] + 1
+        rs[lab]["recovery"] = rs[lab]["to"] - rs[lab]["trough"]
 
         # if original parameter was a series, remove top layer of
         # results dictionary
         if series_flag == True:
-            rs = rs['drawdown']
+            rs = rs["drawdown"]
 
     return rs
 
@@ -1218,7 +1334,7 @@ def trade_stats(R, Rf=0):
     Parameters
     ----------
     R : Series or DataFrame
-        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate 
+        pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     Rf : float
         risk free rate, in same period as your returns, or as a single
@@ -1226,7 +1342,7 @@ def trade_stats(R, Rf=0):
 
     Returns
     -------
-    Dictionary with cummulative returns, annual returns, Annualized Sharpe ratio, Omega Sharpe ratio, 
+    Dictionary with cummulative returns, annual returns, Annualized Sharpe ratio, Omega Sharpe ratio,
     Win &, % in the market, and drawdown specs
 
     Examples
@@ -1242,24 +1358,24 @@ def trade_stats(R, Rf=0):
     # convert series into dataframe for flexibility
     series_flag = False
     if isinstance(r, pd.Series):
-        r = pd.DataFrame({'trade_stats':r})
+        r = pd.DataFrame({"trade_stats": r})
         series_flag = True
 
     for lab, con in r.iteritems():
         rs[lab] = dict()
         y = find_drawdowns(con)
-        rs[lab]['cum_ret'] = return_cumulative(con, geometric=True)
-        rs[lab]['ret_ann'] = return_annualized(con, scale=252)
-        rs[lab]['sd_ann'] = sd_annualized(con, scale=252)
-        rs[lab]['omega'] = omega_sharpe_ratio(con, MAR=Rf)*sqrt(252)
-        rs[lab]['sharpe'] = sharpe_ratio_annualized(con, Rf=Rf)    
-        rs[lab]['perc_win'] = con[con>0].shape[0]/con[con != 0].shape[0]
-        rs[lab]['perc_in_mkt'] = con[con != 0].shape[0]/con.shape[0]
-        rs[lab]['dd_length'] = max(y['length'])
-        rs[lab]['dd_max'] = min(y['return'])
+        rs[lab]["cum_ret"] = return_cumulative(con, geometric=True)
+        rs[lab]["ret_ann"] = return_annualized(con, scale=252)
+        rs[lab]["sd_ann"] = sd_annualized(con, scale=252)
+        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf) * sqrt(252)
+        rs[lab]["sharpe"] = sharpe_ratio_annualized(con, Rf=Rf)
+        rs[lab]["perc_win"] = con[con > 0].shape[0] / con[con != 0].shape[0]
+        rs[lab]["perc_in_mkt"] = con[con != 0].shape[0] / con.shape[0]
+        rs[lab]["dd_length"] = max(y["length"])
+        rs[lab]["dd_max"] = min(y["return"])
 
     if series_flag == True:
-        rs = rs['trade_stats']
+        rs = rs["trade_stats"]
 
     return rs
 
@@ -1267,7 +1383,7 @@ def trade_stats(R, Rf=0):
 def returns(df, ret_type="abs", period_return=1, spread=False):
     """
     Computes periodic returns from a dataframe ordered by date
-    
+
     Parameters
     ----------
     df : Series or DataFrame
@@ -1279,11 +1395,11 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
         Number of rows over which to compute returns. By default 1
     spread : bool
         True if you want to spread into a wide dataframe. By default False
-    
+
     Returns
     -------
     A pandas series of returns.
-    
+
     Examples
     --------
     >>> import risktools as rt
@@ -1293,45 +1409,48 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
     df = _check_df(df)
 
     if isinstance(df, pd.Series):
-        df = pd.DataFrame({df.name:df})
+        df = pd.DataFrame({df.name: df})
     elif isinstance(df, pd.DataFrame) == False:
         raise ValueError("df is not a pandas Series or DataFrame")
 
     index_flag = False
-    if (len(df.index.names) == 1):
+    if len(df.index.names) == 1:
         # convert single index into multi-index by adding dummy index in position 0 to allow for groupby
-        df['dummy'] = 'dummy'
-        df = df.set_index('dummy',append=True)
+        df["dummy"] = "dummy"
+        df = df.set_index("dummy", append=True)
         df = df.swaplevel()
         index_flag = True
 
     if (spread == True) & (len(df.index.names) == 1):
-        raise ValueError("You have set spread to True but only passed a single index, not a multi-index. There is nothing to spread")
+        raise ValueError(
+            "You have set spread to True but only passed a single index, not a multi-index. There is nothing to spread"
+        )
 
     # calc return type
     if ret_type == "abs":
         df = df.groupby(level=0).apply(lambda x: x.diff())
-    elif ret_type == 'rel':
-        df = df.groupby(level=0).apply(lambda x: x/x.shift(period_return)-1)
-    elif ret_type == 'log':
-        if (df[df<0].count().sum() > 0):
-            warnings.warn("Negative values passed to log returns. You will likely get NaN values using log returns", RuntimeWarning)
-        df = df.groupby(level=0).apply(lambda x: np.log(x/x.shift(period_return)))
+    elif ret_type == "rel":
+        df = df.groupby(level=0).apply(lambda x: x / x.shift(period_return) - 1)
+    elif ret_type == "log":
+        if df[df < 0].count().sum() > 0:
+            warnings.warn(
+                "Negative values passed to log returns. You will likely get NaN values using log returns",
+                RuntimeWarning,
+            )
+        df = df.groupby(level=0).apply(lambda x: np.log(x / x.shift(period_return)))
     else:
         raise ValueError("ret_type is not valid")
 
     if spread:
         # return spread df
-        df = (df.unstack(level=0)
-                .droplevel(level=0, axis=1)
-                )
+        df = df.unstack(level=0).droplevel(level=0, axis=1)
         return df.dropna()
     else:
         if index_flag == True:
             # drop dummy index to return single index
             df = df.droplevel(0)
         if len(df.columns) == 1:
-            return df.dropna().iloc[:,0]
+            return df.dropna().iloc[:, 0]
         else:
             return df.dropna()
 
@@ -1339,7 +1458,7 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
 def _returns(df, ret_type="abs", period_return=1, spread=False):
     """
     Computes periodic returns from a dataframe ordered by date
-    
+
     Parameters
     ----------
     df : Series or DataFrame
@@ -1350,11 +1469,11 @@ def _returns(df, ret_type="abs", period_return=1, spread=False):
         Number of rows over which to compute returns. By default 1
     spread : bool
         True if you want to spread into a wide dataframe. By default False
-    
+
     Returns
     -------
     A pandas series of returns.
-    
+
     Examples
     --------
     >>> import risktools as rt
@@ -1364,56 +1483,66 @@ def _returns(df, ret_type="abs", period_return=1, spread=False):
     df = _check_df(df)
 
     if isinstance(df, pd.Series):
-        df = pd.DataFrame({'value':df})
+        df = pd.DataFrame({"value": df})
     elif isinstance(df, pd.DataFrame):
-        df = pd.concat([df], keys='value', axis=1)
+        df = pd.concat([df], keys="value", axis=1)
     else:
         raise ValueError("df is not a pandas Series or DataFrame")
 
     index_flag = False
     if isinstance(df.index, pd.Index):
         # convert single index into multi-index to allow for groupby
-        df['dummy'] = 'dummy'
-        df = df.set_index('dummy',append=True)
+        df["dummy"] = "dummy"
+        df = df.set_index("dummy", append=True)
         df = df.swaplevel()
         index_flag = True
 
     if (spread == True) & isinstance(df.index, pd.Index):
-        raise ValueError("You have set spread to True but only passed a single index, not a multi-index")
+        raise ValueError(
+            "You have set spread to True but only passed a single index, not a multi-index"
+        )
 
     if ret_type == "abs":
-        df['returns'] = df.groupby(level=0).value.apply(lambda x: x.diff())
-    elif ret_type == 'rel':
-        df['returns'] = df.groupby(level=0).value.apply(lambda x: x/x.shift(period_return)-1)
-    elif ret_type == 'log':
-        if (df.loc[df['value']<0,'value'].count() > 0) & (df.loc[df['value']>0,'value'].count() > 0):
-            warnings.warn("value column as both negative and positive values. You will likely get NaN values using log returns", RuntimeWarning)
-        df['returns'] = df.groupby(level=0).value.apply(lambda x: np.log(x/x.shift(period_return)))
+        df["returns"] = df.groupby(level=0).value.apply(lambda x: x.diff())
+    elif ret_type == "rel":
+        df["returns"] = df.groupby(level=0).value.apply(
+            lambda x: x / x.shift(period_return) - 1
+        )
+    elif ret_type == "log":
+        if (df.loc[df["value"] < 0, "value"].count() > 0) & (
+            df.loc[df["value"] > 0, "value"].count() > 0
+        ):
+            warnings.warn(
+                "value column as both negative and positive values. You will likely get NaN values using log returns",
+                RuntimeWarning,
+            )
+        df["returns"] = df.groupby(level=0).value.apply(
+            lambda x: np.log(x / x.shift(period_return))
+        )
     else:
         raise ValueError("ret_type is not valid")
 
     if spread:
-        df = (df.drop('value', axis=1)
-                .unstack(level=0)
-                .droplevel(level=0, axis=1)
-                )
+        df = df.drop("value", axis=1).unstack(level=0).droplevel(level=0, axis=1)
         return df.dropna()
     else:
         if index_flag == True:
             # drop dummy index to return single index
             df = df.droplevel(0)
         return df.dropna().returns
-    
 
-def roll_adjust(df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=None, *args):
+
+def roll_adjust(
+    df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=None, *args
+):
     """
-    Returns a pandas series adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on 
-    the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at 
-    each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader. 
+    Returns a pandas series adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on
+    the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at
+    each expiry. This is conducive to quantitative trading strategies as it reflects the PL of a financial trader.
 
     Note that this will apply a single expiry schedule to all assets passed to this function. To apply different roll schedules
     by asset type, perform a separate function call.
-    
+
     Parameters
     ----------
     df : Series | DataFrame
@@ -1425,66 +1554,66 @@ def roll_adjust(df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=No
     roll_sch : Series
         For future capability. Optional
     *args: Other parms to pass to function
-    
+
     Returns
     -------
     Roll-adjusted pandas series object of returns with datetime index or multi-index with the shape ('asset name','date')
-    
-    Examples 
+
+    Examples
     --------
     >>> import risktools as rt
     >>> dflong = rt.data.open_data('dflong')
     >>> rt.data.open_data('expiry_table').cmdty.unique() # for list of commodity names
     >>> ret = rt.returns(df=dflong, ret_type="abs", period_return=1, spread=True)
-    >>> ret = ret.iloc[:,0] 
+    >>> ret = ret.iloc[:,0]
     >>> rt.roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade")
     """
 
     df = _check_df(df)
-    
+
     if isinstance(df, pd.Series):
-        df = pd.DataFrame({df.name:df})
+        df = pd.DataFrame({df.name: df})
     elif isinstance(df, pd.DataFrame) == False:
         raise ValueError("df is not a pandas Series or DataFrame")
 
     if roll_sch is None:
-        roll_sch = data.open_data('expiry_table')
-        roll_sch = roll_sch[roll_sch.cmdty==commodity_name]
+        roll_sch = data.open_data("expiry_table")
+        roll_sch = roll_sch[roll_sch.cmdty == commodity_name]
         roll_sch = roll_sch[roll_type]
 
-    df['expiry'] = df.index.isin(roll_sch, level=-1)
-    df['expiry'] = df['expiry'].shift()
+    df["expiry"] = df.index.isin(roll_sch, level=-1)
+    df["expiry"] = df["expiry"].shift()
 
-    df = df[df.expiry==False].drop('expiry', axis=1)
+    df = df[df.expiry == False].drop("expiry", axis=1)
 
     if len(df.columns) == 1:
-        return df.dropna().iloc[:,0]
+        return df.dropna().iloc[:, 0]
     else:
         return df.dropna()
 
 
-def garch(df, out='data', scale=None, show_fig=True, forecast_horizon=1, **kwargs):
+def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwargs):
     """
     Computes annualised Garch(1,0,1) volatilities using arch package.
 
     Parameters
     ----------
     df : DataFrame
-        Wide dataframe with date column and single series (univariate). 
-    out : str 
+        Wide dataframe with date column and single series (univariate).
+    out : str
         "plotly" or "matplotlib" to return respective chart types. "data" to return data or "fit" for garch fit output. By default 'data'
     show_fig : bool
         Only used if out is 'matplotlib' or 'plotly'. If True, function will display plots as well as return their respective fig object
     **kwargs
         key-word parameters to pass tp arch_model. if none, sets p=1, o=0, q=1
-    
+
     Returns
     -------
     out='data' returns a pandas df
     out='fit' returns an arch_model object from the package arch
     out='matplotlib' returns matplotlib figure and axes objects and displays the plot
     out='plotly' returns a plotly figure object and displays the plot
-    
+
     Examples
     --------
     >>> import risktools as rt
@@ -1500,44 +1629,47 @@ def garch(df, out='data', scale=None, show_fig=True, forecast_horizon=1, **kwarg
     df = _check_df(df)
 
     if kwargs is None:
-        kwargs = {'p':1, 'o':0, 'q':1}
+        kwargs = {"p": 1, "o": 0, "q": 1}
 
     df = df - df.mean()
 
     freq = pd.infer_freq(df.index[0:10])
 
     if scale is None:
-        if (freq == 'B') or (freq == 'D'):
+        if (freq == "B") or (freq == "D"):
             scale = 252
-        elif (freq[0] == 'W'):
+        elif freq[0] == "W":
             scale = 52
-        elif (freq == 'M') or (freq == 'MS'):
+        elif (freq == "M") or (freq == "MS"):
             scale = 12
-        elif (freq == 'Q') or (freq == 'QS'):
+        elif (freq == "Q") or (freq == "QS"):
             scale = 4
-        elif (freq == 'Y') or (freq == 'YS'):
+        elif (freq == "Y") or (freq == "YS"):
             scale = 1
         else:
-            raise ValueError("Could not infer frequency of timeseries, please provide scale parameter instead")
-            
+            raise ValueError(
+                "Could not infer frequency of timeseries, please provide scale parameter instead"
+            )
 
     # a standard GARCH(1,1) model
-    garch = arch.arch_model(df, vol='garch', **kwargs)
+    garch = arch.arch_model(df, vol="garch", **kwargs)
     garch_fitted = garch.fit()
 
     # # calc annualized volatility from variance
-    yhat = np.sqrt(garch_fitted.forecast(horizon=forecast_horizon, start=0).variance)*sqrt(scale)
+    yhat = np.sqrt(
+        garch_fitted.forecast(horizon=forecast_horizon, start=0).variance
+    ) * sqrt(scale)
 
-    if out == 'data':
+    if out == "data":
         return yhat
-    elif out == 'fit':
+    elif out == "fit":
         return garch_fitted
-    elif out == 'plotly':
+    elif out == "plotly":
         fig = px.line(yhat)
         fig.show()
         return fig
-    elif out =='matplotlib':
-        fig, ax = plt.subplots(1,1)
+    elif out == "matplotlib":
+        fig, ax = plt.subplots(1, 1)
         yhat.plot(ax=ax)
         fig.show()
         return fig, ax
@@ -1567,16 +1699,20 @@ def _beta(y, x, subset=None):
     """
     x = x.dropna()
     y = y.dropna()
-        
+
     if subset is None:
         subset = np.repeat(True, len(x))
     else:
         subset = subset.dropna().astype(bool)
 
-    if ((isinstance(x, (np.ndarray, pd.Series)) == False) 
-            & (isinstance(y, (np.ndarray, pd.Series)) == False) 
-            & (isinstance(subset, (np.ndarray, pd.Series)) == False)):
-        raise ValueError("all arguements of _beta must be pandas Series or numpy arrays")
+    if (
+        (isinstance(x, (np.ndarray, pd.Series)) == False)
+        & (isinstance(y, (np.ndarray, pd.Series)) == False)
+        & (isinstance(subset, (np.ndarray, pd.Series)) == False)
+    ):
+        raise ValueError(
+            "all arguements of _beta must be pandas Series or numpy arrays"
+        )
 
     # convert to arrays
     x = np.array(x)
@@ -1588,17 +1724,17 @@ def _beta(y, x, subset=None):
     y = y[subset]
 
     model = LinearRegression()
-    model.fit(x.reshape((-1, 1)),y)
+    model.fit(x.reshape((-1, 1)), y)
     beta = model.coef_
 
     return beta[0]
 
 
-def CAPM_beta(Ra, Rb, Rf=0, kind='all'):
+def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     """
     calculate single factor model (CAPM) beta
 
-    The single factor model or CAPM Beta is the beta of an asset to the variance 
+    The single factor model or CAPM Beta is the beta of an asset to the variance
     and covariance of an initial portfolio.  Used to determine diversification potential.
 
     This function uses a linear intercept model to achieve the same results as
@@ -1625,14 +1761,14 @@ def CAPM_beta(Ra, Rb, Rf=0, kind='all'):
     is best when greater than one in a rising market and less than one in a
     falling market.
 
-    While the classical CAPM has been almost completely discredited by the 
-    literature, it is an example of a simple single factor model, 
+    While the classical CAPM has been almost completely discredited by the
+    literature, it is an example of a simple single factor model,
     comparing an asset to any arbitrary benchmark.
-    
+
     Parameters
     ----------
     Ra : array-like or DataFrame
-        Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark 
+        Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark
     Rb : array-like
         Benchmark returns to use to test Ra
     Rf : array-like | float
@@ -1646,15 +1782,15 @@ def CAPM_beta(Ra, Rb, Rf=0, kind='all'):
 
     Returns
     -------
-    If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return 
+    If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return
     a series indexed with asset names from df columns
 
     References
     ----------
     Sharpe, W.F. Capital Asset Prices: A theory of market
     equilibrium under conditions of risk. \emph{Journal of finance}, vol 19,
-    1964, 425-442. 
-    Ruppert, David. \emph{Statistics and Finance, an Introduction}. Springer. 2004. 
+    1964, 425-442.
+    Ruppert, David. \emph{Statistics and Finance, an Introduction}. Springer. 2004.
     Bacon, Carl. \emph{Practical portfolio performance measurement and attribution}. Wiley. 2004. \cr
 
     Examples
@@ -1673,10 +1809,14 @@ def CAPM_beta(Ra, Rb, Rf=0, kind='all'):
     xRa = return_excess(Ra, Rf)
     xRb = return_excess(Rb, Rf)
 
-    if kind == 'bear':
-        subset = xRb.lt(0).mask(xRb.isna(),np.nan) # need to include the mask, otherwise lt/gt returns False for NaN
-    elif kind == 'bull':
-        subset = xRb.gt(0).mask(xRb.isna(),np.nan) # need to include the mask, otherwise lt/gt returns False for NaN
+    if kind == "bear":
+        subset = xRb.lt(0).mask(
+            xRb.isna(), np.nan
+        )  # need to include the mask, otherwise lt/gt returns False for NaN
+    elif kind == "bull":
+        subset = xRb.gt(0).mask(
+            xRb.isna(), np.nan
+        )  # need to include the mask, otherwise lt/gt returns False for NaN
     else:
         subset = None
 
@@ -1684,7 +1824,7 @@ def CAPM_beta(Ra, Rb, Rf=0, kind='all'):
 
     return rs
 
-    
+
 def timing_ratio(Ra, Rb, Rf=0):
     """
     The function \code{TimingRatio} may help assess whether the manager is a good timer
@@ -1692,20 +1832,20 @@ def timing_ratio(Ra, Rb, Rf=0):
     \deqn{TimingRatio =\frac{\beta^{+}}{\beta^{-}}}{Timing Ratio = beta+/beta-}
     is best when greater than one in a rising market and less than one in a
     falling market.
-    
+
     Parameters
     ----------
     Ra : array-like or DataFrame
-        Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark 
+        Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark
     Rb : array-like
         Benchmark returns to use to test Ra
     Rf : array-like | float
         risk free rate, in same period as your returns, or as a single
         digit average
-    
+
     Returns
     -------
-    If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return 
+    If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return
     a series indexed with asset names from df columns
 
     Examples
@@ -1719,24 +1859,24 @@ def timing_ratio(Ra, Rb, Rf=0):
     >>> rt.timing_ratio(df[['XOM','AAPL']], df['SPY'], Rf=0)
     """
 
-    beta_bull = CAPM_beta(Ra, Rb, Rf=Rf, kind='bull')
-    beta_bear = CAPM_beta(Ra, Rb, Rf=Rf, kind='bear')
+    beta_bull = CAPM_beta(Ra, Rb, Rf=Rf, kind="bull")
+    beta_bear = CAPM_beta(Ra, Rb, Rf=Rf, kind="bear")
 
-    result = beta_bull/beta_bear
+    result = beta_bull / beta_bear
 
     return result
 
 
-def prompt_beta(df, period='all', beta_type='all', output='chart'):
+def prompt_beta(df, period="all", beta_type="all", output="chart"):
     """
-    Returns array/dataframe of betas for futures contract returns of a commodity 
+    Returns array/dataframe of betas for futures contract returns of a commodity
     with it's front contract (i.e. next most expirying contract). For use with futures
     contracts (i.e. NYMEX WTI: CL01, CL02, CL03 and so forth) with standardized expiry periods.
 
     Using the WTI example, the betas will represent the covariance of daily returns of
     CL02, CL03, CL04 with CL01. The covariance of CL01 with CL01 is also returned, but is
-    always 1. 
-    
+    always 1.
+
     This function uses the single factor model (CAPM) beta. See the function CAPM_beta
     for more details
 
@@ -1746,15 +1886,15 @@ def prompt_beta(df, period='all', beta_type='all', output='chart'):
         Wide dataframe with datetime index and multiple series columns for each futures contract.
         Always use continuous contracts for columns.
     period : str | int | float
-        Timeframe to use to calculate beta. "all" to use all data available or scalar number 
+        Timeframe to use to calculate beta. "all" to use all data available or scalar number
         n to only use the last n periods/rows of data from the last, by default 'all'. i.e.
-        for WTI contracts (CL), 30 would be the last 30 days. Recommend running roll_adjust 
+        for WTI contracts (CL), 30 would be the last 30 days. Recommend running roll_adjust
         function prior to using prompt_beta to remove swings from contract expiry
     beta_type : str
         'all', 'bull', or 'bear', by default 'all'
     output : str
         'betas', 'chart', 'stats', by default 'chart'
-    
+
     Returns
     -------
     output='chart' : A plotly figure with the beta lines charted for 'all', 'bear' and 'bull' markets
@@ -1763,9 +1903,9 @@ def prompt_beta(df, period='all', beta_type='all', output='chart'):
                         to fit betas was of the form:
                             \{beta} = x0 * exp(x1*t) + x2
                         where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
-    
+
     chart, df of betas or stats
-        
+
     Examples
     --------
     >>> import risktools as rt
@@ -1780,9 +1920,9 @@ def prompt_beta(df, period='all', beta_type='all', output='chart'):
     >>> rt.prompt_beta(df=x, period=30, beta_type="all", output="plotly")
     """
     df = df.copy()
-    # this assumes that the numeric component of the column name represents 
+    # this assumes that the numeric component of the column name represents
     # an order to the asset contract
-    term = df.columns.str.replace("[^0-9]","").astype(int)
+    term = df.columns.str.replace("[^0-9]", "").astype(int)
 
     if isinstance(period, (int, float)):
         df = df.sort_index()
@@ -1793,16 +1933,16 @@ def prompt_beta(df, period='all', beta_type='all', output='chart'):
     df = df.sort_index()
 
     # calculate betas by market type (mkt is all types) using front contract as the benchmark
-    mkt = CAPM_beta(df, df.iloc[:,0])
-    bull = CAPM_beta(df, df.iloc[:,0], kind='bull')
-    bear = CAPM_beta(df, df.iloc[:,0], kind = 'bear')
+    mkt = CAPM_beta(df, df.iloc[:, 0])
+    bull = CAPM_beta(df, df.iloc[:, 0], kind="bull")
+    bear = CAPM_beta(df, df.iloc[:, 0], kind="bear")
 
     # create array for non-linear least squares exponential
-    prompt = np.arange(0,mkt.shape[0]) + 1
+    prompt = np.arange(0, mkt.shape[0]) + 1
 
     # proposed model for beta as a function of prompt
     def beta_model(x, prompt):
-        return x[0]*np.exp(x[1]*prompt)+x[2]
+        return x[0] * np.exp(x[1] * prompt) + x[2]
 
     # cost function for residuals. Final equation that we're trying to minimize is
     # beta - x0*exp(x1*prompt) + x2
@@ -1812,49 +1952,80 @@ def prompt_beta(df, period='all', beta_type='all', output='chart'):
     # run least squares fit. Note that I ignore the first row of mkt and prompt arrays since
     # correlation of a var with itself should always be 1. Also, the beta of the second contract
     # will likely be a lot less then 1, and so ignoring the 1st contract will allow for a better fit
-    r = least_squares(beta_residuals, x0=[-1,-1,-1], args=(np.array(mkt[1:]), prompt[1:]))
+    r = least_squares(
+        beta_residuals, x0=[-1, -1, -1], args=(np.array(mkt[1:]), prompt[1:])
+    )
 
     # construct output df
     out = pd.DataFrame()
-    out['all'] = mkt
-    out['bull'] = bull
-    out['bear'] = bear
+    out["all"] = mkt
+    out["bull"] = bull
+    out["bear"] = bear
 
-    if output == 'stats':
+    if output == "stats":
         return r
-    elif output == 'betas':
+    elif output == "betas":
         return out
-    elif output == 'chart':
-        out = out[1:] # exclude beta of front contract with itself (always 1, no information)
+    elif output == "chart":
+        out = out[
+            1:
+        ]  # exclude beta of front contract with itself (always 1, no information)
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=out.index, y=out['all'], mode='lines', name='all'))
-        fig.add_trace(go.Scatter(x=out.index, y=out['bear'], mode='lines', name='bear'))
-        fig.add_trace(go.Scatter(x=out.index, y=out['bull'], mode='lines', name='bear'))
-        fig.update_xaxes(range=[out.index.min()-1, out.index.max()+1])
+        fig.add_trace(go.Scatter(x=out.index, y=out["all"], mode="lines", name="all"))
+        fig.add_trace(go.Scatter(x=out.index, y=out["bear"], mode="lines", name="bear"))
+        fig.add_trace(go.Scatter(x=out.index, y=out["bull"], mode="lines", name="bear"))
+        fig.update_xaxes(range=[out.index.min() - 1, out.index.max() + 1])
         fig.update_layout(
-            title='Contract Betas vs Front Contract: Bear (Bull) = Beta in Down (Up) Moves',
-            xaxis_title='Contract',
-            yaxis_title='Beta',
-            legend_title='Market Type'
+            title="Contract Betas vs Front Contract: Bear (Bull) = Beta in Down (Up) Moves",
+            xaxis_title="Contract",
+            yaxis_title="Beta",
+            legend_title="Market Type",
         )
         return fig
 
 
-def swapIRS(trade_date=pd.Timestamp.now(),
-            eff_date=pd.Timestamp.now() + pd.DateOffset(days=2),
-            mat_date=pd.Timestamp.now() + pd.DateOffset(days=2) + pd.DateOffset(years=2),
-            notional=1000000,
-            pay_rec="Rec",
-            fixed_rate=0.05,
-            float_curve=data.open_data('usSwapCurves'),
-            reset_freq='M',
-            disc_curve=data.open_data('usSwapCurves'),
-            convention=["act",360],
-            bus_calendar="NY",
-            output="price"):
+def custom_date_range(start, end, freq):
+    if freq == "M":
+        mul = 1
+    elif freq == "Q":
+        mul = 3
+    elif (freq == "H") | (freq == "6M"):
+        mul = 6
+    elif freq == "Y":
+        mul = 12
+    else:
+        raise ValueError("freq is not in ['M','Q','H' or 'Y']")
+
+    dr = [pd.to_datetime(start)]
+
+    i = 1
+    while dr[-1] < pd.to_datetime(end):
+        dr.append(dr[0] + pd.DateOffset(months=mul * i))
+        i += 1
+
+    return pd.Index(dr)
+
+
+def swapIRS(
+    trade_date=pd.Timestamp.now().floor("D"),
+    eff_date=pd.Timestamp.now().floor("D") + pd.DateOffset(days=2),
+    mat_date=pd.Timestamp.now().floor("D")
+    + pd.DateOffset(days=2)
+    + pd.DateOffset(years=2),
+    notional=1000000,
+    pay_rec="rec",
+    fixed_rate=0.05,
+    float_curve=us_swap,
+    reset_freq="Q",
+    disc_curve=us_swap,
+    days_in_year=360,
+    convention="act",
+    bus_calendar="NY",  # not implemented
+    output="price",
+):
     """
     Commodity swap pricing from exchange settlement
-    
+
     Parameters
     ----------
     trade_date : Timestamp | str
@@ -1866,34 +2037,237 @@ def swapIRS(trade_date=pd.Timestamp.now(),
     notional : long int
         Numeric value of notional. Defaults to 1,000,000.
     pay_rec : str
-        "Pay" or "Rec" fixed.
+        "pay" for pyement (positive pv) or "rec" for receivables (negative pv).
     fixed_rate : float
         fixed interest rate. Defaults to 0.05.
-    float_curve : DataFrame
-        {R DicountCurve Obj}: List of interest rate curves. Defaults to data("usSwapCurves").
+    float_curve : DataFrame | Dict
+        DataFrame of interest rate curves with columns 'times' and 'discounts'. Defaults to rt.data.open_data("usSwapCurves")
+        which is a dictionary based on the R object DiscountCurve. Column times is year fractions going forward in time.
+        So today is 0, tomorrow is 1/365, a year from today is 1 etc...
     reset_freq : str
-        Pandas/datetime Timestamp frequency (allowable values are 'M', 'Q', 'Y')
-    disc_curve : 
-        {R DicountCurve Obj}: List of interest rate curves. Defaults to data("usSwapCurves").
+        Pandas/datetime Timestamp frequency (allowable values are 'M', 'Q', '6M', or 'Y')
+    disc_curve : DataFrame | Dict
+        DataFrame of interest rate curves with columns 'times' and 'discounts'. Defaults to rt.data.open_data("usSwapCurves")
+        which is a dictionary based on the R object DiscountCurve. Column times is year fractions going forward in time.
+        So today is 0, tomorrow is 1/365, a year from today is 1 etc...
+    days_in_year : int
+        360 or 365
     convention : list
-        Vector of convention e.g. c("act",360) c(30,360),...
+        List of convention e.g. ["act",360], [30,360],...
     bus_calendar : str
         Banking day calendar. Not implemented.
     output : str
         "price" for swap price or "all" for price, cash flow data frame, duration.
-    
+
     Returns
     -------
-    Dictionary with swap price, cash flow data frame and duration.
-    
+    returns present value as a scalar if output=='price. Otherwise returns dictionary with swap price, cash flow data frame and duration
+
     Examples
     --------
     >>> import risktools as rt
     >>> usSwapCurves = rt.data.open_data('usSwapCurves')
-    >>> rt.swapIRS(trade_date = "2020-01-04", eff_date = "2020-01-06",mat_date = "2022-01-06", notional = 1000000,pay_rec = "Rec", fixed_rate=0.05, float_curve = usSwapCurves, reset_freq=3,disc_curve = usSwapCurves, convention = ["act",360],bus_calendar = "NY", output = "all")
+    >>> rt.swapIRS(trade_date="2020-01-04", eff_date="2020-01-06", mat_date="2022-01-06", notional=1000000, pay_rec = "rec", fixed_rate=0.05, float_curve=usSwapCurves, reset_freq=3, disc_curve=usSwapCurves, days_in_year=360, convention="act", bus_calendar="NY", output = "all")
+    """
+    dates = custom_date_range(eff_date, mat_date, freq=reset_freq)
+    dates = pd.Index([pd.to_datetime(trade_date)]).append(dates)
+
+    if (days_in_year in [360, 365]) == False:
+        raise ValueError("days_in_year must be either 360 or 365")
+
+    # placeholder
+    if convention != "act":
+        raise ValueError("function only defined for convention='act'")
+
+    df = pd.DataFrame(
+        {
+            "dates": dates,
+            "days2next": (dates[1:] - dates[:-1]).days.append(
+                pd.Index([0])
+            ),  # calc days to next period, short one element at end so add zero
+            "times": (dates - dates[0]).days
+            / 365,  # calc days to maturity from trade_date
+        }
+    )
+    disc = interpolate.splrep(disc_curve["times"], disc_curve["discounts"])
+    df["disc"] = interpolate.splev(df.times, disc)
+
+    df["fixed"] = notional * fixed_rate * (df.days2next / days_in_year)
+    df.loc[df.days2next <= 20, "fixed"] = 0
+    df.fixed = df.fixed.shift() * df.disc
+
+    disc_float = interpolate.splrep(float_curve["times"], float_curve["discounts"])
+    df["disc_float"] = interpolate.splev(df.times, disc_float)
+    df["floating"] = notional * (df.disc_float / df.disc_float.shift(-1) - 1)
+    df.loc[df.days2next <= 20, "floating"] = 0
+    df.floating = df.floating.shift() * df.disc
+    df["net"] = df.fixed - df.floating
+
+    df = df.fillna(0)
+    pv = df.net.sum()
+    df["duration"] = (
+        (dates - pd.to_datetime(trade_date)).days / days_in_year * df.net / pv
+    )
+    duration = df.duration.sum()
+
+    if pay_rec == "pay":
+        pv *= -1
+
+    if output == "price":
+        return pv
+    else:
+        return {"pv": pv, "df": df, "duration": duration}
+
+
+def npv(
+    init_cost=-375,
+    C=50,
+    cf_freq=0.25,
+    F=250,
+    T=2,
+    disc_factors=None,
+    break_even=False,
+    be_yield=0.01,
+):
+    """
+    Compute Net Present Value using discount factors from ir_df_us()
+
+    Parameters
+    ----------
+    init_cost : float | int
+        Initial investment cost
+    C : float | int
+        Periodic cash flow
+    cf_freq : float
+        Cash flow frequency in year fraction e.g. quarterly = 0.25
+    F : float | int
+        Final terminal value
+    T : float | int
+        Final maturity in years
+    disc_factors : DataFrame
+        Data frame of discount factors using ir_df_us() function.
+    break_even : bool
+        True when using a flat discount rate assumption.
+    be_yield : float | int
+        Set the flat IR rate when beak_even = True.
+
+    Returns
+    -------
+    A python dictionary with elements 'df' as dataframe and 'npv' value as a float
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> ir = rt.ir_df_us(ir_sens=0.01)
+    >>> myDict = rt.npv(init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=True, be_yield=.0399)
+    >>> myDict['df']
+    >>> myDict['npv']
+    """
+    if disc_factors is None:
+        raise ValueError(
+            "Please input a discount factor dataframe into disc_factors (use ir_df_us to get dataframe)"
+        )
+
+    if break_even == True:
+        disc_factors["yield"] = be_yield
+        disc_factors["discount_factor"] = np.exp(
+            -disc_factors["yield"] * disc_factors.maturity
+        )
+
+    n = len(np.arange(0, T, cf_freq)) + 1
+
+    disc_intp = interpolate.splrep(disc_factors.maturity, disc_factors.discountfactor)
+
+    df = pd.DataFrame(
+        {
+            "t": np.append(
+                np.arange(0, T, cf_freq), [T]
+            ),  # need to append T since np.arange is of type [a,b)
+            "cf": np.ones(n) * C,
+        }
+    )
+
+    df.loc[df.t == 0, "cf"] = init_cost
+    df.loc[df.t == T, "cf"] = F
+
+    df["df"] = interpolate.splev(df.t, disc_intp)
+    df["pv"] = df.cf * df.df
+
+    return df
+
+
+def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
+    """
+    European option binomial model on a stock without dividends. For academic purposes only.
+    Use fOptions::CRRBinomialTreeOptions for real-life usage or Python equivalent.
+
+    Parameters
+    ----------
+    s : float
+        Stock price.
+    x : float
+        Strike price.
+    sigma : float
+        Implied volatility e.g. 0.20
+    Rf : float
+        Risk-free rate.
+    T : float
+        Time to maturity in years
+    n :
+        Number of time steps. Internally dt = T/n.
+    type : str
+        "call" or "put"
+
+    Returns
+    -------
+    List of asset price tree, option value tree and option price.
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call")
     """
 
-    return None
+    dt = T / n
+
+    # define u, d, and risk-neutral probability
+    u = np.exp(sigma * sqrt(dt))
+    d = np.exp(-sigma * sqrt(dt))
+    q = (np.exp(Rf * dt) - d) / (u - d)
+
+    # define our asset tree prices
+    asset = np.zeros([n + 1, n + 1])
+
+    for i in range(0, n + 1):
+        for j in range(0, i + 1):
+            asset[i, j] = s * (u ** j) * (d ** (i - j))
+
+    # create matrix of the same dims as asset price tree
+    option = np.zeros([n + 1, n + 1])
+    # replace last row with maturity payoffs
+    if type == "call":
+        option[-1, :] = asset[-1, :] - x
+    elif type == "put":
+        option[-1, :] = x - asset[-1, :]
+    else:
+        raise ValueError("type is not of ('call','put')")
+    option[option < 0] = 0
+
+    # we discount recursively starting from final payoff (last row of tree)
+    # starting at the second last period based on final payoffs
+    for i in range(n - 1, -1, -1):  # loop for n-1 to 0 because range(a,b) is [a,b)
+        for j in range(0, i + 1):
+            option[i, j] = (
+                (1 - q) * option[i + 1, j] + q * option[i + 1, j + 1]
+            ) / np.exp(Rf * dt)
+
+    # indicator if model can be used sigma > rsqrt(dt)
+    if sigma > sqrt(dt) * Rf:
+        note = "ok"
+    else:
+        note = "sigma < Rf*sqrt(dt) do not use"
+
+    return {"asset": asset, "option": option, "price": option[0, 0], "note": note}
 
 
 def _check_df(df):
@@ -1903,11 +2277,6 @@ def _check_df(df):
 
     return df.copy()
 
-
-# def _infer_freq(x):
-
-#     for c in range(0,10):
-#         np.random.
 
 if __name__ == "__main__":
     np.random.seed(42)
@@ -1921,9 +2290,9 @@ if __name__ == "__main__":
     # print(bond(output='df'))
 
     # dflong = data.open_data('dflong')
-    # ret = returns(df=dflong, ret_type="abs", period_return=1, spread=True).iloc[:,0:2] 
+    # ret = returns(df=dflong, ret_type="abs", period_return=1, spread=True).iloc[:,0:2]
     # roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade").head(50)
-    
+
     # from pandas_datareader import data, wb
     # from datetime import datetime
     # df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
@@ -1954,7 +2323,7 @@ if __name__ == "__main__":
 
     # print(sharpe_ratio_annualized(df['Adj Close']))
     # print(sharpe_ratio_annualized(df[('Adj Close','SPY')]))
-    
+
     # print(omega_sharpe_ratio(df['Adj Close'],MAR=0))
     # print(upside_risk(df['Adj Close'], MAR=0))
     # print(upside_risk(df[('Adj Close','SPY')], MAR=0))
@@ -1963,7 +2332,7 @@ if __name__ == "__main__":
 
     # print(downside_deviation(df[('Adj Close','SPY')], MAR=0))
     # print(downside_deviation(df['Adj Close'], MAR=0))
-    
+
     # print(return_cumulative(r=df['Adj Close'], geometric=True))
     # print(return_cumulative(r=df['Adj Close'], geometric=False))
 

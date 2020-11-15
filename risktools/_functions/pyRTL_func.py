@@ -13,42 +13,6 @@ npv.at.risk <- function(init.cost, C.cost, cf.freq, F, T, disc.factors, simC, X)
 """
     
 
-def npv(init_cost , C, cf_freq, F, T, disc_factors, BreakEven, BE_yield):
-    """
-    Compute NPV
-    
-    Parameters
-    ----------
-    init_cost : Initial investment cost
-    C : Periodic cash flow
-    cf_freq : Cash flow frequency in year fraction e.g. quarterly = 0.25
-    F : Final terminal value
-    T : Final maturity in years
-    disc_factors : Data frame of discount factors using ir_df_us() function. 
-    BreakEven : True when using a flat discount rate assumption.
-    BE_yield : Set the flat IR rate when BeakEven = TRUE.
-
-    Returns
-    -------    
-    A python dictionary with elements 'df' as dataframe and 'npv' value as a float
-    
-    Examples
-    --------
-    >>> import risktools as rt
-    >>> ir = rt.ir_df_us(quandlkey = quandlkey,ir.sens=0.01) 
-    >>> myDict = rt.npv(init.cost=-375,C=50,cf.freq=.5,F=250,T=2,disc_factors=ir,BreakEven=True,BE_yield=.0399)
-    >>> myDict['df']
-    >>> myDict['npv']
-    """
-    tf = rtl.npv(init_cost, C, cf_freq, F, T, disc_factors, BreakEven, BE_yield)
-    
-    myDict = dict()
-    
-    myDict['df'] = r2p(tf[0])
-    myDict['npv'] = np.array(tf[1])[0]
-    
-    return(myDict)
-
 def npv_at_risk(init_cost , C_cost, cf_freq, F, T, disc_factors, simC, X):
     """
     NPV at risk function. Replacement for NPV function that takes a list of periodic cashflows as an option instead of a single value

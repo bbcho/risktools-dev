@@ -5,7 +5,7 @@ with open("README.md","r") as fh:
 
 setuptools.setup(
 	name="risktools",
-	version="0.5.0",
+	version="0.1.0",
 	author="Ben Cho",
  	license='gpl-3.0',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
 	author_email="ben.cho@gmail.com",
@@ -14,7 +14,7 @@ setuptools.setup(
 	long_description_content_type="text/markdown",
 	packages=setuptools.find_packages(),
 	package_data={'': ['*.csv']},
-	keywords = ['RTL', 'Risk', 'Tools', 'Trading', 'Crude', 'Oil'],
+	keywords = ['RTL', 'Risk', 'Tools', 'Trading', 'Crude', 'Oil', 'Refinery', 'Refined Products', "Products"],
 	url = "https://github.com/bbcho/risktools-dev",
 	download_url = "https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
 	install_requires=[
@@ -25,7 +25,8 @@ setuptools.setup(
 		  'geopandas',
 		  'quandl',
 		  'scikit-learn',
-		  'arch'
+		  'arch',
+		  'scipy'
     ],
 	include_package_data=True,
 	classifiers=[
