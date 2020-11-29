@@ -4,7 +4,8 @@
 .vscode/
 .ipynb_checkpoints/
 
-/mytest/
+# saved data in pytest folder
+/pytest/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -61,5 +62,4 @@ docs/_build/
 env/
 
 # misc files
-*.R
 *.ipynb
