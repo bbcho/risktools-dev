@@ -5,7 +5,7 @@
 .ipynb_checkpoints/
 
 # saved data in pytest folder
-/pytest/*.json
+pytest/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
