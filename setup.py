@@ -38,7 +38,7 @@ setuptools.setup(
         "scikit-learn",
         "arch",
         "scipy",
-        "statmodels",
+        "statsmodels",
         "seaborn",
     ],
     include_package_data=True,
