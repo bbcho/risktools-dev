@@ -4,7 +4,8 @@
 .vscode/
 .ipynb_checkpoints/
 
-/mytest/
+# saved data in pytest folder
+# pytest/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -56,3 +57,9 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# conda env
+env/
+
+# misc files
+*.ipynb
