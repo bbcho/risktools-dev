@@ -1450,6 +1450,8 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
             "You have set spread to True but only passed a single index, not a multi-index. There is nothing to spread"
         )
 
+    # df = df.dropna()
+
     # calc return type
     if ret_type == "abs":
         df = df.groupby(level=0).apply(lambda x: x.diff())
@@ -1466,9 +1468,9 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
         raise ValueError("ret_type is not valid")
 
     if spread:
-        # return spread df
+        # return spread df, don't dropna or it will remove entire rows
         df = df.unstack(level=0).droplevel(level=0, axis=1)
-        return df.dropna()
+        return df
     else:
         if index_flag == True:
             # drop dummy index to return single index
@@ -1541,7 +1543,9 @@ def roll_adjust(
 
 def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwargs):
     """
-    Computes annualised Garch(1,0,1) volatilities using arch package.
+    Computes annualised Garch(1,0,1) volatilities using arch package. Note that the
+    RTL package uses a sGarch model, but there is no similiar implementation in
+    python.
 
     Parameters
     ----------
@@ -1573,14 +1577,15 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     >>> rt.garch(df, out="plotly")
     >>> rt.garch(df, out="matplotlib")
     """
-    df = _check_df(df)
+    df = _check_df(df).sort_index()
 
-    if kwargs is None:
-        kwargs = {"p": 1, "o": 0, "q": 1}
+    # if kwargs is None:
+    #     kwargs = {"p": 1, "o": 0, "q": 1}
 
     df = df - df.mean()
 
-    freq = pd.infer_freq(df.index[0:10])
+    # find a more robust way to do this, rolladjust may break it
+    freq = pd.infer_freq(df.index[-10:])
 
     if scale is None:
         if (freq == "B") or (freq == "D"):
@@ -1599,7 +1604,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
             )
 
     # a standard GARCH(1,1) model
-    garch = arch.arch_model(df, vol="garch", **kwargs)
+    garch = arch.arch_model(df, **kwargs)
     garch_fitted = garch.fit()
 
     # # calc annualized volatility from variance
@@ -1767,7 +1772,11 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     else:
         subset = None
 
-    rs = xRa.apply(lambda x: _beta(x, xRb, subset), axis=0)
+    if isinstance(xRa, pd.DataFrame):
+        # applies function _beta to each columns of df
+        rs = xRa.apply(lambda x: _beta(x, xRb, subset), axis=0)
+    else:
+        rs = _beta(xRa, xRb, subset)
 
     return rs
 
@@ -1953,7 +1962,7 @@ def custom_date_range(start, end, freq):
     return pd.Index(dr)
 
 
-def swapIRS(
+def swap_irs(
     trade_date=pd.Timestamp.now().floor("D"),
     eff_date=pd.Timestamp.now().floor("D") + pd.DateOffset(days=2),
     mat_date=pd.Timestamp.now().floor("D")
@@ -2014,7 +2023,7 @@ def swapIRS(
     --------
     >>> import risktools as rt
     >>> usSwapCurves = rt.data.open_data('usSwapCurves')
-    >>> rt.swapIRS(trade_date="2020-01-04", eff_date="2020-01-06", mat_date="2022-01-06", notional=1000000, pay_rec = "rec", fixed_rate=0.05, float_curve=usSwapCurves, reset_freq=3, disc_curve=usSwapCurves, days_in_year=360, convention="act", bus_calendar="NY", output = "all")
+    >>> rt.swap_irs(trade_date="2020-01-04", eff_date="2020-01-06", mat_date="2022-01-06", notional=1000000, pay_rec = "rec", fixed_rate=0.05, float_curve=usSwapCurves, reset_freq='Q', disc_curve=usSwapCurves, days_in_year=360, convention="act", bus_calendar="NY", output = "all")
     """
     dates = custom_date_range(eff_date, mat_date, freq=reset_freq)
     dates = pd.Index([pd.to_datetime(trade_date)]).append(dates)
@@ -2029,7 +2038,7 @@ def swapIRS(
     df = pd.DataFrame(
         {
             "dates": dates,
-            "days2next": (dates[1:] - dates[:-1]).days.append(
+            "day2next": (dates[1:] - dates[:-1]).days.append(
                 pd.Index([0])
             ),  # calc days to next period, short one element at end so add zero
             "times": (dates - dates[0]).days
@@ -2039,14 +2048,14 @@ def swapIRS(
     disc = interpolate.splrep(disc_curve["times"], disc_curve["discounts"])
     df["disc"] = interpolate.splev(df.times, disc)
 
-    df["fixed"] = notional * fixed_rate * (df.days2next / days_in_year)
-    df.loc[df.days2next <= 20, "fixed"] = 0
+    df["fixed"] = notional * fixed_rate * (df.day2next / days_in_year)
+    df.loc[df.day2next <= 20, "fixed"] = 0
     df.fixed = df.fixed.shift() * df.disc
 
     disc_float = interpolate.splrep(float_curve["times"], float_curve["discounts"])
     df["disc_float"] = interpolate.splev(df.times, disc_float)
     df["floating"] = notional * (df.disc_float / df.disc_float.shift(-1) - 1)
-    df.loc[df.days2next <= 20, "floating"] = 0
+    df.loc[df.day2next <= 20, "floating"] = 0
     df.floating = df.floating.shift() * df.disc
     df["net"] = df.fixed - df.floating
 
@@ -2106,18 +2115,19 @@ def npv(
     --------
     >>> import risktools as rt
     >>> ir = rt.ir_df_us(ir_sens=0.01)
-    >>> myDict = rt.npv(init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=True, be_yield=.0399)
-    >>> myDict['df']
-    >>> myDict['npv']
+    >>> rt.npv(init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=True, be_yield=.0399)
     """
+    disc_factors = disc_factors.copy()
+
     if disc_factors is None:
         raise ValueError(
             "Please input a discount factor dataframe into disc_factors (use ir_df_us to get dataframe)"
         )
 
     if break_even == True:
+        print("test")
         disc_factors["yield"] = be_yield
-        disc_factors["discount_factor"] = np.exp(
+        disc_factors["discountfactor"] = np.exp(
             -disc_factors["yield"] * disc_factors.maturity
         )
 
@@ -2313,7 +2323,7 @@ def get_eia_df(tables, key):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.get_eia_df('PET.WDIIM_R20-Z00_2.W')
+    >>> rt.get_eia_df('PET.WDIIM_R20-Z00_2.W', key=eia_key)
     """
     import requests
     import json
@@ -2621,7 +2631,7 @@ def chart_spreads(
         feed to use to get data from Morningstar
     start_dt : str
         Start date for the data retrival as a string, in the format "yyyy-mm-dd"
-    output : str, optional
+    output : ['data', 'chart']
         whether to return data or a chart, by default 'chart'
     **kwargs
         Arguments to pass to the plotly update_layout function to control the layout elements of the final figure. You
@@ -2633,8 +2643,12 @@ def chart_spreads(
 
     Examples
     --------
-    >>>
-
+    >>> import risktools as rt
+    >>> df = rt.chart_spreads(
+            username=up['m*']['user'],
+            password=up['m*']['pass'],
+            pairs=[('@HO4H', '@HO4J', '2014'), ('@HO9H', '@HO9J', '2019')],
+            feed="CME_NymexFutures_EOD")
     """
 
     codes = []
@@ -2653,12 +2667,21 @@ def chart_spreads(
     fig = go.Figure()
 
     for c in pairs:
-        tmp = (df[c[0]] - df[c[1]]).dropna()[-days_from_expiry:].values
-        res[c[2]] = pd.Series(tmp)
+        tmp = (df[c[0]] - df[c[1]]).dropna().reset_index(drop=True)[-days_from_expiry:]
 
-        fig.add_trace(
-            go.Scatter(x=res[c[2]].dropna().index, y=res[c[2]].dropna(), name=c[2])
-        )
+        # reset index twice to bring in index number
+        tmp = tmp.reset_index().reset_index()
+        tmp.columns = ["days_from_exp", "date", "spread"]
+        tmp.days_from_exp -= days_from_expiry
+        tmp["year"] = c[2]
+        res = res.append(tmp)
+
+        if output == "chart":
+            fig.add_trace(
+                go.Scatter(
+                    x=tmp.dropna().days_from_exp, y=tmp.dropna().spread, name=c[2]
+                )
+            )
 
     if kwargs is not None:
         fig.update_layout(**kwargs)
@@ -2667,6 +2690,38 @@ def chart_spreads(
         return fig
     else:
         return res
+
+
+#     codes = []
+
+#     for c in pairs:
+#         codes.append(c[0])
+#         codes.append(c[1])
+
+#     df = get_prices(
+#         username=username, password=password, feed=feed, codes=codes, start_dt=start_dt
+#     )
+
+#     df = df.unstack(level=0).settlement_price
+
+#     res = pd.DataFrame()
+#     fig = go.Figure()
+
+#     for c in pairs:
+#         tmp = (df[c[0]] - df[c[1]]).dropna()[-days_from_expiry:].values
+#         res[c[2]] = pd.Series(tmp)
+
+#         fig.add_trace(
+#             go.Scatter(x=res[c[2]].dropna().index, y=res[c[2]].dropna(), name=c[2])
+#         )
+
+#     if kwargs is not None:
+#         fig.update_layout(**kwargs)
+
+#     if output == "chart":
+#         return fig
+#     else:
+#         return res
 
 
 def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
@@ -2816,6 +2871,16 @@ def chart_eia_sd(market, key, start_dt="2010-01-01", output="chart", **kwargs):
         Starting date for S&D balance data
     output : ['chart','data']
         Output as a chart or return data as a dataframe, by default 'chart'
+
+    Returns
+    -------
+    pandas dataframe or a plotly figure object
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> fig = rt.chart_eia_sd('mogas', up['eia'])
+    >>> fig.show()
     """
     eia = data.open_data("tickers_eia")
     eia = eia[eia.sd_category == market]
@@ -2980,12 +3045,19 @@ def chart_eia_steo(key, start_dt=None, market="globalOil", output="chart", **kwa
         What kind of output to return, by default 'chart'
     **kwargs
         keyword arguments to pass to plotly.graph_objects.figure.update_layout function to modify figure
+    
     Returns
     -------
     output = 'chart'
         Plotly figure object
     output = 'data'
         dataframe
+
+    Examples
+    --------
+    >>> import risktool as rt
+    >>> fig = rt.chart_eia_steo(up['eia'])
+    >>> fig.show()
     """
     if market == "globalOil":
         tickers = {

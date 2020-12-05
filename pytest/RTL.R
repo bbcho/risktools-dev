@@ -18,10 +18,21 @@ eia_key = up$eia
 # ir_df_us
 ## Must be run on the same day as the data pull since the function only gets the last
 ## 30 days
-df <- ir_df_us()
-df <- jsonlite::toJSON(df)
-write(df,'ir_df_us.json')
+df <- ir_df_us(quandlkey=up$'quandl')
+write(jsonlite::toJSON(df),'ir_df_us.json')
 
+
+# npv
+## Must be run on the same day as the data pull since the ir_df_us function only gets the last
+## 30 days
+us.df <- ir_df_us(quandlkey=up$'quandl', ir.sens=0.01)
+ou1 <- npv(init.cost=-375,C=50,cf.freq=.5,TV=250,T2M=2,
+          disc.factors=us.df,BreakEven=FALSE)$df
+write(jsonlite::toJSON(ou1), 'npv1.json')
+
+ou2 <- npv(init.cost=-375,C=50,cf.freq=.5,TV=250,T2M=2,
+          disc.factors=us.df,BreakEven=TRUE,BE.yield=.0399)$df
+write(jsonlite::toJSON(ou2), 'npv2.json')
 
 # CRReuro
 df <- CRReuro(S=100,X=100,sigma=0.2,r=0.1,T2M=1,N=5,type="call")
@@ -86,9 +97,9 @@ write(jsonlite::toJSON(ou2), 'eia2tidy2.json')
 x <- dflong %>% dplyr::filter(series=="CL01")
 x <- returns(df=x,retType="rel",period.return=1,spread=TRUE)
 x <- rolladjust(x=x,commodityname=c("cmewti"),rolltype=c("Last.Trade"))
-summary(garch(x=x,out="fit"))
 ou <- garch(x=x,out="data")
-write(jsonlite::toJSON(ou), 'garch.json')
+ou <- tk_tbl(ou,preserve_index = TRUE,rename_index = "date")
+write(jsonlite::toJSON(as_tibble(ou)), 'garch.json')
 
 
 # morningstar
@@ -125,14 +136,6 @@ write(jsonlite::toJSON(ou6), 'morningstar6.json')
 write(jsonlite::toJSON(ou7), 'morningstar7.json')
 write(jsonlite::toJSON(ou8), 'morningstar8.json')
 
-# npv
-us.df <- ir_df_us(ir.sens=0.01)
-npv(init.cost=-375,C=50,cf.freq=.5,TV=250,T2M=2,
-disc.factors=us.df,BreakEven=TRUE,BE.yield=.0399)$npv
-
-npv(init.cost=-375,C=50,cf.freq=.5,TV=250,T2M=2,
-disc.factors=us.df,BreakEven=TRUE,BE.yield=.0399)$df
-
 
 # promptBeta
 x <- dflong %>% dplyr::filter(grepl("CL",series))
@@ -145,10 +148,19 @@ write(jsonlite::toJSON(ou), 'promptBeta.json')
 
 
 # returns
-ou1 <- returns(df=dflong,retType="rel",period.return=1,spread=TRUE)
-ou2 <- returns(df=dflong,retType="rel",period.return=1,spread=FALSE)
+# round dflong to 4 decimals before calc because toJSON only writes
+# to 4 decimals
+dflong_rd <- dflong
+dflong_rd$value <- round(dflong_rd$value,4)
+ou1 <- returns(df=dflong_rd,retType="rel",period.return=1,spread=TRUE)
+ou2 <- returns(df=dflong_rd,retType="rel",period.return=1,spread=FALSE)
+ou3 <- returns(df=dflong_rd,retType="abs",period.return=1,spread=TRUE)
+ou4 <- returns(df=dflong_rd,retType="log",period.return=1,spread=TRUE)
+
 write(jsonlite::toJSON(ou1), 'returns1.json')
 write(jsonlite::toJSON(ou2), 'returns2.json')
+write(jsonlite::toJSON(ou3), 'returns3.json')
+write(jsonlite::toJSON(ou4), 'returns4.json')
 
 
 # rolladjust
@@ -160,7 +172,9 @@ write(jsonlite::toJSON(ou), 'rolladjust.json')
 # stl_decomp
 x <- dflong %>% dplyr::filter(series=="CL01")
 ou <- stl_decomp(x,output="data",s.window=13,s.degree=1)
-write(jsonlite::toJSON(ou$Components), 'stl_decomp.json')
+ou <- tk_tbl(ou$time.series)
+ou$index = as.Date(ou$index)
+write(jsonlite::toJSON(ou), 'stl_decomp.json')
 
 
 # swapCom
@@ -178,12 +192,60 @@ mat.date = as.Date("2022-01-06"), notional = 1000000,
 PayRec = "Rec", fixed.rate=0.05, float.curve = usSwapCurves, reset.freq=3,
 disc.curve = usSwapCurves, convention = c("act",360),
 bus.calendar = "NY", output = "all")
-write(jsonlite::toJSON(ou), 'swapIRS.json')
+#ou <- paste0('{"v1":',ou[[1]][1],',"df":',jsonlite::toJSON(ou[[2]])[1],',"v2":',ou[[3]][1],'}')
+write(jsonlite::toJSON(ou[[2]]), 'swapIRS.json')
+print(ou[[1]])
+print(ou[[3]])
 
 
 # tradeStats
-library(quantmod)
-getSymbols("SPY", return.class = "zoo")
-SPY$retClCl <- na.omit(quantmod::Delt(Cl(SPY),k=1,type='arithmetic'))
-ou <- tradeStats(x=SPY$retClCl,Rf=0)
+library(xts)
+
+spy <- tq_get('SPY', from = "2000-01-01", to="2012-01-01",  return.class = "zoo")
+spy = spy$SPY.Adjusted
+spy = spy/xts::lag.xts(spy) - 1
+ou <- tradeStats(x=spy,Rf=0)
 write(jsonlite::toJSON(ou), 'tradeStats.json')
+
+
+# alt_garch
+
+alt_garch <- function(x = x,out = TRUE) {
+  x <- xts::as.xts(x[, 2], order.by = x$date)
+  x <- x-mean(x)
+  fit <-  rugarch::ugarchfit(data = x, spec = rugarch::ugarchspec(), solver = "hybrid")
+  if (xts::periodicity(x)$scale=="daily") {garchvol <- fit@fit$sigma * sqrt(252)}
+  if (xts::periodicity(x)$scale=="weekly") {garchvol <- fit@fit$sigma * sqrt(52)}
+  if (xts::periodicity(x)$scale=="monthly") {garchvol <- fit@fit$sigma * sqrt(12)}
+  
+  voldata <- merge(x, garchvol)
+  colnames(voldata) <- c("returns", "garch")
+  if (out=="data") {return(voldata)} else if (out=="fit") {return(fit)} else {
+    xts::plot.xts(voldata[, 2], main = paste("Period Returns and Annualized Garch(1,1) for",colnames(x)[1]),ylim = c(-max(abs(voldata[, 1])), max(abs(voldata))))
+    xts::addSeries(voldata[, 1], type = "h", col = "blue")
+  }
+}
+
+x <- dflong %>% dplyr::filter(series=="CL01")
+x <- returns(df=x,retType="rel",period.return=1,spread=TRUE)
+x <- rolladjust(x=x,commodityname=c("cmewti"),rolltype=c("Last.Trade"))
+ou <- garch(x=x,out="data")
+ou <- tk_tbl(ou,preserve_index = TRUE,rename_index = "date")
+write(jsonlite::toJSON(as_tibble(ou)), 'garch.json')
+
+
+
+
+
+
+
+
+
+
+
+x <- dflong %>% dplyr::filter(grepl("CL",series))
+#x <- x %>% dplyr::mutate(series = readr::parse_number(series)) %>% dplyr::group_by(series)
+x <- RTL::returns(df = x,retType = "abs",period.return = 1,spread = TRUE)
+x <- RTL::rolladjust(x = x,commodityname = c("cmewti"),rolltype = c("Last.Trade"))
+x <- x %>% dplyr::filter(!grepl("2020-04-20|2020-04-21",date))
+
