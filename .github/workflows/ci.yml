@@ -1,10 +1,10 @@
 name: Python package
 
 env: # Or as an environment variable
-      EIA: ${{ secrets.EIA }}
-      QUANDL: ${{ secrets.QUANDL }}
-      MS_PASS: ${{ secrets.MS_USER }}
-      MS_USER: ${{ secrets.MS_PASS }}
+  EIA: ${{ secrets.EIA }}
+  QUANDL: ${{ secrets.QUANDL }}
+  MS_PASS: ${{ secrets.MS_USER }}
+  MS_USER: ${{ secrets.MS_PASS }}
 
 
 on: [push]
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.8]
 
     steps:
     - uses: actions/checkout@v2
