@@ -71,6 +71,16 @@ yaxis = "$ per bbl",
 output = "data")
 write(jsonlite::toJSON(ou), 'chart_spreads.json')
 
+cpairs <- dplyr::tibble(year = c("2014","2019","2020"),
+                        first = c("@HO4H","@HO9H","@HO0H"),
+                        second = c("@HO4J","@HO9J","@HO0J"))
+ou <- chart_spreads(cpairs = cpairs, daysFromExpiry = 200, from = "2012-01-01",
+                    conversion = 42,feed = "CME_NymexFutures_EOD",
+                    iuser = username, ipassword = password,
+                    title = "March/April ULSD Nymex Spreads",
+                    yaxis = "$ per bbl",
+                    output = "chart")
+
 
 # chart_zscore
 df <- eiaStocks %>% dplyr::filter(series == "NGLower48")
