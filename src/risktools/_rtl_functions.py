@@ -3175,7 +3175,7 @@ if __name__ == "__main__":
 
     up = json.loads(userfile)
 
-    username = up["m*"]["user"]
+    username = up["m*"]["user"
     password = up["m*"]["pass"]
 
     print(
