@@ -1,3 +1,4 @@
+from numpy.linalg.linalg import eigvals
 import pandas as pd
 import numpy as np
 import os
@@ -15,8 +16,15 @@ from pandas_datareader import data
 # chart_zscore only tests figure object - test actual stl decomp
 
 
-with open("../../user.json") as js:
-    up = json.load(js)
+# with open("../../user.json") as js:
+#     up = json.load(js)
+
+# Travis CI Env Vars
+up = {}
+up["eia"] = eia
+up["quandl"] = quandl
+up["m*"]["pass"] = ms_pass
+up["m*"]["user"] = ms_user
 
 
 def _load_json(fn, dataframe=True):
