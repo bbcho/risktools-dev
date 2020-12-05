@@ -40,6 +40,7 @@ setuptools.setup(
         "scipy",
         "statsmodels",
         "seaborn",
+        "pandas_datareader",
     ],
     include_package_data=True,
     classifiers=[
