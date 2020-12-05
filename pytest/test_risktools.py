@@ -20,7 +20,8 @@ from pandas_datareader import data
 #     up = json.load(js)
 
 # Travis CI Env Vars
-up = {}
+up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
+
 up["eia"] = os.getenv("eia")
 up["quandl"] = os.getenv("quandl")
 up["m*"]["pass"] = os.getenv("ms_pass")
