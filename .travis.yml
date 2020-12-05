@@ -32,4 +32,4 @@ matrix:
         - python -m pip install --upgrade pip
         - pip3 install --upgrade pytest
         - pip3 install codecov
-      env: PATH=/c/Python35:/c/Python35/Scripts:$PATH
+      env: PATH=/c/Python35:/c/Python38/Scripts:$PATH
