@@ -31,7 +31,7 @@ jobs:
       env: # Or as an environment variable
         EIA: ${{ secrets.EIA }}
         QUANDL: ${{ secrets.QUANDL }}
-        MS_PASS: ${{ secrets.MS_USER }}
-        MS_USER: ${{ secrets.MS_PASS }}
+        MS_USER: ${{ secrets.MS_USER }}
+        MS_PASS: ${{ secrets.MS_PASS }}
       run: |
         pytest
