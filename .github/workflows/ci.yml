@@ -1,12 +1,5 @@
 name: Python package
 
-env: # Or as an environment variable
-  EIA: ${{ secrets.EIA }}
-  QUANDL: ${{ secrets.QUANDL }}
-  MS_PASS: ${{ secrets.MS_USER }}
-  MS_USER: ${{ secrets.MS_PASS }}
-
-
 on: [push]
 
 jobs:
@@ -35,5 +28,10 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      env: # Or as an environment variable
+        EIA: ${{ secrets.EIA }}
+        QUANDL: ${{ secrets.QUANDL }}
+        MS_PASS: ${{ secrets.MS_USER }}
+        MS_USER: ${{ secrets.MS_PASS }}
       run: |
         pytest
