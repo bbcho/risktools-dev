@@ -25,7 +25,7 @@ up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
 up["eia"] = os.getenv("EIA")
 up["quandl"] = os.getenv("QUANDL")
 up["m*"]["pass"] = os.getenv("MS_PASS")
-up["m*"]["user"] = os.getenv("MS_PASS")
+up["m*"]["user"] = os.getenv("MS_USER")
 
 
 def _load_json(fn, dataframe=True):
