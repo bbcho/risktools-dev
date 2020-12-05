@@ -21,10 +21,10 @@ from pandas_datareader import data
 
 # Travis CI Env Vars
 up = {}
-up["eia"] = eia
-up["quandl"] = quandl
-up["m*"]["pass"] = ms_pass
-up["m*"]["user"] = ms_user
+up["eia"] = os.getenv("eia")
+up["quandl"] = os.getenv("quandl")
+up["m*"]["pass"] = os.getenv("ms_pass")
+up["m*"]["user"] = os.getenv("ms_user")
 
 
 def _load_json(fn, dataframe=True):
