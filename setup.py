@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="risktools",
-    version="0.1.0",
+    version="0.2.0",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
@@ -33,7 +33,7 @@ setuptools.setup(
         "numpy",
         "matplotlib",
         "plotly",
-        "geopandas",
+        # "geopandas",
         "quandl",
         "scikit-learn",
         "arch",

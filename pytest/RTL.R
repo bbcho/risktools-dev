@@ -9,17 +9,21 @@ library(timetk)
 library(jsonlite)
 
 # Give the input file name to the function.
-up <- jsonlite::fromJSON(file("../../../user.json"))
+up <- jsonlite::fromJSON(file("../../user.json"))
 
-username <- up$'m*'$user
-password <- up$'m*'$pass
+# username <- up$'m*'$user
+# password <- up$'m*'$pass
 eia_key = up$eia
+
+q_key = Sys.getenv('QUANDL_KEY')
+
+
 
 # ir_df_us
 ## Must be run on the same day as the data pull since the function only gets the last
 ## 30 days
 df <- ir_df_us(quandlkey=up$'quandl')
-write(jsonlite::toJSON(df),'ir_df_us.json')
+write(jsonlite::toJSON(df,digits=8),'ir_df_us.json')
 
 
 # npv
@@ -80,7 +84,6 @@ ou <- chart_spreads(cpairs = cpairs, daysFromExpiry = 200, from = "2012-01-01",
                     title = "March/April ULSD Nymex Spreads",
                     yaxis = "$ per bbl",
                     output = "chart")
-
 
 # chart_zscore
 df <- eiaStocks %>% dplyr::filter(series == "NGLower48")
@@ -242,14 +245,6 @@ x <- rolladjust(x=x,commodityname=c("cmewti"),rolltype=c("Last.Trade"))
 ou <- garch(x=x,out="data")
 ou <- tk_tbl(ou,preserve_index = TRUE,rename_index = "date")
 write(jsonlite::toJSON(as_tibble(ou)), 'garch.json')
-
-
-
-
-
-
-
-
 
 
 
