@@ -27,7 +27,7 @@ setuptools.setup(
         "Products",
     ],
     url="https://github.com/bbcho/risktools-dev",
-    #download_url="https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
+    # download_url="https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
     install_requires=[
         "pandas",
         "numpy",

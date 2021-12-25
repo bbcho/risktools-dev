@@ -108,7 +108,7 @@ def get_prices(
         r = s.get(url.format(feed, params),)
         tf = _pd.read_csv(_io.StringIO(r.content.decode("utf-8"))).set_index("Date")
         tf.columns = tf.columns.str.replace(
-            "\(([^)]*)\)", ""
+            "\(([^)]*)\)", "", regex=True
         )  # clean up columns by removing ticker/code names
         tf = _pd.concat([tf], keys=[code])
 

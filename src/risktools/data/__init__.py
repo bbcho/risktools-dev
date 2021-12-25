@@ -6,7 +6,7 @@ import requests as _requests
 from io import BytesIO as _BytesIO
 
 
-def get_gis(url="https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip"):
+def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
     """
     Returns a SpatialPointsDataFrame from a shapefile URL.
     Examples with EIA and Government of Alberta
@@ -14,7 +14,8 @@ def get_gis(url="https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zi
     from https://www.eia.gov/maps/layer_info-m.php :
         crudepipelines = get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip")
         refineries = get_gis(url="https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip")
-    from https://gis.energy.gov.ab.ca/Geoview/OSPNG
+    
+    from https://gis.energy.gov.ab.ca/Geoview/OSPNG :
         AB = get_gis(url="https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip")
 
     Parameters
@@ -32,7 +33,7 @@ def get_gis(url="https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zi
     --------
 
     >>> import risktools as rt
-    >>> df = rt.data.get_gis("https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip")
+    >>> df = rt.data.get_gis("https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip")
     """
 
     try:
@@ -254,7 +255,7 @@ def open_data(nm):
 
     if isinstance(df, _pd.DataFrame):
         # convert "." to "_" in column names
-        df.columns = df.columns.str.replace(".", "_")
+        df.columns = df.columns.str.replace(".", "_", regex=False)
 
     # convert datetime fields
     if _file_actions[nm]["date_fields"] is not None:

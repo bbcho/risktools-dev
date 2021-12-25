@@ -35,7 +35,7 @@ us_swap = data.open_data("usSwapCurves")
 #####################################################################
 
 
-def ir_df_us(quandl_key=None, ir_sens=0.01):
+def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     """
     Extracts US Tresury Zero Rates using Quandl
 
@@ -46,6 +46,8 @@ def ir_df_us(quandl_key=None, ir_sens=0.01):
         calls per day for free
     ir_sens : float
         Creates plus and minus IR sensitivity scenarios with specified shock value.
+    date : string
+        If date is not none, function will return ir curve for that date. By default None.
 
     Returns
     -------
@@ -56,27 +58,36 @@ def ir_df_us(quandl_key=None, ir_sens=0.01):
     >>> import risktools as rt
     >>> ir = rt.ir_df_us()
     """
-    # Last 30 days
-    sdt = pd.Timestamp.now().floor("D") - pd.DateOffset(days=30)
+
+    if date is None:
+        # Last 30 days
+        edt = pd.Timestamp.now().floor("D")
+    else:
+        edt = pd.to_datetime(date)
+
+    sdt = edt - pd.DateOffset(days=30)
+    print(sdt)
 
     if quandl_key is not None:
         quandl.ApiConfig.api_key = quandl_key
 
-    fedsfund = quandl.get("FED/RIFSPFF_N_D", start_date=sdt).dropna()
+    fedsfund = quandl.get("FED/RIFSPFF_N_D", start_date=sdt, end_date=edt).dropna()
     fedsfund["FedsFunds0"] = np.log((1 + fedsfund.Value / 360) ** 365)
     fedsfund.drop("Value", axis=1, inplace=True)
 
-    zero_1yr_plus = quandl.get("FED/SVENY")
+    zero_1yr_plus = quandl.get("FED/SVENY", end_date=edt)
 
     zero_tb = quandl.get(
         ["FED/RIFLGFCM01_N_B", "FED/RIFLGFCM03_N_B", "FED/RIFLGFCM06_N_B"],
         start_date=sdt,
+        end_date=edt,
     ).dropna()
-    zero_tb.columns = zero_tb.columns.str.replace(" - Value", "")
+    zero_tb.columns = zero_tb.columns.str.replace(" - Value", "", regex=False)
 
     # get most recent full curve (some more recent days will have NA columns)
     x = fedsfund.join(zero_tb).join(zero_1yr_plus).dropna().iloc[-1, :].reset_index()
     x.columns = ["maturity", "yield"]
+    x["index"] = x["maturity"]
     x["yield"] /= 100
     x["maturity"] = x.maturity.str.extract("(\d+)").astype("int")
 
@@ -95,6 +106,19 @@ def ir_df_us(quandl_key=None, ir_sens=0.01):
     x["discountfactor"] = np.exp(-x["yield"] * x.maturity)
     x["discountfactor_plus"] = np.exp(-(x["yield"] + ir_sens) * x.maturity)
     x["discountfactor_minus"] = np.exp(-(x["yield"] - ir_sens) * x.maturity)
+
+    x.loc[0, "index"] = "0"
+    x = x.set_index("index")
+
+    x = x[
+        [
+            "yield",
+            "maturity",
+            "discountfactor",
+            "discountfactor_plus",
+            "discountfactor_minus",
+        ]
+    ]
 
     return x
 
@@ -1388,7 +1412,7 @@ def trade_stats(R, Rf=0):
         rs[lab]["cum_ret"] = return_cumulative(con, geometric=True)
         rs[lab]["ret_ann"] = return_annualized(con, scale=252)
         rs[lab]["sd_ann"] = sd_annualized(con, scale=252)
-        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf) * sqrt(252)
+        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf)  # * sqrt(252)
         rs[lab]["sharpe"] = sharpe_ratio_annualized(con, Rf=Rf)
 
         # need to dropna to calc perc_win properly
@@ -1591,7 +1615,11 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     freq = pd.infer_freq(df.index[-10:])
 
     if scale is None:
-        if (freq == "B") or (freq == "D"):
+        if freq is None:
+            raise ValueError(
+                "Could not infer frequency of timeseries, please provide scale parameter instead"
+            )
+        elif (freq == "B") or (freq == "D"):
             scale = 252
         elif freq[0] == "W":
             scale = 52
@@ -1612,7 +1640,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
 
     # # calc annualized volatility from variance
     yhat = np.sqrt(
-        garch_fitted.forecast(horizon=forecast_horizon, start=0).variance
+        garch_fitted.forecast(horizon=forecast_horizon, start=0, reindex=True).variance
     ) * sqrt(scale)
 
     if out == "data":
@@ -1881,7 +1909,7 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     df = df.copy()
     # this assumes that the numeric component of the column name represents
     # an order to the asset contract
-    term = df.columns.str.replace("[^0-9]", "").astype(int)
+    term = df.columns.str.replace("[^0-9]", "", regex=True).astype(int)
 
     if isinstance(period, (int, float)):
         df = df.sort_index()
@@ -2029,6 +2057,9 @@ def swap_irs(
     >>> rt.swap_irs(trade_date="2020-01-04", eff_date="2020-01-06", mat_date="2022-01-06", notional=1000000, pay_rec = "rec", fixed_rate=0.05, float_curve=usSwapCurves, reset_freq='Q', disc_curve=usSwapCurves, days_in_year=360, convention="act", bus_calendar="NY", output = "all")
     """
     dates = custom_date_range(eff_date, mat_date, freq=reset_freq)
+
+    # in case mat_date does not fall evenly on freq, take last date before
+    dates = dates[dates <= mat_date]
     dates = pd.Index([pd.to_datetime(trade_date)]).append(dates)
 
     if (days_in_year in [360, 365]) == False:
@@ -2048,6 +2079,7 @@ def swap_irs(
             / 365,  # calc days to maturity from trade_date
         }
     )
+    print(df)
     disc = interpolate.splrep(disc_curve["times"], disc_curve["discounts"])
     df["disc"] = interpolate.splev(df.times, disc)
 
@@ -2495,7 +2527,7 @@ def chart_forward_curves(
         pandas series to plot with modified datetime index
         """
         df = df.copy()
-        df.columns = df.columns.str.replace("[^0-9]", "").astype(int)
+        df.columns = df.columns.str.replace("[^0-9]", "", regex=False).astype(int)
         se = df.loc[date, :]
 
         n = len(se)
@@ -2546,18 +2578,13 @@ def chart_forward_curves(
     fig.update_layout(width=800, height=800)
 
     fig.update_layout(
-        dict(
-            title=f"{code} Forward Curves",
-            yaxis_title=yaxis_title,
-            **kwargs,
-        )
+        dict(title=f"{code} Forward Curves", yaxis_title=yaxis_title, **kwargs,)
     )
 
     # Add range slider
     fig.update_layout(
         xaxis=dict(
-            rangeslider=dict(visible=True, autorange=True, thickness=0.05),
-            type="date",
+            rangeslider=dict(visible=True, autorange=True, thickness=0.05), type="date",
         )
     )
 
@@ -2582,12 +2609,7 @@ def chart_pairs(df, title="Time Series Pairs Plot", **kwargs):
 
     dims = []
     for c, i in df.iteritems():
-        dims.append(
-            dict(
-                label=c,
-                values=df[c],
-            )
-        )
+        dims.append(dict(label=c, values=df[c],))
 
     fig = go.Figure()
     fig.add_trace(
@@ -2907,11 +2929,7 @@ def chart_eia_sd(market, key, start_dt="2010-01-01", output="chart", **kwargs):
     n = len(df.category.unique())
     m = 2
     n = ceil(n / m)
-    fig = make_subplots(
-        n,
-        m,
-        subplot_titles=(" ", " ", " ", " ", " ", " "),
-    )
+    fig = make_subplots(n, m, subplot_titles=(" ", " ", " ", " ", " ", " "),)
 
     # Copy returns figures from five_year_plot to a single subplot figure
     a = 1
