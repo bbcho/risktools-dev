@@ -8,12 +8,16 @@ import geopandas
 
 
 def test_get_gis():
+    urls = [
+        "https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip",
+        "https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip",
+        "https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip",
+    ]
 
-    gf = rt.data.get_gis(
-        "https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip"
-    )
+    for url in urls:
+        gf = rt.data.get_gis(url)
 
-    assert isinstance(
-        gf, geopandas.GeoDataFrame
-    ), "get_gis failed to return geopandas dataframe"
+        assert isinstance(
+            gf, geopandas.GeoDataFrame
+        ), f"get_gis failed to return geopandas dataframe from {url}"
 

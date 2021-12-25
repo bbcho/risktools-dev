@@ -9,7 +9,7 @@ setuptools.setup(
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
-    description="Python implementation of the R package RTL",
+    description="Python implementation of the R package RTL v0.1.8",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages("src"),

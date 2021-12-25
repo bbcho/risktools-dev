@@ -4,6 +4,7 @@ import json as _json
 import numpy as _np
 import requests as _requests
 from io import BytesIO as _BytesIO
+from zipfile import ZipFile as _ZipFile
 
 
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
@@ -47,8 +48,15 @@ def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
         raise ImportError("Fiona not installed. Please install before running")
 
     fn = _requests.get(url)
+
+    # useful for when there are multiple directories or files. Takes first shape file
+    for ff in _ZipFile(_BytesIO(fn.content)).namelist():
+        if ff[-4:] == ".shp":
+            shp_file = ff
+            break
+
     zf = _ZMF(fn.content)
-    shp = zf.open()
+    shp = zf.open(shp_file)
 
     return _geopandas.GeoDataFrame.from_features(shp, crs=shp.crs)
 
