@@ -20,7 +20,7 @@ from pandas_datareader import data
 
 test_date = "2021-12-24"
 
-# # Travis CI Env Vars
+# Github Actions CI Env Vars
 up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
 
 up["eia"] = os.getenv("EIA")
