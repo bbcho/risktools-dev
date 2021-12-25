@@ -1,20 +1,20 @@
 # from ._rtl_functions import *
 import warnings
-import pandas as pd
-import numpy as np
-import quandl
+import pandas as _pd
+import numpy as _np
+import quandl as _quandl
 from math import sqrt
 from . import data
-import arch
-from scipy.optimize import least_squares
-from scipy import interpolate
-import plotly.express as px
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
+import arch as _arch
+from scipy.optimize import least_squares as _least_squares
+from scipy import interpolate as _interpolate
+import plotly.express as _px
+import plotly.graph_objects as _go
+import matplotlib.pyplot as _plt
 from ._morningstar import *
-from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.seasonal import STL as _STL
 from pandas.plotting import register_matplotlib_converters
-import seaborn as sns
+import seaborn as _sns
 
 from .charts import *
 from .pa import *
@@ -53,23 +53,23 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
 
     if date is None:
         # Last 30 days
-        edt = pd.Timestamp.now().floor("D")
+        edt = _pd.Timestamp.now().floor("D")
     else:
-        edt = pd.to_datetime(date)
+        edt = _pd.to_datetime(date)
 
-    sdt = edt - pd.DateOffset(days=30)
+    sdt = edt - _pd.DateOffset(days=30)
     print(sdt)
 
     if quandl_key is not None:
-        quandl.ApiConfig.api_key = quandl_key
+        _quandl.ApiConfig.api_key = quandl_key
 
-    fedsfund = quandl.get("FED/RIFSPFF_N_D", start_date=sdt, end_date=edt).dropna()
-    fedsfund["FedsFunds0"] = np.log((1 + fedsfund.Value / 360) ** 365)
+    fedsfund = _quandl.get("FED/RIFSPFF_N_D", start_date=sdt, end_date=edt).dropna()
+    fedsfund["FedsFunds0"] = _np.log((1 + fedsfund.Value / 360) ** 365)
     fedsfund.drop("Value", axis=1, inplace=True)
 
-    zero_1yr_plus = quandl.get("FED/SVENY", end_date=edt)
+    zero_1yr_plus = _quandl.get("FED/SVENY", end_date=edt)
 
-    zero_tb = quandl.get(
+    zero_tb = _quandl.get(
         ["FED/RIFLGFCM01_N_B", "FED/RIFLGFCM03_N_B", "FED/RIFLGFCM06_N_B"],
         start_date=sdt,
         end_date=edt,
@@ -90,14 +90,14 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     # x.maturity[0] = 1/365
 
     # add new row for today, same yield as tomorrow
-    x = pd.concat(
-        [pd.DataFrame({"maturity": [0], "yield": [x["yield"][0]]}), x],
+    x = _pd.concat(
+        [_pd.DataFrame({"maturity": [0], "yield": [x["yield"][0]]}), x],
         ignore_index=True,
     )
 
-    x["discountfactor"] = np.exp(-x["yield"] * x.maturity)
-    x["discountfactor_plus"] = np.exp(-(x["yield"] + ir_sens) * x.maturity)
-    x["discountfactor_minus"] = np.exp(-(x["yield"] - ir_sens) * x.maturity)
+    x["discountfactor"] = _np.exp(-x["yield"] * x.maturity)
+    x["discountfactor_plus"] = _np.exp(-(x["yield"] + ir_sens) * x.maturity)
+    x["discountfactor_minus"] = _np.exp(-(x["yield"] - ir_sens) * x.maturity)
 
     x.loc[0, "index"] = "0"
     x = x.set_index("index")
@@ -150,8 +150,8 @@ def bond(ytm=0.05, c=0.05, T=1, m=2, output="price"):
     ], "output not a member of ['df','price','duration']"
 
     # init df
-    df = pd.DataFrame(
-        {"t_years": np.arange(1 / m, T + 1 / m, 1 / m), "cf": [c * 100 / m] * (T * m)}
+    df = _pd.DataFrame(
+        {"t_years": _np.arange(1 / m, T + 1 / m, 1 / m), "cf": [c * 100 / m] * (T * m)}
     )
     df["t_periods"] = df.t_years * m
     df.loc[df.t_years == T, "cf"] = c * 100 / m + 100
@@ -206,8 +206,8 @@ def trade_stats(R, Rf=0):
 
     # convert series into dataframe for flexibility
     series_flag = False
-    if isinstance(r, pd.Series):
-        r = pd.DataFrame({"trade_stats": r})
+    if isinstance(r, _pd.Series):
+        r = _pd.DataFrame({"trade_stats": r})
         series_flag = True
 
     for lab, con in r.iteritems():
@@ -263,9 +263,9 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
     """
     df = _check_df(df)
 
-    if isinstance(df, pd.Series):
-        df = pd.DataFrame({df.name: df})
-    elif isinstance(df, pd.DataFrame) == False:
+    if isinstance(df, _pd.Series):
+        df = _pd.DataFrame({df.name: df})
+    elif isinstance(df, _pd.DataFrame) == False:
         raise ValueError("df is not a pandas Series or DataFrame")
 
     index_flag = False
@@ -294,7 +294,7 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
                 "Negative values passed to log returns. You will likely get NaN values using log returns",
                 RuntimeWarning,
             )
-        df = df.groupby(level=0).apply(lambda x: np.log(x / x.shift(period_return)))
+        df = df.groupby(level=0).apply(lambda x: _np.log(x / x.shift(period_return)))
     else:
         raise ValueError("ret_type is not valid")
 
@@ -351,9 +351,9 @@ def roll_adjust(
 
     df = _check_df(df)
 
-    if isinstance(df, pd.Series):
-        df = pd.DataFrame({df.name: df})
-    elif isinstance(df, pd.DataFrame) == False:
+    if isinstance(df, _pd.Series):
+        df = _pd.DataFrame({df.name: df})
+    elif isinstance(df, _pd.DataFrame) == False:
         raise ValueError("df is not a pandas Series or DataFrame")
 
     if roll_sch is None:
@@ -416,7 +416,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     df = df - df.mean()
 
     # find a more robust way to do this, rolladjust may break it
-    freq = pd.infer_freq(df.index[-10:])
+    freq = _pd.infer_freq(df.index[-10:])
 
     if scale is None:
         if freq is None:
@@ -439,11 +439,11 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
             )
 
     # a standard GARCH(1,1) model
-    garch = arch.arch_model(df, **kwargs)
+    garch = _arch.arch_model(df, **kwargs)
     garch_fitted = garch.fit()
 
     # # calc annualized volatility from variance
-    yhat = np.sqrt(
+    yhat = _np.sqrt(
         garch_fitted.forecast(horizon=forecast_horizon, start=0, reindex=True).variance
     ) * sqrt(scale)
 
@@ -452,11 +452,11 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     elif out == "fit":
         return garch_fitted
     elif out == "plotly":
-        fig = px.line(yhat)
+        fig = _px.line(yhat)
         fig.show()
         return fig
     elif out == "matplotlib":
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = _plt.subplots(1, 1)
         yhat.plot(ax=ax)
         fig.show()
         return fig, ax
@@ -533,11 +533,11 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     bear = CAPM_beta(df, df.iloc[:, 0], kind="bear")
 
     # create array for non-linear least squares exponential
-    prompt = np.arange(0, mkt.shape[0]) + 1
+    prompt = _np.arange(0, mkt.shape[0]) + 1
 
     # proposed model for beta as a function of prompt
     def beta_model(x, prompt):
-        return x[0] * np.exp(x[1] * prompt) + x[2]
+        return x[0] * _np.exp(x[1] * prompt) + x[2]
 
     # cost function for residuals. Final equation that we're trying to minimize is
     # beta - x0*exp(x1*prompt) + x2
@@ -547,12 +547,12 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     # run least squares fit. Note that I ignore the first row of mkt and prompt arrays since
     # correlation of a var with itself should always be 1. Also, the beta of the second contract
     # will likely be a lot less then 1, and so ignoring the 1st contract will allow for a better fit
-    r = least_squares(
-        beta_residuals, x0=[-1, -1, -1], args=(np.array(mkt[1:]), prompt[1:])
+    r = _least_squares(
+        beta_residuals, x0=[-1, -1, -1], args=(_np.array(mkt[1:]), prompt[1:])
     )
 
     # construct output df
-    out = pd.DataFrame()
+    out = _pd.DataFrame()
     out["all"] = mkt
     out["bull"] = bull
     out["bear"] = bear
@@ -565,10 +565,14 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
         out = out[
             1:
         ]  # exclude beta of front contract with itself (always 1, no information)
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=out.index, y=out["all"], mode="lines", name="all"))
-        fig.add_trace(go.Scatter(x=out.index, y=out["bear"], mode="lines", name="bear"))
-        fig.add_trace(go.Scatter(x=out.index, y=out["bull"], mode="lines", name="bear"))
+        fig = _go.Figure()
+        fig.add_trace(_go.Scatter(x=out.index, y=out["all"], mode="lines", name="all"))
+        fig.add_trace(
+            _go.Scatter(x=out.index, y=out["bear"], mode="lines", name="bear")
+        )
+        fig.add_trace(
+            _go.Scatter(x=out.index, y=out["bull"], mode="lines", name="bear")
+        )
         fig.update_xaxes(range=[out.index.min() - 1, out.index.max() + 1])
         fig.update_layout(
             title="Contract Betas vs Front Contract: Bear (Bull) = Beta in Down (Up) Moves",
@@ -631,27 +635,27 @@ def npv(
     if break_even == True:
         print("test")
         disc_factors["yield"] = be_yield
-        disc_factors["discountfactor"] = np.exp(
+        disc_factors["discountfactor"] = _np.exp(
             -disc_factors["yield"] * disc_factors.maturity
         )
 
-    n = len(np.arange(0, T, cf_freq)) + 1
+    n = len(_np.arange(0, T, cf_freq)) + 1
 
-    disc_intp = interpolate.splrep(disc_factors.maturity, disc_factors.discountfactor)
+    disc_intp = _interpolate.splrep(disc_factors.maturity, disc_factors.discountfactor)
 
-    df = pd.DataFrame(
+    df = _pd.DataFrame(
         {
-            "t": np.append(
-                np.arange(0, T, cf_freq), [T]
-            ),  # need to append T since np.arange is of type [a,b)
-            "cf": np.ones(n) * C,
+            "t": _np.append(
+                _np.arange(0, T, cf_freq), [T]
+            ),  # need to append T since _np.arange is of type [a,b)
+            "cf": _np.ones(n) * C,
         }
     )
 
     df.loc[df.t == 0, "cf"] = init_cost
     df.loc[df.t == T, "cf"] = F
 
-    df["df"] = interpolate.splev(df.t, disc_intp)
+    df["df"] = _interpolate.splev(df.t, disc_intp)
     df["pv"] = df.cf * df.df
 
     return df
@@ -692,19 +696,19 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
     dt = T / n
 
     # define u, d, and risk-neutral probability
-    u = np.exp(sigma * sqrt(dt))
-    d = np.exp(-sigma * sqrt(dt))
-    q = (np.exp(Rf * dt) - d) / (u - d)
+    u = _np.exp(sigma * sqrt(dt))
+    d = _np.exp(-sigma * sqrt(dt))
+    q = (_np.exp(Rf * dt) - d) / (u - d)
 
     # define our asset tree prices
-    asset = np.zeros([n + 1, n + 1])
+    asset = _np.zeros([n + 1, n + 1])
 
     for i in range(0, n + 1):
         for j in range(0, i + 1):
             asset[i, j] = s * (u ** j) * (d ** (i - j))
 
     # create matrix of the same dims as asset price tree
-    option = np.zeros([n + 1, n + 1])
+    option = _np.zeros([n + 1, n + 1])
     # replace last row with maturity payoffs
     if type == "call":
         option[-1, :] = asset[-1, :] - x
@@ -720,7 +724,7 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
         for j in range(0, i + 1):
             option[i, j] = (
                 (1 - q) * option[i + 1, j] + q * option[i + 1, j + 1]
-            ) / np.exp(Rf * dt)
+            ) / _np.exp(Rf * dt)
 
     # indicator if model can be used sigma > rsqrt(dt)
     if sigma > sqrt(dt) * Rf:
@@ -783,12 +787,12 @@ def stl_decomposition(
     """
 
     register_matplotlib_converters()
-    sns.set_style("darkgrid")
+    _sns.set_style("darkgrid")
 
     if resample_freq is not None:
         df = df.resample(resample_freq).mean()
 
-    stl = STL(
+    stl = _STL(
         df,
         period=period,
         seasonal=seasonal,
@@ -835,7 +839,7 @@ def get_eia_df(tables, key):
     if isinstance(tables, list) == False:
         tables = [tables]
 
-    eia = pd.DataFrame()
+    eia = _pd.DataFrame()
 
     for tbl in tables:
         url = r"http://api.eia.gov/series/?api_key={}&series_id={}&out=json".format(
@@ -843,19 +847,19 @@ def get_eia_df(tables, key):
         )
         tmp = json.loads(requests.get(url).text)
 
-        tf = pd.DataFrame(tmp["series"][0]["data"], columns=["date", "value"])
+        tf = _pd.DataFrame(tmp["series"][0]["data"], columns=["date", "value"])
         tf["table_name"] = tmp["series"][0]["name"]
         tf["series_id"] = tmp["series"][0]["series_id"]
         eia = eia.append(tf)
 
     eia.loc[eia.date.str.len() < 7, "date"] += "01"
 
-    eia.date = pd.to_datetime(eia.date)
+    eia.date = _pd.to_datetime(eia.date)
     return eia
 
 
 def _check_df(df):
-    # if isinstance(df.index, pd.DatetimeIndex):
+    # if isinstance(df.index, _pd.DatetimeIndex):
     #     # reset index if the df index is a datetime object
     #     df = df.reset_index().copy()
 
@@ -863,7 +867,7 @@ def _check_df(df):
 
 
 # if __name__ == "__main__":
-#     np.random.seed(42)
+#     _np.random.seed(42)
 #     import json
 
 #     with open("../../user.json") as jfile:

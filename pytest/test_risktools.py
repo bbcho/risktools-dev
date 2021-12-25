@@ -15,19 +15,18 @@ from pandas_datareader import data
 # stl_decomp test
 # chart_zscore only tests figure object - test actual stl decomp
 
-
-with open("../user.json") as js:
-    up = json.load(js)
+# with open("../user.json") as js:
+#     up = json.load(js)
 
 test_date = "2021-12-24"
 
 # # Travis CI Env Vars
-# up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
+up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
 
-# up["eia"] = os.getenv("EIA")
-# up["quandl"] = os.getenv("QUANDL")
-# up["m*"]["pass"] = os.getenv("MS_PASS")
-# up["m*"]["user"] = os.getenv("MS_USER")
+up["eia"] = os.getenv("EIA")
+up["quandl"] = os.getenv("QUANDL")
+up["m*"]["pass"] = os.getenv("MS_PASS")
+up["m*"]["user"] = os.getenv("MS_USER")
 
 
 def _load_json(fn, dataframe=True):

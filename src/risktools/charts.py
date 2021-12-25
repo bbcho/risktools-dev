@@ -2,8 +2,6 @@ from .__init__ import *
 from . import data
 import pandas as pd
 import numpy as np
-from math import sqrt
-from . import data
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.colors import DEFAULT_PLOTLY_COLORS
