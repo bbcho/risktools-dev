@@ -1,0 +1,100 @@
+---
+title: "RTL_examples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(RTL)
+library(PerformanceAnalytics)
+library(tidyverse)
+library(tidyquant)
+library(timetk)
+library(jsonlite)
+library(reticulate)
+
+# Give the input file name to the function.
+up <- jsonlite::fromJSON(file("../../user.json"))
+
+username <- up$"m*"$user
+password <- up$"m*"$pass
+EIAkey <- up$eia
+q_key <- Sys.getenv("QUANDL_KEY")
+```
+
+
+```{r}
+# conda_python('risktools')
+# conda_list()
+use_condaenv("risktools", required=TRUE)
+
+py_config()
+```
+
+
+```{python}
+import risktools as rt
+import plotly
+```
+
+```{r}
+chart_eia_steo(key = EIAkey, market = "globalOil")
+```
+
+```{python}
+fig = rt.chart_eia_steo(key = r.EIAkey, market = "globalOil", start_dt='2018-07-01')
+
+plotly.offline.plot(fig, auto_open = False)
+```
+
+
+```{r, echo=FALSE}
+htmltools::includeHTML("temp-plot.html")
+```
+
+
+```{r}
+getCurve(iuser=username, ipass=password, date='2021-12-20', contract="CL")
+```
+
+```{r}
+getCurve <- function(feed = "Crb_Futures_Price_Volume_And_Open_Interest",contract = "CL",date ="2020-08-10",
+                     fields = c("Open, High, Low, Close"),
+                     iuser = "x@xyz.com", ipassword = "pass") {
+  URL = httr::modify_url(url = "https://mp.morningstarcommodity.com",
+                         path = paste0("/lds/feeds/",feed, "/curve?root=",contract,"&cols=",gsub(" ","",fields),
+                                       "&date=",date))
+  es = RCurl::getURL(url = URL, userpw = paste(iuser,ipassword,sep = ":"))
+  out <- jsonlite::fromJSON(es) %>%
+    dplyr::as_tibble() %>%
+    dplyr::arrange(deliveryStartDate)
+  
+  # return(out)
+
+  if (grepl("LME_MonthlyDelayed_Derived",feed)) {
+    out <- out %>% dplyr::mutate(expirationDate = lubridate::rollback(as.Date(deliveryStartDate),roll_to_first = T) - 1)
+    es <- NA
+  } else {
+    es <- out$keys %>% unlist() %>% unique()
+  }
+
+  out <- out %>%
+    dplyr::transmute(expirationDate = as.Date(expirationDate),
+                     type = col,
+                     value = as.numeric(value)) %>%
+    tidyr::pivot_wider(names_from = type, values_from = value) %>%
+    dplyr::arrange(expirationDate)
+
+  out <- out %>%
+    dplyr::mutate(contract = paste(contract, sprintf('%0.2d', 1:nrow(out)), sep = ""),
+                  code = es) %>%
+    dplyr::select(contract, code, dplyr::everything())
+  return(out)
+}
+```
+

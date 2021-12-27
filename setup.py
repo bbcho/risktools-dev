@@ -33,7 +33,6 @@ setuptools.setup(
         "numpy",
         "matplotlib",
         "plotly",
-        # "geopandas",
         "quandl",
         "scikit-learn",
         "arch",

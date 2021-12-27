@@ -1,26 +1,17 @@
-# Script to building output files from each RTL function to use for testing
-# purposes in risktools
-
+library(RTL)
 library(PerformanceAnalytics)
 library(tidyverse)
 library(tidyquant)
-library(RTL)
 library(timetk)
 library(jsonlite)
 
 # Give the input file name to the function.
-up <- jsonlite::fromJSON(file("../user.json"))
+up <- jsonlite::fromJSON(file("../../user.json"))
 
 username <- up$"m*"$user
 password <- up$"m*"$pass
-eia_key <- up$eia
+EIAkey <- up$eia
 q_key <- Sys.getenv("QUANDL_KEY")
-
-
-df <- getCurve(iuser=username, ipass=password, date='2021-12-20', contract="CL")
-write(jsonlite::toJSON(df, digits = 8), "getCurveCL.json")
-df <- getCurve(iuser=username, ipass=password, date='2021-12-20', contract="BG")
-write(jsonlite::toJSON(df, digits = 8), "getCurveBG.json")
 
 
 # ir_df_us
@@ -292,7 +283,7 @@ alt_garch <- function(x = x, out = TRUE) {
   if (xts::periodicity(x)$scale == "monthly") {
     garchvol <- fit@fit$sigma * sqrt(12)
   }
-
+  
   voldata <- merge(x, garchvol)
   colnames(voldata) <- c("returns", "garch")
   if (out == "data") {

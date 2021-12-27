@@ -107,10 +107,121 @@ def get_prices(
         params = _urllib.parse.urlencode(p_dict)
         r = s.get(url.format(feed, params),)
         tf = _pd.read_csv(_io.StringIO(r.content.decode("utf-8"))).set_index("Date")
+        tf.index = _pd.to_datetime(tf.index)
         tf.columns = tf.columns.str.replace(
             "\(([^)]*)\)", "", regex=True
         )  # clean up columns by removing ticker/code names
         tf = _pd.concat([tf], keys=[code])
+
+        df = df.append(tf)
+
+    return df
+
+
+def get_curves(
+    username,
+    password,
+    feed="Crb_Futures_Price_Volume_And_Open_Interest",
+    contract_roots=["CL", "BG"],
+    fields=["Open", "High", "Low", "Close"],
+    date=None,
+):
+    """
+    function to get forward curves from the Morningstar data API. The following feeds are supported
+
+    * Crb_Futures_Price_Volume_And_Open_Interest
+    * CME_NymexFuturesIntraday_EOD
+    * ICE_EuroFutures
+    * ICE_EuroFutures_continuous
+
+    Parameters
+    ----------
+    username : str
+        Morningstar API username
+    password : str
+        Morningstar API password
+    feed : str
+        API feed to get data from, by default "CME_NymexFutures_EOD"
+    contract_roots : list[tuple[str]]
+        either a string contract root code (i.e. "CL" for NYMEX WTI) or a list roots to return, by default ["CL", "BG"]. 
+    date : str | datetime, optional
+        Date of curve to pull. By default None which causes function to return data for today.
+    """
+    if isinstance(contract_roots, list) == False:
+        contract_roots = [contract_roots]
+    s = _requests.Session()
+    s.auth = (username, password)
+
+    if date is not None:
+        date = _pd.to_datetime(date)
+    else:
+        date = _pd.Timestamp.now().date()
+
+    url = "https://mp.morningstarcommodity.com/lds/feeds/{}/curve?{}"
+
+    df = _pd.DataFrame()
+
+    for root in contract_roots:
+        p_dict = dict()
+
+        if feed in [
+            "Crb_Futures_Price_Volume_And_Open_Interest",
+            "CME_NymexFuturesIntraday_EOD",
+            "ICE_EuroFutures",
+            "ICE_EuroFutures_continuous",
+        ]:
+            p_dict["root"] = root
+        else:
+            raise ValueError("feed not recognized")
+
+        p_dict["cols"] = ",".join(fields)
+        p_dict["date"] = date.strftime("%Y-%m-%d")
+        # p_dict["out"] = "json"
+
+        # get data from API
+        params = _urllib.parse.urlencode(p_dict)
+        r = s.get(url.format(feed, params),)
+
+        # format df
+        tf = _pd.DataFrame(r.json())
+        tf["code"] = tf["keys"].apply(lambda x: x[0]["vendorcode"])
+        tf = tf.drop("keys", axis=1)
+
+        tf.value = _pd.to_numeric(tf.value)
+        tf.expirationDate = _pd.to_datetime(tf.expirationDate)
+
+        tf["contract"] = root
+        tf = tf[["contract", "code", "expirationDate", "col", "value"]]
+        tf = tf.rename({"col": "type"}, axis=1)
+
+        tf = (
+            tf.set_index(["contract", "code", "expirationDate", "type"])
+            .unstack()
+            .droplevel(0, 1)
+            .reset_index()
+            .sort_values("expirationDate")
+        )
+
+        tf["rownum"] = tf.index + 1
+        tf["contract"] += tf.rownum.astype(str).str.rjust(2, "0")
+        tf = tf.drop("rownum", axis=1)
+        tf = tf[["contract", "code", "expirationDate", "Open", "High", "Low", "Close"]]
+        tf.columns.name = ""
+
+        if len(contract_roots) > 1:
+            tf["root"] = root
+            tf = tf[
+                [
+                    "root",
+                    "contract",
+                    "code",
+                    "expirationDate",
+                    "Open",
+                    "High",
+                    "Low",
+                    "Close",
+                ]
+            ]
 
         df = df.append(tf)
 

@@ -1,9 +1,10 @@
 # Performance Analytics Functions
 
-import pandas as pd
-import numpy as np
-from math import sqrt
-from sklearn.linear_model import LinearRegression
+import pandas as _pd
+import numpy as _np
+from sklearn.linear_model import LinearRegression as _LinearRegression
+
+# from math import sqrt as _sqrt
 
 
 def return_cumulative(r, geometric=True):
@@ -231,10 +232,10 @@ def sd_annualized(x, scale=None, *args):
     >>> sd_annualized(x=df[('Adj Close','SPY')])
     >>> sd_annualized(x=df['Adj Close'])
     """
-    if (~isinstance(x, pd.DataFrame) & ~isinstance(x, pd.Series)) == True:
+    if (~isinstance(x, _pd.DataFrame) & ~isinstance(x, _pd.Series)) == True:
         raise ValueError("x must be a pandas Series or DataFrame")
 
-    if isinstance(x.index, pd.DatetimeIndex):
+    if isinstance(x.index, _pd.DatetimeIndex):
         if scale is None:
             if (x.index.freq == "D") | (x.index.freq == "B"):
                 scale = 252
@@ -256,7 +257,7 @@ def sd_annualized(x, scale=None, *args):
         )
 
     x = x.dropna()
-    res = x.std() * sqrt(scale)
+    res = x.std() * _np.sqrt(scale)
 
     return res
 
@@ -295,18 +296,18 @@ def omega_sharpe_ratio(R, MAR, *args):
     >>> mar = 0.005
     >>> print(omega_sharpe_ratio(portfolio_bacon[,1], MAR))
     """
-    if isinstance(R, (pd.Series, pd.DataFrame)):
-        if isinstance(R.index, pd.DatetimeIndex) & isinstance(
-            MAR, (pd.Series, pd.DataFrame)
+    if isinstance(R, (_pd.Series, _pd.DataFrame)):
+        if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+            MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, pd.DatetimeIndex):
+            if ~isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(
-            MAR, (pd.Series, pd.DataFrame)
+        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+            MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if isinstance(MAR.index, pd.DatetimeIndex):
+            if isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
                 )
@@ -314,8 +315,8 @@ def omega_sharpe_ratio(R, MAR, *args):
     R = R.dropna()
     r = R[R.gt(MAR)]
 
-    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(
-        R, (pd.Series, pd.DataFrame)
+    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) & isinstance(
+        R, (_pd.Series, _pd.DataFrame)
     ):
         # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
         # indices are of the same type
@@ -324,7 +325,7 @@ def omega_sharpe_ratio(R, MAR, *args):
         # works for any array_like MAR. Scalars will just return itself
         # if MAR is array_like, we have to assume that R and MAR both
         # cover the same time period
-        MAR = np.mean(MAR)
+        MAR = _np.mean(MAR)
 
     result = (
         upside_risk(R, MAR, stat="potential")
@@ -389,18 +390,18 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     >>> print(upside_risk(df['Adj Close'], MAR=0, stat='potential'))
     """
 
-    if isinstance(R, (pd.Series, pd.DataFrame)):
-        if isinstance(R.index, pd.DatetimeIndex) & isinstance(
-            MAR, (pd.Series, pd.DataFrame)
+    if isinstance(R, (_pd.Series, _pd.DataFrame)):
+        if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+            MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, pd.DatetimeIndex):
+            if ~isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(
-            MAR, (pd.Series, pd.DataFrame)
+        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+            MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if isinstance(MAR.index, pd.DatetimeIndex):
+            if isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
                 )
@@ -408,8 +409,8 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     R = R.dropna()
     r = R[R.gt(MAR)]
 
-    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(
-        R, (pd.Series, pd.DataFrame)
+    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) & isinstance(
+        R, (_pd.Series, _pd.DataFrame)
     ):
         # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
         # indices are of the same type
@@ -418,7 +419,7 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
         # works for any array_like MAR. Scalars will just return itself
         # if MAR is array_like, we have to assume that R and MAR both
         # cover the same time period
-        MAR = np.mean(MAR)
+        MAR = _np.mean(MAR)
 
     if method == "full":
         length = len(R)
@@ -426,7 +427,7 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
         length = len(r)
 
     if stat == "risk":
-        result = np.sqrt(r.sub(MAR).pow(2).div(length).sum())
+        result = _np.sqrt(r.sub(MAR).pow(2).div(length).sum())
     elif stat == "variance":
         result = r.sub(MAR).pow(2).div(length).sum()
     else:
@@ -474,18 +475,18 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     >>> print(downside_deviation(df['Adj Close'], MAR=0))
     """
 
-    if isinstance(R, (pd.Series, pd.DataFrame)):
-        if isinstance(R.index, pd.DatetimeIndex) & isinstance(
-            MAR, (pd.Series, pd.DataFrame)
+    if isinstance(R, (_pd.Series, _pd.DataFrame)):
+        if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+            MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, pd.DatetimeIndex):
+            if ~isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, pd.DatetimeIndex) & isinstance(
-            MAR, (pd.Series, pd.DataFrame)
+        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+            MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if isinstance(MAR.index, pd.DatetimeIndex):
+            if isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
                 )
@@ -493,8 +494,8 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     R = R.dropna()
     r = R[R.lt(MAR)]
 
-    if isinstance(MAR, (pd.Series, pd.DataFrame)) & isinstance(
-        R, (pd.Series, pd.DataFrame)
+    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) & isinstance(
+        R, (_pd.Series, _pd.DataFrame)
     ):
         # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
         # indices are of the same type
@@ -503,7 +504,7 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
         # works for any array_like MAR. Scalars will just return itself
         # if MAR is array_like, we have to assume that R and MAR both
         # cover the same time period
-        MAR = np.mean(MAR)
+        MAR = _np.mean(MAR)
 
     if method == "full":
         length = len(R)
@@ -513,8 +514,8 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     if potential:
         result = r.mul(-1).add(MAR).div(length).sum()
     else:
-        result = np.sqrt(r.mul(-1).add(MAR).pow(2).div(length).sum())
-        # result = r.mul(-1).add(MAR).pow(2).div(length).sum().apply(np.sqrt)
+        result = _np.sqrt(r.mul(-1).add(MAR).pow(2).div(length).sum())
+        # result = r.mul(-1).add(MAR).pow(2).div(length).sum().apply(_np.sqrt)
 
     return result
 
@@ -683,17 +684,17 @@ def find_drawdowns(R, geometric=True, *args):
 
     # convert series into dataframe for flexibility
     series_flag = False
-    if isinstance(dd, pd.Series):
-        dd = pd.DataFrame({"drawdown": dd})
+    if isinstance(dd, _pd.Series):
+        dd = _pd.DataFrame({"drawdown": dd})
         series_flag = True
 
     for lab, con in dd.iteritems():
         rs[lab] = dict()
-        rs[lab]["return"] = np.array([]).astype(float)
-        rs[lab]["from"] = np.array([]).astype(int)
-        rs[lab]["to"] = np.array([]).astype(int)
-        rs[lab]["length"] = np.array([]).astype(int)
-        rs[lab]["trough"] = np.array([]).astype(int)
+        rs[lab]["return"] = _np.array([]).astype(float)
+        rs[lab]["from"] = _np.array([]).astype(int)
+        rs[lab]["to"] = _np.array([]).astype(int)
+        rs[lab]["length"] = _np.array([]).astype(int)
+        rs[lab]["trough"] = _np.array([]).astype(int)
 
         if con[0] >= 0:
             prior_sign = 1
@@ -717,10 +718,10 @@ def find_drawdowns(R, geometric=True, *args):
                     dmin = i
                 to = i + 1
             else:
-                rs[lab]["return"] = np.append(rs[lab]["return"], sofar)
-                rs[lab]["from"] = np.append(rs[lab]["from"], frm)
-                rs[lab]["trough"] = np.append(rs[lab]["trough"], dmin)
-                rs[lab]["to"] = np.append(rs[lab]["to"], to)
+                rs[lab]["return"] = _np.append(rs[lab]["return"], sofar)
+                rs[lab]["from"] = _np.append(rs[lab]["from"], frm)
+                rs[lab]["trough"] = _np.append(rs[lab]["trough"], dmin)
+                rs[lab]["to"] = _np.append(rs[lab]["to"], to)
 
                 frm = i
                 sofar = r
@@ -728,10 +729,10 @@ def find_drawdowns(R, geometric=True, *args):
                 dmin = i
                 prior_sign = this_sign
 
-        rs[lab]["return"] = np.append(rs[lab]["return"], sofar)
-        rs[lab]["from"] = np.append(rs[lab]["from"], frm)
-        rs[lab]["trough"] = np.append(rs[lab]["trough"], dmin)
-        rs[lab]["to"] = np.append(rs[lab]["to"], to)
+        rs[lab]["return"] = _np.append(rs[lab]["return"], sofar)
+        rs[lab]["from"] = _np.append(rs[lab]["from"], frm)
+        rs[lab]["trough"] = _np.append(rs[lab]["trough"], dmin)
+        rs[lab]["to"] = _np.append(rs[lab]["to"], to)
 
         rs[lab]["length"] = rs[lab]["to"] - rs[lab]["from"] + 1
         rs[lab]["peaktotrough"] = rs[lab]["trough"] - rs[lab]["from"] + 1
@@ -771,29 +772,29 @@ def _beta(y, x, subset=None):
     y = y.dropna()
 
     if subset is None:
-        subset = np.repeat(True, len(x))
+        subset = _np.repeat(True, len(x))
     else:
         subset = subset.dropna().astype(bool)
 
     if (
-        (isinstance(x, (np.ndarray, pd.Series)) == False)
-        & (isinstance(y, (np.ndarray, pd.Series)) == False)
-        & (isinstance(subset, (np.ndarray, pd.Series)) == False)
+        (isinstance(x, (_np.ndarray, _pd.Series)) == False)
+        & (isinstance(y, (_np.ndarray, _pd.Series)) == False)
+        & (isinstance(subset, (_np.ndarray, _pd.Series)) == False)
     ):
         raise ValueError(
             "all arguements of _beta must be pandas Series or numpy arrays"
         )
 
     # convert to arrays
-    x = np.array(x)
-    y = np.array(y)
-    subset = np.array(subset)
+    x = _np.array(x)
+    y = _np.array(y)
+    subset = _np.array(subset)
 
     # subset
     x = x[subset]
     y = y[subset]
 
-    model = LinearRegression()
+    model = _LinearRegression()
     model.fit(x.reshape((-1, 1)), y)
     beta = model.coef_
 
@@ -881,16 +882,16 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
 
     if kind == "bear":
         subset = xRb.lt(0).mask(
-            xRb.isna(), np.nan
+            xRb.isna(), _np.nan
         )  # need to include the mask, otherwise lt/gt returns False for NaN
     elif kind == "bull":
         subset = xRb.gt(0).mask(
-            xRb.isna(), np.nan
+            xRb.isna(), _np.nan
         )  # need to include the mask, otherwise lt/gt returns False for NaN
     else:
         subset = None
 
-    if isinstance(xRa, pd.DataFrame):
+    if isinstance(xRa, _pd.DataFrame):
         # applies function _beta to each columns of df
         rs = xRa.apply(lambda x: _beta(x, xRb, subset), axis=0)
     else:
@@ -960,10 +961,10 @@ def _check_ts(R, scale, name="R"):
     -------
     tuple with R as Series or Dataframe and scale as int
     """
-    if (~isinstance(R, pd.DataFrame) & ~isinstance(R, pd.Series)) == True:
+    if (~isinstance(R, _pd.DataFrame) & ~isinstance(R, _pd.Series)) == True:
         raise ValueError(f"{name} must be a pandas Series or DataFrame")
 
-    if isinstance(R.index, pd.DatetimeIndex):
+    if isinstance(R.index, _pd.DatetimeIndex):
         if scale is None:
             if (R.index.freq == "D") | (R.index.freq == "B"):
                 scale = 252

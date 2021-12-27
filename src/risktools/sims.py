@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
-from math import sqrt
+import pandas as _pd
+import numpy as _np
+
+# from math import sqrt
 
 
 def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1 / 12):
@@ -28,9 +29,9 @@ def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1 / 12):
     s = [s0] * int(periods)
 
     for i in range(1, int(periods)):
-        s[i] = s[i - 1] * np.exp(
+        s[i] = s[i - 1] * _np.exp(
             (drift - (sigma ** 2) / 2) * dt
-            + sigma * np.random.normal(loc=0, scale=1) * sqrt(dt)
+            + sigma * _np.random.normal(loc=0, scale=1) * _np.sqrt(dt)
         )
 
     return s
@@ -90,37 +91,37 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000):
         ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
-    out = np.zeros((periods, sims))
-    out = pd.DataFrame(data=out)
+    out = _np.zeros((periods, sims))
+    out = _pd.DataFrame(data=out)
 
     # set first row as starting value of sim
     out.loc[0, :] = s0
 
     # print half-life of theta
-    print("Half-life of theta in days = ", np.log(2) / theta * bdays_in_year)
+    print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
     if isinstance(mu, list):
-        mu = pd.Series(mu)
+        mu = _pd.Series(mu)
 
     for i, _ in out.iterrows():
         if i == 0:
             continue  # skip first row
 
         # calc gaussian vector
-        ep = pd.Series(np.random.normal(size=sims))
+        ep = _pd.Series(_np.random.normal(size=sims))
 
         # calc step
-        if isinstance(mu, list) | isinstance(mu, pd.Series):
+        if isinstance(mu, list) | isinstance(mu, _pd.Series):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) * dt
-                + sigma * ep * sqrt(dt)
+                + sigma * ep * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu - out.iloc[i - 1, :]) * dt
-                + sigma * ep * sqrt(dt)
+                + sigma * ep * _np.sqrt(dt)
             )
 
     return out
@@ -164,7 +165,7 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252):
     >>> import risktools as rt
     >>> rt.simOU()
     """
-    s = np.array(simOU_arr(s0, mu, theta, sigma, T, dt, sims=1).iloc[:, 0])
+    s = _np.array(simOU_arr(s0, mu, theta, sigma, T, dt, sims=1).iloc[:, 0])
 
     return s
 
@@ -240,38 +241,38 @@ def simOUJ_arr(
         ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
-    s = np.zeros((periods, sims))
-    s = pd.DataFrame(data=s)
+    s = _np.zeros((periods, sims))
+    s = _pd.DataFrame(data=s)
 
     # set first row as starting value of sim
     s.loc[0, :] = s0
 
     # print half-life of theta
-    print("Half-life of theta in days = ", np.log(2) / theta * bdays_in_year)
+    print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
     if isinstance(mu, list):
-        mu = pd.Series(mu)
+        mu = _pd.Series(mu)
 
     for i, _ in s.iterrows():
         if i == 0:
             continue  # skip first row
 
         # calc gaussian and poisson vectors
-        ep = pd.Series(np.random.normal(size=sims))
-        elp = pd.Series(
-            np.random.lognormal(mean=np.log(jump_avgsize), sigma=jump_stdv, size=sims)
+        ep = _pd.Series(_np.random.normal(size=sims))
+        elp = _pd.Series(
+            _np.random.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=sims)
         )
-        jp = pd.Series(np.random.poisson(lam=jump_prob * dt, size=sims))
+        jp = _pd.Series(_np.random.poisson(lam=jump_prob * dt, size=sims))
 
         # calc step
-        if isinstance(mu, list) | isinstance(mu, pd.Series):
+        if isinstance(mu, list) | isinstance(mu, _pd.Series):
             s.iloc[i, :] = (
                 s.iloc[i - 1, :]
                 + theta
                 * (mu.iloc[i - 1] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
                 * s.iloc[i - 1, :]
                 * dt
-                + sigma * s.iloc[i - 1, :] * ep * sqrt(dt)
+                + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
                 + jp * elp
             )
         else:
@@ -281,7 +282,7 @@ def simOUJ_arr(
                 * (mu - jump_prob * jump_avgsize - s.iloc[i - 1, :])
                 * s.iloc[i - 1, :]
                 * dt
-                + sigma * s.iloc[i - 1, :] * ep * sqrt(dt)
+                + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
                 + jp * elp
             )
 
@@ -345,7 +346,7 @@ def simOUJ(
     >>> import risktools as rt
     >>> rt.simOUJ()
     """
-    s = np.array(
+    s = _np.array(
         simOUJ_arr(
             s0, mu, theta, sigma, jump_prob, jump_avgsize, jump_stdv, T, dt, sims=1
         ).iloc[:, 0]
@@ -385,13 +386,13 @@ def fitOU(spread):
 
     mu = (Sy * Sxx - Sx * Sxy) / ((n - 1) * (Sxx - Sxy) - (Sx ** 2 - Sx * Sy))
     theta = (
-        -np.log(
+        -_np.log(
             (Sxy - mu * Sx - mu * Sy + (n - 1) * mu ** 2)
             / (Sxx - 2 * mu * Sx + (n - 1) * mu ** 2)
         )
         / delta
     )
-    a = np.exp(-theta * delta)
+    a = _np.exp(-theta * delta)
     sigmah2 = (
         Syy
         - 2 * a * Sxy
@@ -400,7 +401,7 @@ def fitOU(spread):
         + (n - 1) * mu ** 2 * (1 - a) ** 2
     ) / (n - 1)
     print((sigmah2) * 2 * theta / (1 - a ** 2))
-    sigma = sqrt((sigmah2) * 2 * theta / (1 - a ** 2))
+    sigma = _np.sqrt((sigmah2) * 2 * theta / (1 - a ** 2))
     theta = {"theta": theta, "mu": mu, "sigma": sigma}
 
     return theta

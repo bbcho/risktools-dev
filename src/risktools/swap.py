@@ -1,8 +1,11 @@
+from numpy import mat
 from . import data
 
-import pandas as pd
-from scipy import interpolate
+import pandas as _pd
+from scipy import interpolate as _interpolate
 from ._morningstar import *
+
+import pandas_datareader as _pdr
 
 us_swap = data.open_data("usSwapCurves")
 
@@ -19,22 +22,22 @@ def custom_date_range(start, end, freq):
     else:
         raise ValueError("freq is not in ['M','Q','H' or 'Y']")
 
-    dr = [pd.to_datetime(start)]
+    dr = [_pd.to_datetime(start)]
 
     i = 1
-    while dr[-1] < pd.to_datetime(end):
-        dr.append(dr[0] + pd.DateOffset(months=mul * i))
+    while dr[-1] < _pd.to_datetime(end):
+        dr.append(dr[0] + _pd.DateOffset(months=mul * i))
         i += 1
 
-    return pd.Index(dr)
+    return _pd.Index(dr)
 
 
 def swap_irs(
-    trade_date=pd.Timestamp.now().floor("D"),
-    eff_date=pd.Timestamp.now().floor("D") + pd.DateOffset(days=2),
-    mat_date=pd.Timestamp.now().floor("D")
-    + pd.DateOffset(days=2)
-    + pd.DateOffset(years=2),
+    trade_date=_pd.Timestamp.now().floor("D"),
+    eff_date=_pd.Timestamp.now().floor("D") + _pd.DateOffset(days=2),
+    mat_date=_pd.Timestamp.now().floor("D")
+    + _pd.DateOffset(days=2)
+    + _pd.DateOffset(years=2),
     notional=1000000,
     pay_rec="rec",
     fixed_rate=0.05,
@@ -96,7 +99,7 @@ def swap_irs(
 
     # in case mat_date does not fall evenly on freq, take last date before
     dates = dates[dates <= mat_date]
-    dates = pd.Index([pd.to_datetime(trade_date)]).append(dates)
+    dates = _pd.Index([_pd.to_datetime(trade_date)]).append(dates)
 
     if (days_in_year in [360, 365]) == False:
         raise ValueError("days_in_year must be either 360 or 365")
@@ -105,26 +108,26 @@ def swap_irs(
     if convention != "act":
         raise ValueError("function only defined for convention='act'")
 
-    df = pd.DataFrame(
+    df = _pd.DataFrame(
         {
             "dates": dates,
             "day2next": (dates[1:] - dates[:-1]).days.append(
-                pd.Index([0])
+                _pd.Index([0])
             ),  # calc days to next period, short one element at end so add zero
             "times": (dates - dates[0]).days
             / 365,  # calc days to maturity from trade_date
         }
     )
     print(df)
-    disc = interpolate.splrep(disc_curve["times"], disc_curve["discounts"])
-    df["disc"] = interpolate.splev(df.times, disc)
+    disc = _interpolate.splrep(disc_curve["times"], disc_curve["discounts"])
+    df["disc"] = _interpolate.splev(df.times, disc)
 
     df["fixed"] = notional * fixed_rate * (df.day2next / days_in_year)
     df.loc[df.day2next <= 20, "fixed"] = 0
     df.fixed = df.fixed.shift() * df.disc
 
-    disc_float = interpolate.splrep(float_curve["times"], float_curve["discounts"])
-    df["disc_float"] = interpolate.splev(df.times, disc_float)
+    disc_float = _interpolate.splrep(float_curve["times"], float_curve["discounts"])
+    df["disc_float"] = _interpolate.splev(df.times, disc_float)
     df["floating"] = notional * (df.disc_float / df.disc_float.shift(-1) - 1)
     df.loc[df.day2next <= 20, "floating"] = 0
     df.floating = df.floating.shift() * df.disc
@@ -133,7 +136,7 @@ def swap_irs(
     df = df.fillna(0)
     pv = df.net.sum()
     df["duration"] = (
-        (dates - pd.to_datetime(trade_date)).days / days_in_year * df.net / pv
+        (dates - _pd.to_datetime(trade_date)).days / days_in_year * df.net / pv
     )
     duration = df.duration.sum()
 
@@ -184,13 +187,13 @@ def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
 
     hol = data.open_data("holidaysOil").query(f"key == '{exchange}'")
 
-    biz_dates = set(pd.date_range(start_dt, end_dt, freq="B").to_list())
+    biz_dates = set(_pd.date_range(start_dt, end_dt, freq="B").to_list())
     biz_dates = biz_dates - set(hol.value)
 
-    res = pd.DataFrame(index=biz_dates).sort_index()
+    res = _pd.DataFrame(index=biz_dates).sort_index()
     res["up2expiry"] = 1
 
-    next_contract_dt = pd.to_datetime(exp.values[0]) + pd.DateOffset(days=1)
+    next_contract_dt = _pd.to_datetime(exp.values[0]) + _pd.DateOffset(days=1)
 
     res.loc[next_contract_dt:, "up2expiry"] = 0
 
@@ -202,3 +205,188 @@ def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
     )
 
     return df.dropna()
+
+
+# def swap_irs(
+#     trade_dt=None,
+#     eff_dt=None,
+#     mat_dt=None,
+#     notional=1e6,
+#     pay=False,
+#     fixed_rate=0.05,
+#     float_curve=None,
+#     reset_freq=3,
+#     disc_curve=None,
+#     convention=("act", 360),
+#     bus_calendar="NY",
+#     outout="price",
+# ):
+
+#     """
+#     Commodity swap pricing from exchange settlement
+
+#     Parameters
+#     ----------
+
+#     trade_dt : datetime | str
+#         trade date as a string or datetime object. By deault None which makes the trade date today.
+#     eff_dt : datetime | str
+#         effective date of swap as a string or datetime object. By deault None which makes the effective
+#         date today + 2 days.
+#     mat_dt : datetime | str
+#         maturity date of swap as a string or datetime object. By deault None which makes the maturity
+#         date the effective date + 2 years.
+#     notional : nmumeric
+#         Numeric value of notional. Defaults to 1,000,000
+#     pay : bool
+#         True for "pay" and False for "receive"
+#     fixed_rate : float
+#         Numeric fixed interest rate. Defaults to 0.05.
+#     float_curve : DataFrame
+#         List of interest rate curves. Defaults to data("usSwapCurves").
+#     reset_freq : int
+#         Numeric where 1 = "monthly", 3 = quarterly, 6 = Semi annual 12 = yearly.
+#     disc_curve : DataFrame
+#         List of interest rate curves. Defaults to data("usSwapCurves").
+#     convention : tuple(str|numeric, numeric)
+#         Tuple of convention e.g. ("act",360), (30,360),...
+#         Tuple definition (, days in year)
+#     bus_calendar : str
+#         Banking day calendar. Not implemented.
+#     output : str
+#         "price" for swap price or "all" for price, cash flow data frame, duration.
+
+#     Returns
+#     -------
+#     Dictionary with swap price, cash flow dataframe and duration
+
+#     Example
+#     -------
+#     >>> import risktools as rt
+#     >>> us_swap = rt.data.open_data("usSwapCurves")
+#     >>> rt.swap_irs(trade_dt="2020-01-04", eff_dt="2020-01-06",
+#             mat_dt="2022-01-06", notional=1000000,
+#             pay=False, fixed_rate=0.05, float_curve = us_swap, reset_freq=3,
+#             disc_curve = us_swap, convention = ("act",360),
+#             bus_calendar = "NY", output = "all")
+#     """
+
+#     if trade_dt is None:
+#         trade_dt = _pd.Timestamp.now().floor("D")
+#     else:
+#         trade_dt = _pd.to_datetime(trade_dt)
+#     if eff_dt is None:
+#         eff_dt = trade_dt + _pd.DateOffset(days=2)
+#     else:
+#         eff_dt = _pd.to_datetime(eff_dt)
+#     if mat_dt is None:
+#         mat_dt = eff_dt + _pd.DateOffset(years=2)
+#     else:
+#         mat_dt = _pd.to_datetime(mat_dt)
+
+#     dates = _pd.date_range(
+#         eff_dt,
+#         mat_dt,
+#         freq=_pd.DateOffset(months=reset_freq, day=eff_dt.day),
+#         closed="left",
+#     )
+
+#     dates = _pd.date_range(trade_dt, end=trade_dt).append(dates)
+#     dates = _pd.DataFrame(dict(dates=dates))["dates"]
+
+#     # return dates
+
+#     days_in_year = int(convention[1])
+
+#     if days_in_year not in (360, 365):
+#         raise ValueError("# days in year convention not defined")
+
+#     if convention[0] != "act":
+#         raise ValueError("function only defined for act")
+
+#     tf = _pd.DataFrame(
+#         dict(
+#             dates=dates,
+#             days_to_next=(dates.shift(-1) - dates).dt.days.fillna(0).astype(int),
+#             times=(dates - trade_dt).astype("timedelta64[h]") / days_in_year / 24,
+#         )
+#     )
+
+#     return tf
+
+
+def get_ir_swap_curve(
+    username, password, currency="USD", start_dt="2019-01-01", end_dt=None
+):
+    """
+    Extract historical interest rate swap data for Quantlib DiscountsCurve function
+    using Morningstar and FRED data
+
+    Parameters
+    ----------
+
+    username
+    password
+    currency
+    start_dt
+    end_dt
+
+    Examples
+    --------
+    """
+
+    # fmt: off
+    libor_ticks = _pd.DataFrame(dict(
+        tick_nm = ["d1d","d1w","d1m","d3m","d6m","d1y"],
+        type = ["ICE.LIBOR"]*6,
+        source = ["FRED"]*6,
+        codes = ["USDONTD156N","USD1WKD156N","USD1MTD156N","USD3MTD156N","USD6MTD156N","USD12MD156N"]
+    ))
+
+    mstar_ticks = _pd.DataFrame(dict(
+        tick_nm = ["fut" + str(i) for i in range(1,9)],
+        type = ["EuroDollar"]*8,
+        source = ["Morningstar"]*8,
+        codes = [f"ED_{str(i).zfill(3)}_Month" for i in range(1,9)]
+    ))
+
+    yrs = [2,3,5,7,10,15,20,30]
+    irs_ticks = _pd.DataFrame(dict(
+        tick_nm = [f"s{str(i)}y" for i in yrs],
+        type = ["IRS"]*8,
+        source = ["FRED"]*8,
+        codes = [f"ICERATES1100USD{str(i)}Y" for i in yrs]
+    ))
+
+    ticks = libor_ticks.append(irs_ticks).append(mstar_ticks)
+    # fmt: on
+
+    r = get_prices(
+        codes=ticks.loc[ticks.source == "Morningstar", "codes"].to_list(),
+        feed="CME_CmeFutures_EOD_continuous",
+        username=username,
+        password=password,
+        start_dt=start_dt,
+        end_dt=end_dt,
+    )
+
+    f = _pdr.DataReader(
+        name=ticks.loc[ticks.source == "FRED", "codes"].to_list(),
+        data_source="fred",
+        start=start_dt,
+        end=end_dt,
+    )
+
+    f.index.name = "Date"
+    f.index = _pd.to_datetime(f.index)
+    df = (
+        r.unstack(0)
+        .droplevel(0, 1)
+        .merge(f, left_index=True, right_index=True, how="outer")
+    )
+
+    df[df.columns[df.columns.str.contains("ICERATES")]] /= 100
+    df = df.rename(ticks.set_index("codes").tick_nm.to_dict(), axis=1)
+    df = df[ticks.tick_nm]
+
+    return df

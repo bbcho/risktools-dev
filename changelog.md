@@ -7,4 +7,5 @@
 - changed swap_irs mat_date implementation so that if it doesn't fall evenly on freq, take last date before maturity
 - removed chart_spreads.json from test_chart_spreads as df is empty and caused error
 - removed requirement for geojson - moved geojson files to a function that downloads the files as required based on a url. geojson only required for this function so added imports as a try/except chunk. Geojson required C++ library gdal which can cause issues if you don't have sudo access.
-- only works for >-3.7 because of arch packge
+- Changed python dependency to >= 3.7. Only works for >=3.7 because of arch packge
+- added get_curves to _morningstar.py
