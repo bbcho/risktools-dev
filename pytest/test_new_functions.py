@@ -24,6 +24,8 @@ up["quandl"] = os.getenv("QUANDL")
 up["m*"]["pass"] = os.getenv("MS_PASS")
 up["m*"]["user"] = os.getenv("MS_USER")
 
+ms = dict(username=os.getenv("MS_USER"), password=os.getenv("MS_PASS"))
+
 
 def test_get_curves():
     cl = _load_json("getCurveCL.json")
@@ -62,4 +64,29 @@ def test_get_curves():
     pd.testing.assert_frame_equal(
         combo, df, check_like=True
     ), "get_curves test failed on combined ['CL','BG']"
+
+
+def test_get_ir_swap_curve():
+    ac = _load_json("getIRSwapCurve.json")
+    ac.date = pd.to_datetime(ac.date)
+    ac = ac.set_index("date")
+    ac.index.name = "Date"
+
+    ts = rt.get_ir_swap_curve(up["m*"]["user"], up["m*"]["pass"], end_dt="2021-12-27")
+
+    pd.testing.assert_frame_equal(ac, ts, check_like=True)
+
+
+def test_swap_info():
+    ac = _load_json("swapInfo.json").dropna()
+    ac.bizDays = pd.to_datetime(ac.bizDays)
+    ac = ac.set_index("bizDays")
+    ac.index.name = "date"
+    ac = ac.rename({"fut_contract": "futures_contract"}, axis=1)
+    ac = ac.replace("1stLineSettled", "first_line_settled")
+
+    ts = rt.swap_info(**ms, date="2020-05-06", output="dataframe")
+    print(ts)
+
+    pd.testing.assert_frame_equal(ac, ts, check_like=True)
 

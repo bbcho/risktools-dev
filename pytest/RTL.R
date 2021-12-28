@@ -9,18 +9,67 @@ library(timetk)
 library(jsonlite)
 
 # Give the input file name to the function.
-up <- jsonlite::fromJSON(file("../user.json"))
+up <- jsonlite::fromJSON(file("../../user.json"))
 
 username <- up$"m*"$user
 password <- up$"m*"$pass
 eia_key <- up$eia
 q_key <- Sys.getenv("QUANDL_KEY")
 
+#swapInfo
 
+feeds = dplyr::tibble(
+  feed = c("Crb_Futures_Price_Volume_And_Open_Interest",
+           "CME_NymexFutures_EOD_continuous"),
+  ticker = c("CL","CL_001_Month")
+)
+df <- swapInfo(date = "2020-05-06",feeds = feeds, contract = "cmewti",exchange = "nymex",
+                    iuser = username, ipassword = password, output = "all")[[1]]
+write(jsonlite::toJSON(df, digits = 8), "swapInfo.json")
+
+# getCurve
 df <- getCurve(iuser=username, ipass=password, date='2021-12-20', contract="CL")
 write(jsonlite::toJSON(df, digits = 8), "getCurveCL.json")
 df <- getCurve(iuser=username, ipass=password, date='2021-12-20', contract="BG")
 write(jsonlite::toJSON(df, digits = 8), "getCurveBG.json")
+
+# rewrite because of bug in getPrices
+getPrices <- function(feed = "CME_NymexFutures_EOD",contracts = c("CL9Z","CL0F","CL0M"),from = "2019-01-01",iuser = "x@xyz.com", ipassword = "pass") {
+  x <- getPrice(feed=feed,contract=contracts[1],from=from,iuser = iuser, ipassword = ipassword)
+  for (c in contracts[-1]) {
+    x <- merge(x,getPrice(feed=feed,contract=c,from=from,iuser = iuser, ipassword = ipassword), all=TRUE)
+  }
+  
+  x <- dplyr::as_tibble(x)
+  return(x)
+}
+
+getIRswapCurve <- function(currency="USD",from="2019-01-01",iuser = "x@xyz.com", ipassword = "pass") {
+  
+  usSwapIR <- dplyr::tibble(tickQL = c("d1d","d1w","d1m","d3m","d6m","d1y",
+                                       paste0("fut",1:8),
+                                       paste0("s",c(2,3,5,7,10,15,20,30),"y")),
+                            type = c(rep("ICE.LIBOR",6),rep("EuroDollar",8),rep("IRS",8)),
+                            source = c(rep("FRED",6),rep("Morningstar",8),rep("FRED",8)),
+                            tickSource = c("USDONTD156N","USD1WKD156N","USD1MTD156N","USD3MTD156N","USD6MTD156N","USD12MD156N",
+                                           paste0("ED_",sprintf('%0.3d', 1:8),"_Month"),
+                                           paste0("ICERATES1100USD",c(2,3,5,7,10,15,20,30),"Y")))
+  
+  c = usSwapIR %>% dplyr::filter(source == "Morningstar") %>% .$tickSource
+  r <- getPrices(feed="CME_CmeFutures_EOD_continuous",contracts=c,from = from,iuser = iuser, ipassword = ipassword)
+  c = usSwapIR %>% dplyr::filter(source == "FRED") %>% .$tickSource
+  x <- tidyquant::tq_get(c, get  = "economic.data", from = from ,to = as.character(Sys.Date())) %>%
+    dplyr::mutate(price=price/100) %>%
+    tidyr::pivot_wider(date,names_from = symbol, values_from = price)
+  r <- dplyr::left_join(x, r, by=c("date"))
+  colnames(r) <- c("date",dplyr::tibble(tickSource = colnames(r)[-1]) %>% dplyr::left_join(usSwapIR,by = c("tickSource")) %>% .$tickQL)
+  return(r)
+}
+
+
+# getIRswapCurve
+df <- getIRswapCurve(iuser=username, ipass=password, )
+write(jsonlite::toJSON(df, digits = 8), "getIRSwapCurve.json")
 
 
 # ir_df_us

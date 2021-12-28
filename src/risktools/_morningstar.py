@@ -205,7 +205,8 @@ def get_curves(
         tf["rownum"] = tf.index + 1
         tf["contract"] += tf.rownum.astype(str).str.rjust(2, "0")
         tf = tf.drop("rownum", axis=1)
-        tf = tf[["contract", "code", "expirationDate", "Open", "High", "Low", "Close"]]
+
+        tf = tf[["contract", "code", "expirationDate", *fields]]
         tf.columns.name = ""
 
         if len(contract_roots) > 1:

@@ -6,6 +6,7 @@ from scipy import interpolate as _interpolate
 from ._morningstar import *
 
 import pandas_datareader as _pdr
+import plotly.express as _px
 
 us_swap = data.open_data("usSwapCurves")
 
@@ -207,6 +208,210 @@ def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
     return df.dropna()
 
 
+def get_ir_swap_curve(
+    username, password, currency="USD", start_dt="2019-01-01", end_dt=None
+):
+    """
+    Extract historical interest rate swap data for Quantlib DiscountsCurve function
+    using Morningstar and FRED data
+
+    Parameters
+    ----------
+
+    username
+    password
+    currency
+    start_dt
+    end_dt
+
+    Examples
+    --------
+    """
+
+    # fmt: off
+    libor_ticks = _pd.DataFrame(dict(
+        tick_nm = ["d1d","d1w","d1m","d3m","d6m","d1y"],
+        type = ["ICE.LIBOR"]*6,
+        source = ["FRED"]*6,
+        codes = ["USDONTD156N","USD1WKD156N","USD1MTD156N","USD3MTD156N","USD6MTD156N","USD12MD156N"]
+    ))
+
+    mstar_ticks = _pd.DataFrame(dict(
+        tick_nm = ["fut" + str(i) for i in range(1,9)],
+        type = ["EuroDollar"]*8,
+        source = ["Morningstar"]*8,
+        codes = [f"ED_{str(i).zfill(3)}_Month" for i in range(1,9)]
+    ))
+
+    yrs = [2,3,5,7,10,15,20,30]
+    irs_ticks = _pd.DataFrame(dict(
+        tick_nm = [f"s{str(i)}y" for i in yrs],
+        type = ["IRS"]*8,
+        source = ["FRED"]*8,
+        codes = [f"ICERATES1100USD{str(i)}Y" for i in yrs]
+    ))
+
+    ticks = libor_ticks.append(irs_ticks).append(mstar_ticks)
+    # fmt: on
+
+    r = get_prices(
+        codes=ticks.loc[ticks.source == "Morningstar", "codes"].to_list(),
+        feed="CME_CmeFutures_EOD_continuous",
+        username=username,
+        password=password,
+        start_dt=start_dt,
+        end_dt=end_dt,
+    )
+
+    f = _pdr.DataReader(
+        name=ticks.loc[ticks.source == "FRED", "codes"].to_list(),
+        data_source="fred",
+        start=start_dt,
+        end=end_dt,
+    )
+
+    f.index.name = "Date"
+    f.index = _pd.to_datetime(f.index)
+    df = (
+        r.unstack(0)
+        .droplevel(0, 1)
+        .merge(f, left_index=True, right_index=True, how="outer")
+    )
+
+    df[df.columns[df.columns.str.contains("ICERATES")]] /= 100
+    df[df.columns[df.columns.str[:3] == "USD"]] /= 100
+    df = df.rename(ticks.set_index("codes").tick_nm.to_dict(), axis=1)
+    df = df[ticks.tick_nm]
+
+    return df
+
+
+def swap_info(
+    username,
+    password,
+    date=None,
+    tickers=["CL", "CL_001_Month"],
+    feeds=[
+        "Crb_Futures_Price_Volume_And_Open_Interest",
+        "CME_NymexFutures_EOD_continuous",
+    ],
+    exchange="nymex",
+    contract="cmewti",
+    output="all",
+):
+    """
+    Returns dataframe required to price a WTI averaging instrument based on first line settlements.
+
+    Parameters
+    ----------
+    username : str
+        Morningstar user name as character - sourced locally in examples.
+    password : str
+        Morningstar user password as character - sourced locally in examples.
+    date : str | datetime
+        Date as of which you want to extract daily settlement and forward values. By default None
+    tickers : str | iterable[str]
+        Morningstar tickers for get_curve() and get_prices() functions
+    feeds : str | iterable[str]
+        Feeds for Morningstar get_curve() and get_prices() functions. Must be in same 
+        order as tickers parameter
+    exchange : str
+        Exchange code in holidaysOil from risktools.data.open_data function. Defaults to "nymex".
+    contract : str
+        Contract code in expiry_table.  from risktools.data.open_data function. See
+        risktools.data.open_date("expiry_table").cmdty.unique() for options.
+    output :str
+        "chart" for chart, "dataframe" for dataframe or "all" dataframe and chart
+
+    Returns
+    -------
+    Plot, dataframe or a dict of data frame and plot if output = "all".
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> feeds = ["Crb_Futures_Price_Volume_And_Open_Interest",
+            "CME_NymexFutures_EOD_continuous"]
+    >>> ticker = ["CL","CL_001_Month"]
+    >>> swap_info(username, password, date="2020-05-06", tickers=tickers, feeds=feeds, contract="cmewti", exchange="nymex",
+            output = "all")
+    """
+    # get today's futures curve prices by expiration date
+    wti = get_curves(
+        username=username,
+        password=password,
+        feed=feeds[0],
+        contract_roots=tickers[0],
+        fields=["Close"],
+        date=date,
+    )
+
+    if date is None:
+        date = _pd.Timestamp.now().floor("D")
+    else:
+        date = _pd.to_datetime(date)
+
+    # broadcast wti expiration date to daily prices (effectively a stepped curve)
+    drng = _pd.date_range(start=date, end=date + _pd.DateOffset(months=4), freq="B")
+
+    cal = data.open_data("holidaysOil")
+    cal = cal[cal.key == exchange]
+
+    df = _pd.DataFrame(index=drng)
+    # remove nymex holidays
+    df = df[~df.index.isin(cal.value)]
+
+    # combine dataframes together by broadcasting wti to wf on expiration date
+    # and then backfill
+    df.index.name = "date"
+    wti = wti.rename({"expirationDate": "date"}, axis=1)
+    df = df.join(wti.set_index("date")).bfill()
+
+    hist = get_prices(
+        username=username,
+        password=password,
+        feed=feeds[1],
+        codes=tickers[1],
+        start_dt=date + _pd.DateOffset(day=1),
+    )
+
+    hist = (
+        hist.reset_index()[["Date", "settlement_price"]]
+        .rename({"Date": "date", "settlement_price": "price"}, axis=1)
+        .set_index("date")
+    )
+    hist["futures_contract"] = "first_line_settled"
+    df = df.rename({"code": "futures_contract", "Close": "price"}, axis=1)[
+        ["futures_contract", "price"]
+    ]
+    df = (
+        hist.loc[:(date), :]
+        .append(df.loc[(date + _pd.DateOffset(days=1)) :, :])
+        .dropna()
+    )
+
+    if output == "dataframe":
+        out = df
+    else:
+        title = (
+            f"Swap Pricing: {contract}, Futures Curve as of {date.strftime('%Y-%m-%d')}"
+        )
+
+        fig = _px.scatter(
+            df,
+            y="price",
+            color="futures_contract",
+            title=title,
+            labels={"price": "$/bbl"},
+        )
+        if output == "chart":
+            out = fig
+        else:
+            out = dict(chart=fig, dataframe=df)
+
+    return out
+
+
 # def swap_irs(
 #     trade_dt=None,
 #     eff_dt=None,
@@ -314,79 +519,3 @@ def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
 
 #     return tf
 
-
-def get_ir_swap_curve(
-    username, password, currency="USD", start_dt="2019-01-01", end_dt=None
-):
-    """
-    Extract historical interest rate swap data for Quantlib DiscountsCurve function
-    using Morningstar and FRED data
-
-    Parameters
-    ----------
-
-    username
-    password
-    currency
-    start_dt
-    end_dt
-
-    Examples
-    --------
-    """
-
-    # fmt: off
-    libor_ticks = _pd.DataFrame(dict(
-        tick_nm = ["d1d","d1w","d1m","d3m","d6m","d1y"],
-        type = ["ICE.LIBOR"]*6,
-        source = ["FRED"]*6,
-        codes = ["USDONTD156N","USD1WKD156N","USD1MTD156N","USD3MTD156N","USD6MTD156N","USD12MD156N"]
-    ))
-
-    mstar_ticks = _pd.DataFrame(dict(
-        tick_nm = ["fut" + str(i) for i in range(1,9)],
-        type = ["EuroDollar"]*8,
-        source = ["Morningstar"]*8,
-        codes = [f"ED_{str(i).zfill(3)}_Month" for i in range(1,9)]
-    ))
-
-    yrs = [2,3,5,7,10,15,20,30]
-    irs_ticks = _pd.DataFrame(dict(
-        tick_nm = [f"s{str(i)}y" for i in yrs],
-        type = ["IRS"]*8,
-        source = ["FRED"]*8,
-        codes = [f"ICERATES1100USD{str(i)}Y" for i in yrs]
-    ))
-
-    ticks = libor_ticks.append(irs_ticks).append(mstar_ticks)
-    # fmt: on
-
-    r = get_prices(
-        codes=ticks.loc[ticks.source == "Morningstar", "codes"].to_list(),
-        feed="CME_CmeFutures_EOD_continuous",
-        username=username,
-        password=password,
-        start_dt=start_dt,
-        end_dt=end_dt,
-    )
-
-    f = _pdr.DataReader(
-        name=ticks.loc[ticks.source == "FRED", "codes"].to_list(),
-        data_source="fred",
-        start=start_dt,
-        end=end_dt,
-    )
-
-    f.index.name = "Date"
-    f.index = _pd.to_datetime(f.index)
-    df = (
-        r.unstack(0)
-        .droplevel(0, 1)
-        .merge(f, left_index=True, right_index=True, how="outer")
-    )
-
-    df[df.columns[df.columns.str.contains("ICERATES")]] /= 100
-    df = df.rename(ticks.set_index("codes").tick_nm.to_dict(), axis=1)
-    df = df[ticks.tick_nm]
-
-    return df

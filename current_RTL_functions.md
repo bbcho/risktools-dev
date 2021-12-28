@@ -7,21 +7,21 @@
 [x] "chart_spreads"
 [x] "chart_zscore"
 [x] "CRReuro"
-[ ] "distdescplot"
+[ ] "distdescplot" new
 [x] "eia2tidy"
 [x] "fitOU"
 [x] "garch"
-[x] "getCurve"
-[ ] "getGenscapePipeOil"
-[ ] "getGenscapeStorageOil"
-[x] "getGIS"
-[ ] "getIRswapCurve"
+[x] "getCurve" new
+[ ] "getGenscapePipeOil" new
+[ ] "getGenscapeStorageOil" new
+[x] "getGIS" new
+[x] "getIRswapCurve" new
 [x] "getPrice"
 [x] "getPrices"
 [x] "ir_df_us"
 [x] "npv"
 [x] "promptBeta"
-[ ] "refineryLP"
+[ ] "refineryLP" new
 [x] "returns"
 [x] "rolladjust"
 [x] "simGBM"
@@ -29,7 +29,7 @@
 [x] "simOUJ"
 [x] "stl_decomp"
 [x] "swapCOM"
-[ ] "swapFutWeight"
-[ ] "swapInfo"
+[ ] "swapFutWeight" new
+[x] "swapInfo" new
 [x] "swapIRS"
 [x] "tradeStats"
