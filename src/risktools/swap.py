@@ -2,6 +2,7 @@ from numpy import mat
 from . import data
 
 import pandas as _pd
+import numpy as _np
 from scipy import interpolate as _interpolate
 from ._morningstar import *
 
@@ -408,6 +409,75 @@ def swap_info(
             out = fig
         else:
             out = dict(chart=fig, dataframe=df)
+
+    return out
+
+
+def swap_fut_weight(
+    month, contract="cmewti", exchange="nymex", output="first_fut_weight"
+):
+    """
+    Function used to calculate the calendar month average price of a futures curve. Some 
+    futures curves such as NYMEX WTI expires mid-month (i.e. 2020-09-22) but some products
+    are priced as differentials to the calendar month average (CMA) price of the contracts. 
+    To calculate the CMA, up need the contract that's active for the first part of the month, 
+    the contract that's active for the later half as well as the weighting to apply to both. 
+    This function is designed to return the weights for contracts 1 and 2 as well as the weights
+
+    Parameters
+    ----------
+    month : str | datetime
+        First calendar day of the month in YYYY-MM-DD
+    contract : str
+        Exchange code in data.open_data("holidaysOil"). Currently only "nymex" and "ice" supported.
+        By default "cmewti"
+    exchange : str
+        Contract code in data.open_data("expiry_table"). By default "nymex"
+    output : str
+        "num_days_fut1" to get the number of days from the beginning of the month up to and including the expiry date.
+        "num_days_fut2" to get the number of days from the expiry date to month end.
+        "first_fut_weight" the weight to assign to the futures contract for "month" as a ratio of the number of days before expiry (i.e. include in ). By default "first_fut_weight"
+
+    Returns
+    -------
+    If first_fut_weight as dataframe, if not then an integer
+    
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.swap_fut_weight(month="2020-09-01", contract="cmewti", exchange="nymex", output="first_fut_weight")
+    """
+
+    month = _pd.to_datetime(month) + _pd.DateOffset(day=1)
+    month_end = month + _pd.DateOffset(months=1) - _pd.DateOffset(days=1)
+
+    drng = _pd.date_range(month, month_end, freq="B")
+
+    cal = data.open_data("holidaysOil")
+    cal = cal[cal.key == exchange]
+
+    df = _pd.DataFrame(index=drng)
+    # remove nymex holidays
+    df = df[~df.index.isin(cal.value)]
+
+    exp = data.open_data("expiry_table")
+    exp = exp[
+        (exp["Last_Trade"] >= month)
+        & (exp["Last_Trade"] <= month_end)
+        & (exp["cmdty"] == contract)
+    ].Last_Trade.values[0]
+
+    df["up_to_expiry"] = _np.where(df.index <= exp, 1, 0)
+    num_days_fut1 = df.up_to_expiry.sum()
+    num_days_fut2 = df.shape[0] - df.up_to_expiry.sum()
+    first_fut_weight = num_days_fut1 / df.shape[0]
+
+    if output == "num_days_fut1":
+        out = num_days_fut1
+    elif output == "num_days_fut2":
+        out = num_days_fut2
+    else:
+        out = first_fut_weight
 
     return out
 

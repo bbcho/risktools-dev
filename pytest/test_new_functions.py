@@ -90,3 +90,32 @@ def test_swap_info():
 
     pd.testing.assert_frame_equal(ac, ts, check_like=True)
 
+
+def test_swap_fut_weights():
+
+    assert (
+        rt.swap_fut_weight(
+            month="2020-09-01",
+            contract="cmewti",
+            exchange="nymex",
+            output="num_days_fut1",
+        )
+        == 15
+    )
+    assert (
+        rt.swap_fut_weight(
+            month="2020-09-01",
+            contract="cmewti",
+            exchange="nymex",
+            output="num_days_fut2",
+        )
+        == 6
+    )
+
+    ts = rt.swap_fut_weight(
+        month="2020-09-01",
+        contract="cmewti",
+        exchange="nymex",
+        output="first_fut_weight",
+    )
+    assert np.allclose(ts, 0.7142857)
