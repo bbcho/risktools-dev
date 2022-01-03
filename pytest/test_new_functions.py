@@ -72,7 +72,7 @@ def test_get_ir_swap_curve():
     ac = ac.set_index("date")
     ac.index.name = "Date"
 
-    ts = rt.get_ir_swap_curve(up["m*"]["user"], up["m*"]["pass"], end_dt="2021-12-27")
+    ts = rt.get_ir_swap_curve(up["m*"]["user"], up["m*"]["pass"], end_dt=ac.index.max())
 
     pd.testing.assert_frame_equal(ac, ts, check_like=True)
 

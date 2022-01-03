@@ -31,6 +31,9 @@ def get_prices(
         * CME_STLCPC_Futures
         * CFTC_CommitmentsOfTradersCombined. Requires multiple keys. Separate them by a space e.g. "N10 06765A NYME 01".
         * Morningstar_FX_Forwards. Requires multiple keys. Separate them by a space e.g. "USDCAD 2M".
+        * ERCOT_LmpsByResourceNodeAndElectricalBus
+        * PJM_Rt_Hourly_Lmp
+        * AESO_ForecastAndActualPoolPrice
 
     Parameters
     ----------
@@ -45,7 +48,7 @@ def get_prices(
     start_dt : str | datetime, optional
         earliest date to return data from, by default "2019-01-01"
     end_dt : str | datetime, optional
-        lastest date to return data from, by default None. If None, the function will use today's date
+        lastest date to return data from, by default None. If None, the function return everything from start_dt forward
     intraday : bool
         not implemented yet
     """
@@ -63,6 +66,10 @@ def get_prices(
     for code in codes:
         p_dict = dict()
         p_dict["fromDateTime"] = start_dt.strftime("%Y-%m-%d")
+
+        if end_dt is not None:
+            end_dt = _pd.to_datetime(end_dt)
+            p_dict["toDateTime"] = end_dt.strftime("%Y-%m-%d")
 
         if feed in [
             "CME_NymexFutures_EOD",
@@ -98,11 +105,19 @@ def get_prices(
             fcode = _re.sub("[^\w]", " ", code).split()  # get rid of any punctuation
             p_dict["cross_currencies"] = fcode[0]
             p_dict["period"] = fcode[1]
+        elif feed in ["ERCOT_LmpsByResourceNodeAndElectricalBus"]:
+            p_dict["SettlementPoint"] = code
+        elif feed in ["PJM_Rt_Hourly_Lmp"]:
+            p_dict["pnodeid"] = code
+        elif feed in ["AESO_ForecastAndActualPoolPrice"]:
+            p_dict["market"] = code
+        elif feed in ["LME_MonthlyDelayed_Derived"]:
+            code_s = code.split()
+            p_dict["Root"] = code_s[0]
+            p_dict["DeliveryStart"] = code_s[1]
+            p_dict["DeliveryEnd"] = code_s[2]
         else:
             raise ValueError("feed not recognized")
-
-        if end_dt is not None:
-            end_dt = _pd.to_datetime(end_dt)
 
         params = _urllib.parse.urlencode(p_dict)
         r = s.get(url.format(feed, params),)

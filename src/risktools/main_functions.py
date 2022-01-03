@@ -45,22 +45,28 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     """
 
     if date is None:
-        # Last 30 days
         edt = _pd.Timestamp.now().floor("D")
     else:
         edt = _pd.to_datetime(date)
-
+    # Last 30 days
     sdt = edt - _pd.DateOffset(days=30)
-    print(sdt)
 
     if quandl_key is not None:
         _quandl.ApiConfig.api_key = quandl_key
 
+    zero_1yr_plus = _quandl.get("FED/SVENY", start_date=sdt, end_date=edt)
+
+    if zero_1yr_plus.index.max() < edt:
+        warnings.warn(
+            f"data only available until {zero_1yr_plus.index.max()}. Pulling data for {zero_1yr_plus.index.max()}"
+        )
+        edt = zero_1yr_plus.index.max()
+        sdt = edt - _pd.DateOffset(days=30)
+
     fedsfund = _quandl.get("FED/RIFSPFF_N_D", start_date=sdt, end_date=edt).dropna()
+    print(fedsfund)
     fedsfund["FedsFunds0"] = _np.log((1 + fedsfund.Value / 360) ** 365)
     fedsfund.drop("Value", axis=1, inplace=True)
-
-    zero_1yr_plus = _quandl.get("FED/SVENY", end_date=edt)
 
     zero_tb = _quandl.get(
         ["FED/RIFLGFCM01_N_B", "FED/RIFLGFCM03_N_B", "FED/RIFLGFCM06_N_B"],

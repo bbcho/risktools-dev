@@ -16,6 +16,31 @@ password <- up$"m*"$pass
 eia_key <- up$eia
 q_key <- Sys.getenv("QUANDL_KEY")
 
+
+# get_prices
+from_dt = "2021-12-01"
+end_dt = format(Sys.Date(), "%Y-%m-%d")
+df <- list()
+df[[1]] <- c(feed="CME_NymexFutures_EOD", contract="@CL22Z", from=from_dt, end=end_dt, df=list())
+df[[2]] <- c(feed="CME_NymexFutures_EOD_continuous",contract="CL_006_Month",from=from_dt, end=end_dt, df=list())
+df[[3]] <- c(feed="CME_CbotFuturesEOD",contract="C0Z",from='2020-09-01', end=end_dt, df=list())
+df[[4]] <- c(feed="CME_CbotFuturesEOD_continuous",contract="ZB_001_Month",from=from_dt,end=end_dt, df=list())
+df[[5]] <- c(feed="Morningstar_FX_Forwards",contract="USDCAD 2M",from=from_dt,end=end_dt, df=list())
+df[[6]] <- c(feed="CME_CmeFutures_EOD",contract="LH0N",from="2019-08-26",end=end_dt, df=list())
+df[[7]] <- c(feed="CME_CmeFutures_EOD_continuous",contract="HE_006_Month",from=from_dt,end=end_dt, df=list())
+df[[8]] <- c(feed="ICE_EuroFutures",contract="BRN22Z",from=from_dt,end=end_dt, df=list())
+df[[9]] <- c(feed="ICE_EuroFutures_continuous",contract="BRN_001_Month",from=from_dt,end=end_dt, df=list())
+df[[10]] <- c(feed="ICE_NybotCoffeeSugarCocoaFutures",contract="SB21H",from='2019-08-26',end=end_dt, df=list())
+df[[11]] <- c(feed="ICE_NybotCoffeeSugarCocoaFutures_continuous",contract="SF_001_Month",from=from_dt,end=end_dt, df=list())
+df[[12]] <- c(feed="LME_MonthlyDelayed_Derived",contract="AHD 2021-12-01 2021-12-31",from=from_dt,end=end_dt, df=list())
+# df[[13]] <- c(feed="AESO_ForecastAndActualPoolPrice",contract="Forecast_Pool_Price",from=from_dt,end=end_dt, df=list())
+
+for (i in 1:length(df)) {
+  df[[i]]$df <- RTL::getPrice(feed=df[[i]]$feed,contract=df[[i]]$contract,from=df[[i]]$from,iuser=username,ipassword=password)
+}
+write(jsonlite::toJSON(df, digits = 8), "get_price.json")
+
+
 #swapInfo
 
 feeds = dplyr::tibble(
@@ -75,9 +100,8 @@ write(jsonlite::toJSON(df, digits = 8), "getIRSwapCurve.json")
 # ir_df_us
 ## Must be run on the same day as the data pull since the function only gets the last
 ## 30 days
-df <- ir_df_us(quandlkey = up$"quandl")
+df <- RTL::ir_df_us(quandlkey = up$"quandl")
 write(jsonlite::toJSON(df, digits = 8), "ir_df_us.json")
-
 
 # npv
 ## Must be run on the same day as the data pull since the ir_df_us function only gets the last

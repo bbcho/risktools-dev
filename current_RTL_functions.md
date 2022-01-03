@@ -29,7 +29,7 @@
 [x] "simOUJ"
 [x] "stl_decomp"
 [x] "swapCOM"
-[ ] "swapFutWeight" new
+[x] "swapFutWeight" new
 [x] "swapInfo" new
 [x] "swapIRS"
 [x] "tradeStats"

@@ -5,6 +5,7 @@ import os
 import json
 import sys
 import plotly.graph_objects as go
+import time
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src/")
 
@@ -40,6 +41,51 @@ def _load_json(fn, dataframe=True):
             df = json.load(js)
 
     return df
+
+
+def test_get_prices():
+    ac_all = _load_json("get_price.json", dataframe=False)
+
+    i = 0
+    while True:
+        try:
+            ac = ac_all[i]
+        except:
+            break
+
+        ac_df = pd.DataFrame(ac["df"])
+        ac_df.date = pd.to_datetime(ac_df.date)
+        ac_df.date = ac_df.date.dt.tz_localize(None)
+        print(ac["feed"][0], ac["contract"][0])
+        print(ac_df.date.max())
+
+        ts = (
+            rt.get_prices(
+                up["m*"]["user"],
+                up["m*"]["pass"],
+                feed=ac["feed"][0],
+                codes=ac["contract"][0],
+                start_dt=ac["from"][0],
+                end_dt=ac_df.date.max(),
+            )
+            .iloc[:, 0]
+            .unstack(0)
+            .reset_index()
+            .rename({"Date": "date"}, axis=1)
+        )
+        ts.columns = ts.columns.str.replace("@", "")
+        ts.date = ts.date.dt.tz_localize(None)
+
+        if ac["feed"][0] == "LME_MonthlyDelayed_Derived":
+            ts.columns = [
+                ts.columns[0],
+                ts.columns[1].replace(" ", "").replace("-", "")[0:9],
+            ]
+        try:
+            pd.testing.assert_frame_equal(ac_df, ts, check_like=True)
+        except:
+            assert False, f"test {i} failed"
+        i += 1
 
 
 def test_ir_df_us():
@@ -322,7 +368,7 @@ def test_swap_irs():
 def test_npv():
     ac = _load_json("npv1.json")
     ac.cf = ac.cf.astype(float)
-    ir = rt.ir_df_us(quandl_key=up["quandl"], ir_sens=0.01)
+    ir = rt.ir_df_us(quandl_key=up["quandl"], ir_sens=0.01, date="2022-01-02")
     ts = rt.npv(
         init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=False
     )
@@ -377,8 +423,10 @@ def test_get_eia_df():
     ac = ac[["date", "value"]].set_index("date").sort_index().value
     ts = rt.get_eia_df("PET.MCRFPTX2.M", key=up["eia"])
     ts = ts[["date", "value"]].set_index("date").sort_index().value
+    ts = ts[ac.index.min() : ac.index.max()]
 
-    assert ac.equals(ts), "get_eia_df Test 1 failed"
+    # assert ac.equals(ts), "get_eia_df Test 1 failed"
+    pd.testing.assert_series_equal(ac, ts)
 
     ac = _load_json("eia2tidy2.json")
     ac = ac.set_index(["series", "date"]).sort_index().value
@@ -397,8 +445,9 @@ def test_get_eia_df():
         .sort_index()
         .value
     )
+    ts = ts[ac.index.min() : ac.index.max()]
 
-    assert ac.equals(ts), "get_eia_df Test 2 failed"
+    pd.testing.assert_series_equal(ac, ts)
 
 
 def test_chart_spreads():
