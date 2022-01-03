@@ -9,6 +9,7 @@ library(RTL)
 library(rjson)
 library(jsonlite)
 library(geojson)
+library(stringr)
 
 save_loc = ''
 
@@ -20,8 +21,14 @@ for (fn in filenames) {
   tryCatch({
     # use jsonlite first as it preserves dates properly
     data <- eval(parse(text=paste0('RTL::',fn)))
-    data <- jsonlite::toJSON(data)
-    write(data,paste0(save_loc,fn,'.json'))    
+    if (fn != "tickers_eia") {
+      data <- data %>% dplyr::mutate_if(is.character, ~ str_replace_all(., "[.]", "_")) # remove . from strings
+    }
+    
+    data <- jsonlite::toJSON(data,force = TRUE)
+    fn <- str_replace_all(fn,"[.]","_")
+    write(data,paste0(save_loc,fn,'.json'))
+    
   }, error = function(e) {
     print(fn)
     

@@ -40,7 +40,6 @@ for (i in 1:length(df)) {
 }
 write(jsonlite::toJSON(df, digits = 8), "get_price.json")
 
-
 #swapInfo
 
 feeds = dplyr::tibble(

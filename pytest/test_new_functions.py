@@ -27,6 +27,16 @@ up["m*"]["user"] = os.getenv("MS_USER")
 ms = dict(username=os.getenv("MS_USER"), password=os.getenv("MS_PASS"))
 
 
+def test_refineryLP():
+    ac = _load_json("refineryLP.json", dataframe=False)
+    crudes = rt.data.open_data("ref_opt_inputs")
+    products = rt.data.open_data("ref_opt_outputs")
+    ts = rt.refineryLP(crude_inputs=crudes, product_outputs=products)
+
+    assert np.allclose(ac["profit"], ts["profit"])
+    assert np.allclose(ac["slate"], ts["slate"])
+
+
 def test_get_curves():
     cl = _load_json("getCurveCL.json")
     cl.expirationDate = pd.to_datetime(cl.expirationDate)

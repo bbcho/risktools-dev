@@ -5,6 +5,7 @@ import numpy as _np
 import requests as _requests
 from io import BytesIO as _BytesIO
 from zipfile import ZipFile as _ZipFile
+import warnings as _warnings
 
 
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
@@ -241,6 +242,16 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
+    "ref_opt_inputs": {
+        "file": "ref_opt_inputs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "ref_opt_outputs": {
+        "file": "ref_opt_outputs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
 }
 
 _path = _os.path.dirname(__file__)
@@ -259,7 +270,11 @@ def open_data(nm):
         print(f"{nm} is not a valid file name to open")
 
     fp = _os.path.join(_path, fn)
-    df = _file_actions[nm]["load_func"](fp)
+    try:
+        df = _file_actions[nm]["load_func"](fp)
+    except:
+        _warnings.warn(f"File actions for {nm} not defined. Running default behavior.")
+        df = _pd.read_json(_os.path.join(_path, f"{nm}.json"))
 
     if isinstance(df, _pd.DataFrame):
         # convert "." to "_" in column names

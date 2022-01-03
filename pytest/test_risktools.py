@@ -82,7 +82,7 @@ def test_get_prices():
                 ts.columns[1].replace(" ", "").replace("-", "")[0:9],
             ]
         elif ac["feed"][0] == "AESO_ForecastAndActualPoolPrice":
-            # For some reason last rows always differ because of timing maybe?
+            # Accounts for mid-day runs of hourly data
             # Also RTL function doesn't have ability to give a TO date
             ts = ts.set_index("date")
             ac_df = ac_df.set_index("date")
