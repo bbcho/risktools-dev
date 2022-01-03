@@ -66,7 +66,7 @@ def test_get_prices():
                 feed=ac["feed"][0],
                 codes=ac["contract"][0],
                 start_dt=ac["from"][0],
-                end_dt=ac_df.date.max(),
+                end_dt=ac["end"][0],
             )
             .iloc[:, 0]
             .unstack(0)
@@ -81,6 +81,15 @@ def test_get_prices():
                 ts.columns[0],
                 ts.columns[1].replace(" ", "").replace("-", "")[0:9],
             ]
+        elif ac["feed"][0] == "AESO_ForecastAndActualPoolPrice":
+            # For some reason last rows always differ because of timing maybe?
+            # Also RTL function doesn't have ability to give a TO date
+            ts = ts.set_index("date")
+            ac_df = ac_df.set_index("date")
+            min_dt = max(ac_df.index.min(), ts.index.min())
+            max_dt = min(ac_df.index.max(), ts.index.max())
+            ts = ts[min_dt:max_dt].reset_index()
+            ac_df = ac_df[min_dt:max_dt].reset_index()
         try:
             pd.testing.assert_frame_equal(ac_df, ts, check_like=True)
         except:

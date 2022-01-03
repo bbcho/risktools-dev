@@ -33,7 +33,7 @@ df[[9]] <- c(feed="ICE_EuroFutures_continuous",contract="BRN_001_Month",from=fro
 df[[10]] <- c(feed="ICE_NybotCoffeeSugarCocoaFutures",contract="SB21H",from='2019-08-26',end=end_dt, df=list())
 df[[11]] <- c(feed="ICE_NybotCoffeeSugarCocoaFutures_continuous",contract="SF_001_Month",from=from_dt,end=end_dt, df=list())
 df[[12]] <- c(feed="LME_MonthlyDelayed_Derived",contract="AHD 2021-12-01 2021-12-31",from=from_dt,end=end_dt, df=list())
-# df[[13]] <- c(feed="AESO_ForecastAndActualPoolPrice",contract="Forecast_Pool_Price",from=from_dt,end=end_dt, df=list())
+df[[13]] <- c(feed="AESO_ForecastAndActualPoolPrice",contract="Forecast_Pool_Price",from=from_dt,end=format(Sys.Date()-1, "%Y-%m-%d"), df=list())
 
 for (i in 1:length(df)) {
   df[[i]]$df <- RTL::getPrice(feed=df[[i]]$feed,contract=df[[i]]$contract,from=df[[i]]$from,iuser=username,ipassword=password)
@@ -106,7 +106,7 @@ write(jsonlite::toJSON(df, digits = 8), "ir_df_us.json")
 # npv
 ## Must be run on the same day as the data pull since the ir_df_us function only gets the last
 ## 30 days
-us.df <- ir_df_us(quandlkey = up$"quandl", ir.sens = 0.01)
+us.df <- RTL::ir_df_us(quandlkey = up$"quandl", ir.sens = 0.01)
 ou1 <- npv(
   init.cost = -375, C = 50, cf.freq = .5, TV = 250, T2M = 2,
   disc.factors = us.df, BreakEven = FALSE
