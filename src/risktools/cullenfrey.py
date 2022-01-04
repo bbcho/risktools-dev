@@ -127,13 +127,22 @@ def _cont_plot(ax, kurtmax):
     return ax
 
 
-def _boot(boot):
+def _boot(x, boot, skewness, kurtosis):
     if boot < 10:
         raise ValueError("boot value is less than 10")
-    pass
+
+    n = len(x)
+
+    data = _np.random.choice(x, (n, boot))
+    skewboot = _np.apply_along_axis(skewness, 0, data)
+    kurtboot = _np.apply_along_axis(kurtosis, 0, data)
+
+    return skewboot, kurtboot
 
 
-def describe_distribution(x, discrete=False, boot=None, method="unbiased", graph=True):
+def describe_distribution(
+    x, discrete=False, boot=None, method="unbiased", graph=True, **plot_args
+):
 
     if method == "unbiased":
         skewness = _unbiased_skewness
@@ -160,13 +169,15 @@ def describe_distribution(x, discrete=False, boot=None, method="unbiased", graph
 
     if graph:
         if boot is not None:
-            _boot(boot)
+            skewboot, kurtboot = _boot(x, boot, skewness, kurtosis)
+            kurtmax = max(10, _np.ceil(kurtboot.max()))
+            xmax = max(4, _np.ceil(skewboot.max() ** 2))
         else:
             kurtmax = max(10, _np.ceil(kurtdata))
             xmax = max(4, _np.ceil(skewdata ** 2))
 
         ymax = kurtmax  # in orginal code is kurtmax-1 but ugly graph with high kurt
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(**plot_args)
         ax.set_ylim((ymax + 1, 0))
         ax.set_xlim((-0.1, xmax + 0.1))
         ax.set_title("Cullen and Frey Graph")
@@ -179,6 +190,12 @@ def describe_distribution(x, discrete=False, boot=None, method="unbiased", graph
             ax = _cont_plot(ax, kurtmax)
         else:
             ax = _discrete_plot(ax, kurtmax)
+
+            # bootstrap sample for observed distribution
+        if boot is not None:
+            ax.plot(
+                skewboot ** 2, kurtboot, ".", alpha=0.2, label="bootstrapped values"
+            )
 
         ax.plot([skewdata ** 2], [kurtdata], "o", label="observation")
         ax.legend()
