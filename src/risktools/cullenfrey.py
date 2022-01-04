@@ -191,13 +191,13 @@ def describe_distribution(
         else:
             ax = _discrete_plot(ax, kurtmax)
 
-            # bootstrap sample for observed distribution
+        # bootstrap sample for observed distribution
         if boot is not None:
             ax.plot(
                 skewboot ** 2, kurtboot, ".", alpha=0.2, label="bootstrapped values"
             )
 
-        ax.plot([skewdata ** 2], [kurtdata], "o", label="observation")
+        ax.plot([skewdata ** 2], [kurtdata], "bo", label="observation")
         ax.legend()
     if graph == True:
         return fig
