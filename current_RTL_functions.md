@@ -21,7 +21,7 @@
 [x] "ir_df_us"
 [x] "npv"
 [x] "promptBeta"
-[ ] "refineryLP" new
+[X] "refineryLP" new
 [x] "returns"
 [x] "rolladjust"
 [x] "simGBM"

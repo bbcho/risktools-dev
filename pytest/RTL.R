@@ -16,6 +16,10 @@ password <- up$"m*"$pass
 eia_key <- up$eia
 q_key <- Sys.getenv("QUANDL_KEY")
 
+# refineryLP
+
+out = RTL::refineryLP()
+write(jsonlite::toJSON(out, digits = 8), "refineryLP.json")
 
 # get_prices
 from_dt = "2021-12-01"

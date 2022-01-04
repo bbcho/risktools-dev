@@ -5,6 +5,7 @@ from .sims import *
 from .main_functions import *
 from .data import get_gis
 from .refineryLP import *
+from .cullenfrey import describe_distribution
 
 #####################################################################
 # TODO
