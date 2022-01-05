@@ -27,6 +27,13 @@ up["m*"]["user"] = os.getenv("MS_USER")
 ms = dict(username=os.getenv("MS_USER"), password=os.getenv("MS_PASS"))
 
 
+def test_dist_desc_plot():
+    df = rt.data.open_data("dflong")
+    x = df["BRN01"].pct_change().dropna()
+    rt.dist_desc_plot(x)
+    rt.dist_desc_plot(x.reset_index().value)
+
+
 def test_refineryLP():
     ac = _load_json("refineryLP.json", dataframe=False)
     crudes = rt.data.open_data("ref_opt_inputs")

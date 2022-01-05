@@ -84,6 +84,7 @@ New functions added:
 - refineryLP
 - swap_fut_weight
 - swap_info
+- dist_desc_plot
 
 New feeds for get_prices:
 - ERCOT_LmpsByResourceNodeAndElectricalBus
