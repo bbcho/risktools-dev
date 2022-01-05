@@ -5,6 +5,7 @@ import os
 import json
 import sys
 import plotly.graph_objects as go
+import time
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src/")
 
@@ -15,11 +16,12 @@ from pandas_datareader import data
 # stl_decomp test
 # chart_zscore only tests figure object - test actual stl decomp
 
-
-# with open("../../user.json") as js:
+# with open("../user.json") as js:
 #     up = json.load(js)
 
-# Travis CI Env Vars
+test_date = "2021-12-24"
+
+# Github Actions CI Env Vars
 up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
 
 up["eia"] = os.getenv("EIA")
@@ -41,10 +43,63 @@ def _load_json(fn, dataframe=True):
     return df
 
 
+def test_get_prices():
+    ac_all = _load_json("get_price.json", dataframe=False)
+
+    i = 0
+    while True:
+        try:
+            ac = ac_all[i]
+        except:
+            break
+
+        ac_df = pd.DataFrame(ac["df"])
+        ac_df.date = pd.to_datetime(ac_df.date)
+        ac_df.date = ac_df.date.dt.tz_localize(None)
+        print(ac["feed"][0], ac["contract"][0])
+        print(ac_df.date.max())
+
+        ts = (
+            rt.get_prices(
+                up["m*"]["user"],
+                up["m*"]["pass"],
+                feed=ac["feed"][0],
+                codes=ac["contract"][0],
+                start_dt=ac["from"][0],
+                end_dt=ac["end"][0],
+            )
+            .iloc[:, 0]
+            .unstack(0)
+            .reset_index()
+            .rename({"Date": "date"}, axis=1)
+        )
+        ts.columns = ts.columns.str.replace("@", "")
+        ts.date = ts.date.dt.tz_localize(None)
+
+        if ac["feed"][0] == "LME_MonthlyDelayed_Derived":
+            ts.columns = [
+                ts.columns[0],
+                ts.columns[1].replace(" ", "").replace("-", "")[0:9],
+            ]
+        elif ac["feed"][0] == "AESO_ForecastAndActualPoolPrice":
+            # Accounts for mid-day runs of hourly data
+            # Also RTL function doesn't have ability to give a TO date
+            ts = ts.set_index("date")
+            ac_df = ac_df.set_index("date")
+            min_dt = max(ac_df.index.min(), ts.index.min())
+            max_dt = min(ac_df.index.max(), ts.index.max())
+            ts = ts[min_dt:max_dt].reset_index()
+            ac_df = ac_df[min_dt:max_dt].reset_index()
+        try:
+            pd.testing.assert_frame_equal(ac_df, ts, check_like=True)
+        except:
+            assert False, f"test {i} failed"
+        i += 1
+
+
 def test_ir_df_us():
     df = _load_json("ir_df_us.json")
-    ir = rt.ir_df_us(quandl_key=up["quandl"])
-    ir = ir[
+    df = df[
         [
             "yield",
             "maturity",
@@ -53,13 +108,26 @@ def test_ir_df_us():
             "discountfactor_minus",
         ]
     ]
+    ir = rt.ir_df_us(quandl_key=up["quandl"], date=test_date)
+    ir = ir[
+        [
+            "yield",
+            "maturity",
+            "discountfactor",
+            "discountfactor_plus",
+            "discountfactor_minus",
+        ]
+    ].reset_index(drop=True)
+
+    print(df)
+
     assert df.round(4).equals(
         ir.round(4)
     ), "ir_df_us test failed, returned dataframe does not equal RTL results"
 
 
 def test_bond():
-    # first test
+
     bo = rt.bond(ytm=0.05, c=0.05, T=1, m=2, output="price")
     assert bo == 100, "bond Test 1 failed"
 
@@ -114,16 +182,26 @@ def test_trade_stats():
 def test_returns():
 
     # Test 1
-    ac = _load_json("returns1.json").round(4).set_index("date").dropna()
+    ac = (
+        _load_json("returns1.json")
+        .round(4)
+        .set_index("date")
+        .dropna()
+        .sort_index(axis=1)
+    )
     ac.columns.name = "series"
-    ts = rt.returns(
-        df=rt.data.open_data("dflong").round(
-            4
-        ),  # round(4) because R toJSON function does so
-        ret_type="rel",
-        period_return=1,
-        spread=True,
-    ).round(4)
+    ts = (
+        rt.returns(
+            df=rt.data.open_data("dflong").round(
+                4
+            ),  # round(4) because R toJSON function does so
+            ret_type="rel",
+            period_return=1,
+            spread=True,
+        )
+        .round(4)
+        .sort_index(axis=1)
+    )
 
     ts = ts.dropna()
     assert ac.equals(ts), "returns Test 1 failed"
@@ -146,7 +224,13 @@ def test_returns():
     assert ac2.equals(ts2), "returns Test 2 failed"
 
     # Test 3
-    ac = _load_json("returns3.json").round(4).set_index("date").dropna()
+    ac = (
+        _load_json("returns3.json")
+        .round(4)
+        .set_index("date")
+        .dropna()
+        .sort_index(axis=1)
+    )
     ac.columns.name = "series"
     ts = rt.returns(
         df=rt.data.open_data("dflong").round(
@@ -161,7 +245,13 @@ def test_returns():
     assert ac.equals(ts), "returns Test 3 failed"
 
     # Test 4
-    ac = _load_json("returns4.json").round(4).set_index("date").dropna()
+    ac = (
+        _load_json("returns4.json")
+        .round(4)
+        .set_index("date")
+        .dropna()
+        .sort_index(axis=1)
+    )
     ac.columns.name = "series"
     ts = rt.returns(
         df=rt.data.open_data("dflong").round(
@@ -181,7 +271,7 @@ def test_roll_adjust():
 
     ac = ac.iloc[:, 0].dropna()
 
-    dflong = rt.data.open_data("dflong")
+    dflong = rt.data.open_data("dflong")["CL01"]
     rt.data.open_data("expiry_table").cmdty.unique()  # for list of commodity names
     ret = rt.returns(df=dflong, ret_type="abs", period_return=1, spread=True)
     ret = ret.iloc[:, 0].dropna()
@@ -203,7 +293,7 @@ def test_garch():
 
     df = rt.roll_adjust(df=df, commodity_name="cmewti", roll_type="Last_Trade").iloc[1:]
 
-    ts = rt.garch(df, out="data", vol="garch", rescale=False)
+    ts = rt.garch(df, out="data", vol="garch", rescale=False, scale=252)
 
     # need to see if I can get R and Python garch models to produce the same vol
     assert (ac.mean() / ts["h.1"].mean() < 2) & (
@@ -219,7 +309,7 @@ def test_garch():
 def test_prompt_beta():
     ac = _load_json("promptBeta.json").round(2).drop("contract", axis=1)
 
-    dfwide = rt.data.open_data("dfwide")
+    dfwide = rt.data.open_data("dflong").unstack(0)
     col_mask = dfwide.columns[dfwide.columns.str.contains("CL")]
     dfwide = dfwide[col_mask]
     dfwide = dfwide[~dfwide.index.isin(["2020-04-20", "2020-04-21"])]
@@ -244,8 +334,8 @@ def test_prompt_beta():
 
 
 def test_swap_irs():
-    a = 67868.58
-    b = 1.1925
+    a = 85085.84
+    b = round(1.015174, 4)
 
     ac = _load_json("swapIRS.json")
     ac.dates = pd.to_datetime(ac.dates)
@@ -254,7 +344,7 @@ def test_swap_irs():
     ts = rt.swap_irs(
         trade_date="2020-01-04",
         eff_date="2020-01-06",
-        mat_date="2022-01-06",
+        mat_date="2021-12-06",
         notional=1000000,
         pay_rec="rec",
         fixed_rate=0.05,
@@ -286,8 +376,13 @@ def test_swap_irs():
 
 def test_npv():
     ac = _load_json("npv1.json")
+    ir = (
+        _load_json("ir.json")
+        .rename({"_row": "index"}, axis=1)
+        .replace("...1", "0")
+        .set_index("index")
+    )
     ac.cf = ac.cf.astype(float)
-    ir = rt.ir_df_us(quandl_key=up["quandl"], ir_sens=0.01)
     ts = rt.npv(
         init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=False
     )
@@ -342,8 +437,10 @@ def test_get_eia_df():
     ac = ac[["date", "value"]].set_index("date").sort_index().value
     ts = rt.get_eia_df("PET.MCRFPTX2.M", key=up["eia"])
     ts = ts[["date", "value"]].set_index("date").sort_index().value
+    ts = ts[ac.index.min() : ac.index.max()]
 
-    assert ac.equals(ts), "get_eia_df Test 1 failed"
+    # assert ac.equals(ts), "get_eia_df Test 1 failed"
+    pd.testing.assert_series_equal(ac, ts)
 
     ac = _load_json("eia2tidy2.json")
     ac = ac.set_index(["series", "date"]).sort_index().value
@@ -362,12 +459,13 @@ def test_get_eia_df():
         .sort_index()
         .value
     )
+    ts = ts[ac.index.min() : ac.index.max()]
 
-    assert ac.equals(ts), "get_eia_df Test 2 failed"
+    pd.testing.assert_series_equal(ac, ts)
 
 
 def test_chart_spreads():
-    ac = _load_json("chart_spreads.json")
+    # ac = _load_json("chart_spreads.json")
     ts = rt.chart_spreads(
         up["m*"]["user"],
         up["m*"]["pass"],
@@ -431,46 +529,10 @@ def test_swap_com():
     ac = ac.round(4)
     ts.index.name = "date"
 
-    assert ac.equals(ts.round(4)), "swap_com Test failed"
+    assert np.allclose(ac, ts), "swap_com Test failed"
 
 
 if __name__ == "__main__":
     test_returns()
     pass
 
-
-# import rpy2.robjects as ro
-# from rpy2.robjects import pandas2ri, numpy2ri
-# from rpy2.robjects.pandas2ri import rpy2py, py2rpy
-# from rpy2.robjects.conversion import localconverter
-# from rpy2.robjects.packages import importr
-# from rpy2.robjects.packages import STAP
-# from contextlib import contextmanager
-
-# # R vector of strings
-# from rpy2.robjects.vectors import StrVector, FloatVector, ListVector, Vector
-
-# # import R's "base" package
-# base = importr("base")
-
-# utils = importr("utils")
-# tq = importr("tidyquant")
-# tv = importr("tidyverse")
-# ql = importr("Quandl")
-# rtl = importr("RTL")
-
-
-# def p2r(p_df):
-#     # Function to convert pandas dataframes to R
-#     with localconverter(ro.default_converter + pandas2ri.converter) as cv:
-#         r_from_pd_df = cv.py2rpy(p_df)
-
-#     return r_from_pd_df
-
-
-# def r2p(r_df):
-#     # Function to convert R dataframes to pandas
-#     with localconverter(ro.default_converter + pandas2ri.converter) as cv:
-#         pd_from_r_df = cv.rpy2py(r_df)
-
-#     return pd_from_r_df

@@ -1,8 +1,65 @@
 import pandas as _pd
-import geopandas as _geopandas
 import os as _os
 import json as _json
 import numpy as _np
+import requests as _requests
+from io import BytesIO as _BytesIO
+from zipfile import ZipFile as _ZipFile
+import warnings as _warnings
+
+
+def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
+    """
+    Returns a SpatialPointsDataFrame from a shapefile URL.
+    Examples with EIA and Government of Alberta
+
+    from https://www.eia.gov/maps/layer_info-m.php :
+        crudepipelines = get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip")
+        refineries = get_gis(url="https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip")
+    
+    from https://gis.energy.gov.ab.ca/Geoview/OSPNG :
+        AB = get_gis(url="https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip")
+
+    Parameters
+    ----------
+
+    url : str
+        URL of the zipped shapefile
+
+    Return
+    ------
+
+    Returns geopandas object
+
+    Examples
+    --------
+
+    >>> import risktools as rt
+    >>> df = rt.data.get_gis("https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip")
+    """
+
+    try:
+        import geopandas as _geopandas
+    except:
+        raise ImportError("Geopandas not installed. Please install before running")
+
+    try:
+        from fiona.io import ZipMemoryFile as _ZMF
+    except:
+        raise ImportError("Fiona not installed. Please install before running")
+
+    fn = _requests.get(url)
+
+    # useful for when there are multiple directories or files. Takes first shape file
+    for ff in _ZipFile(_BytesIO(fn.content)).namelist():
+        if ff[-4:] == ".shp":
+            shp_file = ff
+            break
+
+    zf = _ZMF(fn.content)
+    shp = zf.open(shp_file)
+
+    return _geopandas.GeoDataFrame.from_features(shp, crs=shp.crs)
 
 
 def _norm_df(fn):
@@ -65,16 +122,12 @@ _file_actions = {
         "date_fields": None,
         "load_func": _norm_df,
     },
-    "crudepipelines": {
-        "file": "crudepipelines.geojson",
-        "date_fields": None,
-        "load_func": _geopandas.read_file,
-    },
-    "crudes": {
-        "file": "crudes.json", 
-        "date_fields": None, 
-        "load_func": _pd.read_json
-    },
+    # "crudepipelines": {
+    #     "file": "crudepipelines.geojson",
+    #     "date_fields": None,
+    #     "load_func": _geopandas.read_file,
+    # },
+    "crudes": {"file": "crudes.json", "date_fields": None, "load_func": _pd.read_json},
     "dflong": {
         "file": "dflong.json",
         "date_fields": ["date"],
@@ -128,16 +181,16 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
-    "productspipelines": {
-        "file": "productspipelines.geojson",
-        "date_fields": None,
-        "load_func": _geopandas.read_file,
-    },
-    "productsterminals": {
-        "file": "productsterminals.geojson",
-        "date_fields": None,
-        "load_func": _geopandas.read_file,
-    },
+    # "productspipelines": {
+    #     "file": "productspipelines.geojson",
+    #     "date_fields": None,
+    #     "load_func": _geopandas.read_file,
+    # },
+    # "productsterminals": {
+    #     "file": "productsterminals.geojson",
+    #     "date_fields": None,
+    #     "load_func": _geopandas.read_file,
+    # },
     "ref_opt_inputs": {
         "file": "ref.opt.i_nputs.json",
         "date_fields": None,
@@ -148,11 +201,11 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
-    "refineries": {
-        "file": "refineries.geojson",
-        "date_fields": None,
-        "load_func": _geopandas.read_file,
-    },
+    # "refineries": {
+    #     "file": "refineries.geojson",
+    #     "date_fields": None,
+    #     "load_func": _geopandas.read_file,
+    # },
     "tickers_eia": {
         "file": "tickers_eia.json",
         "date_fields": None,
@@ -189,6 +242,16 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
+    "ref_opt_inputs": {
+        "file": "ref_opt_inputs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "ref_opt_outputs": {
+        "file": "ref_opt_outputs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
 }
 
 _path = _os.path.dirname(__file__)
@@ -207,11 +270,15 @@ def open_data(nm):
         print(f"{nm} is not a valid file name to open")
 
     fp = _os.path.join(_path, fn)
-    df = _file_actions[nm]["load_func"](fp)
+    try:
+        df = _file_actions[nm]["load_func"](fp)
+    except:
+        _warnings.warn(f"File actions for {nm} not defined. Running default behavior.")
+        df = _pd.read_json(_os.path.join(_path, f"{nm}.json"))
 
     if isinstance(df, _pd.DataFrame):
         # convert "." to "_" in column names
-        df.columns = df.columns.str.replace(".", "_")
+        df.columns = df.columns.str.replace(".", "_", regex=False)
 
     # convert datetime fields
     if _file_actions[nm]["date_fields"] is not None:
@@ -224,4 +291,3 @@ def open_data(nm):
             df = df.iloc[:, 0]
 
     return df
-

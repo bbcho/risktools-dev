@@ -1,0 +1,34 @@
+---
+title: "compare_functions"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(reticulate)
+use_condaenv("risktools", required=TRUE)
+py_config()
+```
+
+
+```{r}
+lsf.str("package:RTL")
+```
+
+
+```{python}
+import risktools as rt
+from inspect import getmembers, isfunction
+
+funs = getmembers(rt, isfunction)
+
+for f in funs:
+    print(f[0])
+    
+```
+

@@ -6,12 +6,12 @@ See CRAN for original R version
 
 https://cran.r-project.org/web/packages/RTL/index.html
 
-Purpose
+## Purpose
 
     Purposely designed functions for trading, trading analytics and risk practitioners in Commodities and Finance.
     Build to support delivery of Finance classes from one of the co-authors of RTL at the Alberta School of Business.
 
-Features
+## Features
 
     Historical forward curves charting.
 
@@ -20,16 +20,28 @@ Features
     roll_adjust to adjust continuous contracts returns for roll adjustments using expiries above.
 
     Morningstar Marketplace API functions getPrice(), getPrices() and getCurve() using your own Morningstar credentials. Current feeds included:
-        ICE_EuroFutures and ICE_EuroFutures_continuous.
-        CME_NymexFutures_EOD and CME_NymexFutures_EOD_continuous.
-        CME_NymexOptions_EOD.
-        CME_CbotFuturesEOD and CME_CbotFuturesEOD_continuous.
-        CME_Comex_FuturesSettlement_EOD and CME_Comex_FuturesSettlement_EOD_continuous.
-        LME_AskBidPrices_Delayed.
-        CME_CmeFutures_EOD and CME_CmeFutures_EOD_continuous.
-        CME_STLCPC_Futures.
-        ICE_NybotCoffeeSugarCocoaFutures and ICE_NybotCoffeeSugarCocoaFutures_continuous.
-        Morningstar_FX_Forwards.
+        ICE_EuroFutures
+        ICE_EuroFutures_continuous
+        CME_NymexFutures_EOD
+        CME_NymexFutures_EOD_continuous
+        CME_NymexOptions_EOD
+        CME_CbotFuturesEOD
+        CME_CbotFuturesEOD_continuous
+        CME_Comex_FuturesSettlement_EOD
+        CME_Comex_FuturesSettlement_EOD_continuous
+        LME_AskBidPrices_Delayed
+        SHFE_FuturesSettlement_RT
+        CME_CmeFutures_EOD
+        CME_CmeFutures_EOD_continuous
+        CME_STLCPC_Futures
+        CFTC_CommitmentsOfTradersCombined
+        ICE_NybotCoffeeSugarCocoaFutures
+        ICE_NybotCoffeeSugarCocoaFutures_continuous
+        Morningstar_FX_Forwards
+        ERCOT_LmpsByResourceNodeAndElectricalBus
+        PJM_Rt_Hourly_Lmp
+        AESO_ForecastAndActualPoolPrice
+        LME_MonthlyDelayed_Derived
         … see ?getPrice for up to date selection and examples.
 
     chart_zscore() supports seasonality adjusted analysis of residuals, particularly useful when dealing with commodity stocks and/or days demand time series with trends as well as non-constant variance across seasonal periods.
@@ -40,7 +52,7 @@ Features
 
     swapInfo() returns all information required to price first line futures contract averaging swap or CMA physical trade, including a current month instrument with prior settlements.
 
-Data Sets
+## Data Sets
 
 Accessible via risktools.data.open_data(datsetname). Also use risktools.data.get_names() to get list of available data.
 
@@ -57,5 +69,36 @@ Accessible via risktools.data.open_data(datsetname). Also use risktools.data.get
     eiaStorageCap: EIA crude storage capacity by PADD.
     dflong and dfwide contain continuous futures prices sample data sets for Nymex (CL, HO, RB and NG contracts) and ICE Brent.
     crudepipelines and refineries contain GIS information in the North American crude space.
+    ...
 
 Usernames and password for API services are required.
+
+## Changelog
+
+### Version 0.2.0
+
+New functions added:
+- get_curves
+- get_gis
+- get_ir_swap_curve
+- refineryLP
+- swap_fut_weight
+- swap_info
+- dist_desc_plot
+
+New feeds for get_prices:
+- ERCOT_LmpsByResourceNodeAndElectricalBus
+- PJM_Rt_Hourly_Lmp
+- AESO_ForecastAndActualPoolPrice
+- LME_MonthlyDelayed_Derived
+- SHFE_FuturesSettlement_RT
+- CFTC_CommitmentsOfTradersCombined
+
+New datasets for risktools.data.open_data function
+- Replicated/refreshed RTL datsets
+
+removed geojson files and dependencies to geopandas - replaced with get_gis function
+removed support for Python 3.6. Supports >= 3.7
+
+Companion package to https://github.com/bbcho/finoptions-dev
+

@@ -63,3 +63,4 @@ env/
 
 # misc files
 *.ipynb
+.Rhistory

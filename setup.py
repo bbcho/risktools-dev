@@ -5,11 +5,11 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="risktools",
-    version="0.1.0",
+    version="0.2.0",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
-    description="Python implementation of the R package RTL",
+    description="Python implementation of the R package RTL v0.1.8",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages("src"),
@@ -27,13 +27,12 @@ setuptools.setup(
         "Products",
     ],
     url="https://github.com/bbcho/risktools-dev",
-    #download_url="https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
+    # download_url="https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
     install_requires=[
         "pandas",
         "numpy",
         "matplotlib",
         "plotly",
-        "geopandas",
         "quandl",
         "scikit-learn",
         "arch",
@@ -49,5 +48,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
 )
