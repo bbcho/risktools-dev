@@ -376,8 +376,13 @@ def test_swap_irs():
 
 def test_npv():
     ac = _load_json("npv1.json")
+    ir = (
+        _load_json("ir.json")
+        .rename({"_row": "index"}, axis=1)
+        .replace("...1", "0")
+        .set_index("index")
+    )
     ac.cf = ac.cf.astype(float)
-    ir = rt.ir_df_us(quandl_key=up["quandl"], ir_sens=0.01, date="2022-01-02")
     ts = rt.npv(
         init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=False
     )

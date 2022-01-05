@@ -1,3 +1,4 @@
+from seaborn.distributions import rugplot
 from .__init__ import *
 from . import data
 import pandas as pd
@@ -10,7 +11,12 @@ from ._morningstar import *
 from statsmodels.tsa.seasonal import STL
 from .pa import *
 
-from .main_functions import get_eia_df
+from .main_functions import get_eia_df, infer_freq
+from .cullenfrey import describe_distribution as _desc_dist
+import matplotlib.pyplot as _plt
+import seaborn as _sns
+import arch as _arch
+from matplotlib.pyplot import cm as _cm
 
 
 def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
@@ -715,3 +721,80 @@ def chart_spreads(
         return fig
     else:
         return res
+
+
+def dist_desc_plot(x, figsize=(10, 10)):
+    """
+    Provides a summary of returns' distribution
+
+    Parameters
+    ----------
+    x : Pandas Series
+        iterable of numeric returns
+
+    Returns
+    -------
+    matplotlib Figure object
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> df = rt.data.open_data('dflong')
+    >>> x = df['BRN01'].diff().dropna()
+    >>> rt.dist_desc_plot(x)     
+    """
+    _plt.figure(figsize=figsize)
+    ax1 = _plt.subplot2grid((4, 2), (0, 0), rowspan=2)  # return dist
+    ax2 = _plt.subplot2grid((4, 2), (2, 0), rowspan=2)  # cullenfrey
+    ax3 = _plt.subplot(422)  # daily returns ts
+    ax4 = _plt.subplot(424, sharex=ax3)  # garch vol
+    ax5 = _plt.subplot(426, sharex=ax3)  # cum ret
+    ax6 = _plt.subplot(428, sharex=ax3)  #
+
+    # Returns Histogram
+    _sns.histplot(x, ax=ax1, kde=True, stat="density")
+    _sns.rugplot(x, ax=ax1)
+    norm = np.random.normal(scale=x.std(), size=len(x) * 10)
+    _sns.kdeplot(norm, ax=ax1, color="purple")
+    ax1.set_xlabel("Returns")
+    ax1.set_title("Return Distribution")
+
+    # ax1.axvline(x.std() * -1.65, color="grey", ls="--", lw=1)
+    ax1.axvline(np.percentile(x, 5), color="grey", ls="--", lw=1)
+    _, ymax = ax1.get_ylim()
+    # ax1.text(x.std() * -1.65 * 1.5, 0.8 * ymax, "95% VaR", rotation=90)
+    ax1.text(np.percentile(x, 5) * 1.5, 0.8 * ymax, "95% VaR", rotation=90)
+
+    # Cullen and Frey
+    _desc_dist(x, boot=500, discrete=False, method="unbiased", ax=ax2)
+
+    color = iter(_cm.rainbow(np.linspace(0, 1, 10)))
+    c = next(color)
+
+    # daily returns time series
+    ax3.plot(x, c=next(color))
+    ax3.set_title("Returns")
+
+    # garch vol
+    # *100 to scale it for model based on typical daily returns
+    am = _arch.univariate.arch_model(x * 100, vol="Garch",)
+    res = am.fit(disp="off").conditional_volatility / 100
+    try:
+        ann = np.sqrt(infer_freq(x, multiplier=True))
+        text = "Annualized "
+    except:
+        ann = 1
+        text = ""
+    ax4.fill_between(res.index, res * ann, 0, color=next(color))
+    ax4.set_title(f"Garch (1,0,1) {text}Volatility")
+
+    # Cummulative Returns
+    ax5.fill_between(x.index, x.cumsum(), 0, color=next(color))
+    ax5.set_title("Cummulative Returns")
+
+    # Drawdowns
+    dd = drawdowns(x)
+    ax6.fill_between(dd.index, dd, 0, color=next(color))
+    ax6.set_title("Drawdowns")
+
+    _plt.tight_layout()

@@ -23,7 +23,7 @@ write(jsonlite::toJSON(out, digits = 8), "refineryLP.json")
 
 # get_prices
 from_dt = "2021-12-01"
-end_dt = format(Sys.Date(), "%Y-%m-%d")
+end_dt = format(Sys.Date()-1, "%Y-%m-%d")
 df <- list()
 df[[1]] <- c(feed="CME_NymexFutures_EOD", contract="@CL22Z", from=from_dt, end=end_dt, df=list())
 df[[2]] <- c(feed="CME_NymexFutures_EOD_continuous",contract="CL_006_Month",from=from_dt, end=end_dt, df=list())
@@ -40,7 +40,9 @@ df[[12]] <- c(feed="LME_MonthlyDelayed_Derived",contract="AHD 2021-12-01 2021-12
 df[[13]] <- c(feed="AESO_ForecastAndActualPoolPrice",contract="Forecast_Pool_Price",from=from_dt,end=format(Sys.Date()-1, "%Y-%m-%d"), df=list())
 
 for (i in 1:length(df)) {
-  df[[i]]$df <- RTL::getPrice(feed=df[[i]]$feed,contract=df[[i]]$contract,from=df[[i]]$from,iuser=username,ipassword=password)
+  tf <- RTL::getPrice(feed=df[[i]]$feed,contract=df[[i]]$contract,from=df[[i]]$from,iuser=username,ipassword=password)
+  tf <- tf %>% filter(date<=end_dt)
+  df[[i]]$df <- tf
 }
 write(jsonlite::toJSON(df, digits = 8), "get_price.json")
 
@@ -115,6 +117,8 @@ ou1 <- npv(
   disc.factors = us.df, BreakEven = FALSE
 )$df
 write(jsonlite::toJSON(ou1), "npv1.json")
+write(jsonlite::toJSON(us.df, digits = 8), "ir.json")
+
 
 ou2 <- npv(
   init.cost = -375, C = 50, cf.freq = .5, TV = 250, T2M = 2,

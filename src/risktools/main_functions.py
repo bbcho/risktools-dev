@@ -64,7 +64,7 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
         sdt = edt - _pd.DateOffset(days=30)
 
     fedsfund = _quandl.get("FED/RIFSPFF_N_D", start_date=sdt, end_date=edt).dropna()
-    print(fedsfund)
+    # print(fedsfund)
     fedsfund["FedsFunds0"] = _np.log((1 + fedsfund.Value / 360) ** 365)
     fedsfund.drop("Value", axis=1, inplace=True)
 
@@ -863,3 +863,50 @@ def _check_df(df):
     #     df = df.reset_index().copy()
 
     return df.copy()
+
+
+def infer_freq(x, multiplier=False):
+    """
+    Function to infer the frequency of a time series. Improvement over 
+    pandas.infer_freq as it can handle missing days/holidays. Note that
+    for business days it will return 'D' vs 'B'
+
+    Parameters
+    ----------
+    x : DataFrame | Series
+        Time series. Index MUST be a datetime index.
+    multiplier : bool
+        If True, returns annualization factor for financial time series:
+        252 for daily/business day
+        52 for weekly
+        12 for monthly
+        4 for quarterly
+        1 for annual
+    Returns
+    -------
+    str is multiplier = False
+    """
+
+    # searches for 3 consecutive rows and then infers freq
+    x = x.copy()
+    x.index = _pd.to_datetime(x.index)
+    diffs = x.index[1:] - x.index[:-1]
+    min_delta = diffs.min()
+    mask = (diffs == min_delta)[:-1] & (diffs[:-1] == diffs[1:])
+    pos = _np.where(mask)[0][0]
+
+    freq = _pd.infer_freq(x.index[pos : pos + 3])
+    if multiplier == False:
+        return freq
+    else:
+        if freq in ["D", "B"]:
+            return 252
+        elif freq[0] == "W":
+            return 52
+        elif freq[0] == "M":
+            return 12
+        elif freq[0] == "Q":
+            return 4
+        elif freq[0] == "A":
+            return 1
+

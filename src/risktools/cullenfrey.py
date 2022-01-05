@@ -1,5 +1,6 @@
 import numpy as _np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator as _AML
 
 
 def _moment(x, k):
@@ -184,8 +185,11 @@ def describe_distribution(
     Examples
     --------
     >>> import risktools as rt
+    >>> import matplotlib.pyplot as plt
     >>> x = [1,4,7,9,15,20,54]
     >>> rt.describe_distribution(x, method="sample", discrete=False, boot=500)
+    >>> fig, ax = plt.subplots(1,2)
+    >>> rt.describe_distribution(x, method="sample", discrete=False, boot=500, ax=ax[0], figsize=(10,10))
     """
     x = _np.array(x)
 
@@ -231,8 +235,11 @@ def describe_distribution(
         ax.set_title("Cullen and Frey Graph")
         ax.set_ylabel("kurtosis")
         ax.set_xlabel("square of skewness")
-        ax.xaxis.set_ticks(_np.arange(0, xmax + 1, 1))
-        ax.yaxis.set_ticks(_np.arange(0, ymax + 1, 1))
+        ax.xaxis.set_minor_locator(_AML())
+        ax.yaxis.set_minor_locator(_AML())
+
+        # ax.xaxis.set_ticks(_np.arange(0, xmax + 1, 1))
+        # ax.yaxis.set_ticks(_np.arange(0, ymax + 1, 1))
 
         if discrete == False:
             ax = _cont_plot(ax, kurtmax)
