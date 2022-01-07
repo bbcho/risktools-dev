@@ -62,5 +62,4 @@ docs/_build/
 env/
 
 # misc files
-*.ipynb
 .Rhistory

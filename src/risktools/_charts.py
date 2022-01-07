@@ -9,10 +9,10 @@ from plotly.colors import DEFAULT_PLOTLY_COLORS
 from math import ceil
 from ._morningstar import *
 from statsmodels.tsa.seasonal import STL
-from .pa import *
+from ._pa import *
 
-from .main_functions import get_eia_df, infer_freq
-from .cullenfrey import describe_distribution as _desc_dist
+from ._main_functions import get_eia_df, infer_freq
+from ._cullenfrey import describe_distribution as _desc_dist
 import matplotlib.pyplot as _plt
 import seaborn as _sns
 import arch as _arch
@@ -34,20 +34,20 @@ def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
         Resampling frequency, by default None. Resamples using mean if downsampling. Not designed for
         upsampling.
     output : ['stl','zscore','seasonal']
-        'stl' : for seasonal decomposition object. Run the object method .plot() to plot the STL decomposition.
-            Also use the object attributes "observed", "resid", "seasonal", "trend" and "weights" to see components
-            and calculate stats.
-        'zscore' : return residuals of szore
-        'seasonal' : for standard seasonal chart
+        'stl' - for seasonal decomposition object. Run the object method .plot() to plot the STL decomposition.
+        Also use the object attributes "observed", "resid", "seasonal", "trend" and "weights" to see components
+        and calculate stats.
+        'zscore' - return residuals of szore
+        'seasonal' - for standard seasonal chart
         By default 'zscore'
     chart : str, optional
-        [description], by default 'seasons'
+        by default 'seasons'
 
     Returns
     -------
-    'stl' : Statsmodels STL object
-    'seasonal' : Plotly figure object
-    'zscore' : Plotly figure object
+    'stl' - Statsmodels STL object
+    'seasonal' - Plotly figure object
+    'zscore' - Plotly figure object
 
     Examples
     --------

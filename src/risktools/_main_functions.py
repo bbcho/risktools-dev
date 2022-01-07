@@ -17,7 +17,7 @@ from pandas.plotting import (
 )
 import seaborn as _sns
 
-from .pa import *
+from ._pa import *
 
 
 def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
@@ -479,24 +479,27 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     df : DataFrame
         Wide dataframe with datetime index and multiple series columns for each futures contract.
         Always use continuous contracts for columns.
-    period : str | int | float
+    period : [str | int | float]
         Timeframe to use to calculate beta. "all" to use all data available or scalar number
         n to only use the last n periods/rows of data from the last, by default 'all'. i.e.
         for WTI contracts (CL), 30 would be the last 30 days. Recommend running roll_adjust
         function prior to using prompt_beta to remove swings from contract expiry
-    beta_type : str
-        'all', 'bull', or 'bear', by default 'all'
-    output : str
-        'betas', 'chart', 'stats', by default 'chart'
+    beta_type : {'all', 'bull', 'bear'}, default 'all'
+        Beta types to return
+    output : {'betas', 'chart', 'stats'}, default 'chart'
+        Output type
 
     Returns
     -------
-    output='chart' : A plotly figure with the beta lines charted for 'all', 'bear' and 'bull' markets
-    output='betas' : A dataframe of betas by contract order for 'all', 'bear' and 'bull' markets
-    output='stats' : A scipy object from a least_squares fit of the betas by market type. Model used
-                        to fit betas was of the form:
-                            \{beta} = x0 * exp(x1*t) + x2
-                        where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
+    chart
+        A plotly figure with the beta lines charted for 'all', 'bear' and 'bull' markets
+    betas
+        A dataframe of betas by contract order for 'all', 'bear' and 'bull' markets
+    stats
+        A scipy object from a least_squares fit of the betas by market type. Model used
+        to fit betas was of the form:
+        .. math:: \{beta} = x0 * exp(x1*t) + x2
+        where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
 
     chart, df of betas or stats
 
