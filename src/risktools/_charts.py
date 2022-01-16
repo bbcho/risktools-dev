@@ -1,14 +1,13 @@
-from seaborn.distributions import rugplot
 from .__init__ import *
 from . import data
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from plotly.subplots import make_subplots as _make_subplots
 from plotly.colors import DEFAULT_PLOTLY_COLORS
-from math import ceil
+from math import ceil as _ceil
 from ._morningstar import *
-from statsmodels.tsa.seasonal import STL
+from statsmodels.tsa.seasonal import STL as _STL
 from ._pa import *
 
 from ._main_functions import get_eia_df, infer_freq
@@ -75,7 +74,7 @@ def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
     else:
         seasonal = 7
 
-    stl = STL(df, seasonal=seasonal, seasonal_deg=0, robust=False).fit()
+    stl = _STL(df, seasonal=seasonal, seasonal_deg=0, robust=False).fit()
 
     if output == "stl":
         return stl
@@ -198,8 +197,8 @@ def chart_eia_sd(market, key, start_dt="2010-01-01", output="chart", **kwargs):
     # calc shape of final subplot
     n = len(df.category.unique())
     m = 2
-    n = ceil(n / m)
-    fig = make_subplots(n, m, subplot_titles=(" ", " ", " ", " ", " ", " "),)
+    n = _ceil(n / m)
+    fig = _make_subplots(n, m, subplot_titles=(" ", " ", " ", " ", " ", " "),)
 
     # Copy returns figures from five_year_plot to a single subplot figure
     a = 1
@@ -423,7 +422,7 @@ def chart_perf_summary(df, geometric=True, title=None):
 
     cols = DEFAULT_PLOTLY_COLORS
 
-    fig = make_subplots(
+    fig = _make_subplots(
         rows=2, cols=1, subplot_titles=("Cummulative Returns", "Drawdowns")
     )
     for i, c in enumerate(ret.columns):
@@ -537,7 +536,7 @@ def chart_forward_curves(
         se = df.loc[date, :]
 
         n = len(se)
-        days_per_step = ceil(d / n)
+        days_per_step = _ceil(d / n)
 
         if exp is None:
             idx = []
@@ -740,7 +739,7 @@ def dist_desc_plot(x, figsize=(10, 10)):
     --------
     >>> import risktools as rt
     >>> df = rt.data.open_data('dflong')
-    >>> x = df['BRN01'].diff().dropna()
+    >>> x = df['BRN01'].pct_change().dropna()
     >>> rt.dist_desc_plot(x)     
     """
     _plt.figure(figsize=figsize)

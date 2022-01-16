@@ -3,7 +3,8 @@ from ._pa import *
 from ._swap import *
 from ._sims import *
 from ._main_functions import *
-from .data import get_gis
+
+# from .data import get_gis
 from ._refineryLP import *
 from ._cullenfrey import describe_distribution
 

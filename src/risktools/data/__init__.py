@@ -10,30 +10,41 @@ import warnings as _warnings
 
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
     """
-    Returns a SpatialPointsDataFrame from a shapefile URL.
-    Examples with EIA and Government of Alberta
+    Returns a SpatialPointsDataFrame from a shapefile URL. Examples with EIA and Government of Alberta
 
-    from https://www.eia.gov/maps/layer_info-m.php :
-        crudepipelines = get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip")
-        refineries = get_gis(url="https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip")
+    US Energy Information Agency:
     
-    from https://gis.energy.gov.ab.ca/Geoview/OSPNG :
-        AB = get_gis(url="https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip")
+        EIA crude pipelines : https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
+
+        EIA Refinery Map : https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip
+        
+        EIA Products Pipelines : https://www.eia.gov/maps/map_data/PetroleumProduct_Pipelines_US_EIA.zip
+        
+        EIA Products Terminals : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
+        
+        EIA NG Pipelines : https://www.eia.gov/maps/map_data/NaturalGas_InterIntrastate_Pipelines_US_EIA.zip
+        
+        EIA NG Storage : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
+        
+        EIA NG Hubs : https://www.eia.gov/maps/map_data/NaturalGas_TradingHubs_US_EIA.zip
+        
+        EIA LNG Terminals : https://www.eia.gov/maps/map_data/Lng_ImportExportTerminals_US_EIA.zip
+
+    Alberta Oil Sands, Petroleum and Natural Gas
+
+        AB : https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip
 
     Parameters
     ----------
-
     url : str
         URL of the zipped shapefile
 
     Return
     ------
-
     Returns geopandas object
 
     Examples
     --------
-
     >>> import risktools as rt
     >>> df = rt.data.get_gis("https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip")
     """
@@ -60,6 +71,72 @@ def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
     shp = zf.open(shp_file)
 
     return _geopandas.GeoDataFrame.from_features(shp, crs=shp.crs)
+
+
+def get_names():
+    """
+    return valid names for the open_data() function.
+
+    Returns
+    -------
+    List of strings
+    
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_names()
+    """
+    return list(_file_actions.keys())
+
+
+def open_data(nm):
+    """
+    Function used to return built-in datasets from risktools. To get a list of valid datasets, use the get_names() function.
+
+    Parameters
+    ----------
+    nm : str
+        Name of dataset to return
+    
+    Returns
+    -------
+    Varies by data requests
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.open_data('cancrudeassays')
+    
+    """
+    fn = ""
+    path = _os.path.dirname(__file__)
+    try:
+        fn = _file_actions[nm]["file"]
+    except ValueError:
+        print(f"{nm} is not a valid file name to open")
+
+    fp = _os.path.join(_path, fn)
+    try:
+        df = _file_actions[nm]["load_func"](fp)
+    except:
+        _warnings.warn(f"File actions for {nm} not defined. Running default behavior.")
+        df = _pd.read_json(_os.path.join(_path, f"{nm}.json"))
+
+    if isinstance(df, _pd.DataFrame):
+        # convert "." to "_" in column names
+        df.columns = df.columns.str.replace(".", "_", regex=False)
+
+    # convert datetime fields
+    if _file_actions[nm]["date_fields"] is not None:
+        for d in _file_actions[nm]["date_fields"]:
+            df[d] = _pd.to_datetime(df[d])
+
+    if "index" in _file_actions[nm].keys():
+        df = df.set_index(_file_actions[nm]["index"]).sort_index()
+        if len(df.columns) < 2:
+            df = df.iloc[:, 0]
+
+    return df
 
 
 def _norm_df(fn):
@@ -256,38 +333,3 @@ _file_actions = {
 
 _path = _os.path.dirname(__file__)
 
-
-def get_names():
-    return list(_file_actions.keys())
-
-
-def open_data(nm):
-    fn = ""
-    path = _os.path.dirname(__file__)
-    try:
-        fn = _file_actions[nm]["file"]
-    except ValueError:
-        print(f"{nm} is not a valid file name to open")
-
-    fp = _os.path.join(_path, fn)
-    try:
-        df = _file_actions[nm]["load_func"](fp)
-    except:
-        _warnings.warn(f"File actions for {nm} not defined. Running default behavior.")
-        df = _pd.read_json(_os.path.join(_path, f"{nm}.json"))
-
-    if isinstance(df, _pd.DataFrame):
-        # convert "." to "_" in column names
-        df.columns = df.columns.str.replace(".", "_", regex=False)
-
-    # convert datetime fields
-    if _file_actions[nm]["date_fields"] is not None:
-        for d in _file_actions[nm]["date_fields"]:
-            df[d] = _pd.to_datetime(df[d])
-
-    if "index" in _file_actions[nm].keys():
-        df = df.set_index(_file_actions[nm]["index"]).sort_index()
-        if len(df.columns) < 2:
-            df = df.iloc[:, 0]
-
-    return df

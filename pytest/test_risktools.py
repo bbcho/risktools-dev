@@ -447,20 +447,30 @@ def test_get_eia_df():
     ts = rt.get_eia_df(
         ["PET.W_EPC0_SAX_YCUOK_MBBL.W", "NG.NW2_EPG0_SWO_R48_BCF.W"], key=up["eia"]
     )
+    ts.date = pd.to_datetime(ts.date)
     ts.table_name = ts.table_name.map(
         {
             "Cushing, OK Ending Stocks excluding SPR of Crude Oil, Weekly": "CrudeCushing",
             "Weekly Lower 48 States Natural Gas Working Underground Storage, Weekly": "NGLower48",
         }
     )
+
     ts = (
         ts.rename({"table_name": "series"}, axis=1)
         .set_index(["series", "date"])
         .sort_index()
         .value
     )
-    ts = ts[ac.index.min() : ac.index.max()]
 
+    cmin = ac["CrudeCushing"].index.min()
+    cmax = ac["CrudeCushing"].index.max()
+
+    nmin = ac["NGLower48"].index.min()
+    nmax = ac["NGLower48"].index.max()
+
+    ts = ts.loc[("CrudeCushing", slice(cmin, cmax))].append(
+        ts.loc[("NGLower48", slice(nmin, nmax))]
+    )
     pd.testing.assert_series_equal(ac, ts)
 
 

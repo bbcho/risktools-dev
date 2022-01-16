@@ -2,7 +2,6 @@ import warnings
 import pandas as _pd
 import numpy as _np
 import quandl as _quandl
-from math import sqrt
 from . import data
 import arch as _arch
 from scipy.optimize import least_squares as _least_squares
@@ -215,7 +214,7 @@ def trade_stats(R, Rf=0):
         rs[lab]["cum_ret"] = return_cumulative(con, geometric=True)
         rs[lab]["ret_ann"] = return_annualized(con, scale=252)
         rs[lab]["sd_ann"] = sd_annualized(con, scale=252)
-        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf)  # * sqrt(252)
+        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf)  # * _np.sqrt(252)
         rs[lab]["sharpe"] = sharpe_ratio_annualized(con, Rf=Rf)
 
         # need to dropna to calc perc_win properly
@@ -444,7 +443,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     # # calc annualized volatility from variance
     yhat = _np.sqrt(
         garch_fitted.forecast(horizon=forecast_horizon, start=0, reindex=True).variance
-    ) * sqrt(scale)
+    ) * _np.sqrt(scale)
 
     if out == "data":
         return yhat
@@ -698,8 +697,8 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
     dt = T / n
 
     # define u, d, and risk-neutral probability
-    u = _np.exp(sigma * sqrt(dt))
-    d = _np.exp(-sigma * sqrt(dt))
+    u = _np.exp(sigma * _np.sqrt(dt))
+    d = _np.exp(-sigma * _np.sqrt(dt))
     q = (_np.exp(Rf * dt) - d) / (u - d)
 
     # define our asset tree prices
@@ -729,7 +728,7 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
             ) / _np.exp(Rf * dt)
 
     # indicator if model can be used sigma > rsqrt(dt)
-    if sigma > sqrt(dt) * Rf:
+    if sigma > _np.sqrt(dt) * Rf:
         note = "ok"
     else:
         note = "sigma < Rf*sqrt(dt) do not use"

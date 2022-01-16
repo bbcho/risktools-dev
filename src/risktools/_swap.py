@@ -1,4 +1,3 @@
-from numpy import mat
 from . import data
 
 import pandas as _pd
@@ -35,17 +34,15 @@ def custom_date_range(start, end, freq):
 
 
 def swap_irs(
-    trade_date=_pd.Timestamp.now().floor("D"),
-    eff_date=_pd.Timestamp.now().floor("D") + _pd.DateOffset(days=2),
-    mat_date=_pd.Timestamp.now().floor("D")
-    + _pd.DateOffset(days=2)
-    + _pd.DateOffset(years=2),
+    trade_date=None,
+    eff_date=None,
+    mat_date=None,
     notional=1000000,
     pay_rec="rec",
     fixed_rate=0.05,
-    float_curve=us_swap,
+    float_curve=None,
     reset_freq="Q",
-    disc_curve=us_swap,
+    disc_curve=None,
     days_in_year=360,
     convention="act",
     bus_calendar="NY",  # not implemented
@@ -57,11 +54,11 @@ def swap_irs(
     Parameters
     ----------
     trade_date : Timestamp | str
-        Defaults to today().
+        The date of the trade. If None, defaults to today(). By default None.
     eff_date : Timestamp | str
-        Defaults to today() + 2 days.
+        The effective date of the swap. If None, defaults to trade_date + 2 days. By default None.
     mat_date : Timestamp | str
-        Defaults to today() + 2 years.
+        The maturity date of the swap. If None, defaults to eff_date + 2 years.
     notional : long int
         Numeric value of notional. Defaults to 1,000,000.
     pay_rec : str
@@ -69,13 +66,13 @@ def swap_irs(
     fixed_rate : float
         fixed interest rate. Defaults to 0.05.
     float_curve : DataFrame | Dict
-        DataFrame of interest rate curves with columns 'times' and 'discounts'. Defaults to rt.data.open_data("usSwapCurves")
+        DataFrame of interest rate curves with columns 'times' and 'discounts'. If None, defaults to rt.data.open_data("usSwapCurves")
         which is a dictionary based on the R object DiscountCurve. Column times is year fractions going forward in time.
         So today is 0, tomorrow is 1/365, a year from today is 1 etc...
     reset_freq : str
         Pandas/datetime Timestamp frequency (allowable values are 'M', 'Q', '6M', or 'Y')
     disc_curve : DataFrame | Dict
-        DataFrame of interest rate curves with columns 'times' and 'discounts'. Defaults to rt.data.open_data("usSwapCurves")
+        DataFrame of interest rate curves with columns 'times' and 'discounts'. If None, defaults to rt.data.open_data("usSwapCurves")
         which is a dictionary based on the R object DiscountCurve. Column times is year fractions going forward in time.
         So today is 0, tomorrow is 1/365, a year from today is 1 etc...
     days_in_year : int
@@ -97,6 +94,17 @@ def swap_irs(
     >>> usSwapCurves = rt.data.open_data('usSwapCurves')
     >>> rt.swap_irs(trade_date="2020-01-04", eff_date="2020-01-06", mat_date="2022-01-06", notional=1000000, pay_rec = "rec", fixed_rate=0.05, float_curve=usSwapCurves, reset_freq='Q', disc_curve=usSwapCurves, days_in_year=360, convention="act", bus_calendar="NY", output = "all")
     """
+    if trade_date is None:
+        trade_date = (_pd.Timestamp.now().floor("D"),)
+    if eff_date is None:
+        eff_date = trade_date + _pd.DateOffset(days=2)
+    if mat_date is None:
+        mat_date = eff_date + _pd.DateOffset(years=2)
+    if float_curve is None:
+        float_curve = us_swap
+    if disc_curve is None:
+        disc_curve = us_swap
+
     dates = custom_date_range(eff_date, mat_date, freq=reset_freq)
 
     # in case mat_date does not fall evenly on freq, take last date before

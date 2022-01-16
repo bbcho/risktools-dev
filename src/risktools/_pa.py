@@ -19,7 +19,7 @@ def return_cumulative(r, geometric=True):
 
     product of all the individual period returns
 
-    \deqn{(1+r_{1})(1+r_{2})(1+r_{3})\ldots(1+r_{n})-1=prod(1+R)-1}{prod(1+R)-1}
+    .. math:: (1+r_{1})(1+r_{2})(1+r_{3})\ldots(1+r_{n})-1=prod(1+R)-1
 
     Parameters
     ----------
@@ -67,7 +67,7 @@ def return_annualized(r, scale=None, geometric=True):
     the number of periods in a year, and taking the root to the number of total
     observations:
     
-    .. math:: prod(1+R_{a})^{\\frac{scale}{n}}-1=\sqrt[n]{prod(1+R_{a})^{scale}}-1}{prod(1 + Ra)^(scale/n) - 1}
+    .. math:: prod(1+R_{a})^{\\frac{scale}{n}}-1=\sqrt[n]{prod(1+R_{a})^{scale}}-1
 
     where scale is the number of periods in a year, and n is the total number of
     periods for which you have observations.
@@ -134,13 +134,13 @@ def return_excess(R, Rf=0):
 
     Mean of the period return minus the period risk free rate
 
-    \deqn{\overline{(R_{a}-R_{f})}}{mean(Ra-Rf=0)}
+    .. math:: \overline{(R_{a}-R_{f})}
 
     OR
 
     mean of the period returns minus a single numeric risk free rate
 
-    \deqn{\overline{R_{a}}-R_{f}}{mean(R)-rf}
+    .. math:: \overline{R_{a}}-R_{f}
 
     Note that while we have, in keeping with common academic usage, assumed that
     the second parameter will be a risk free rate, you may also use any other
@@ -272,7 +272,7 @@ def omega_sharpe_ratio(R, MAR, *args):
     Acceptable Returns (MAR)) return from the portfolio return and we divide
     it by the opposite of the Downside Deviation.
 
-    .. math:: OmegaSharpeRatio(R,MAR) = \\frac{R_p - R_t}{\sum^n_{t=1}\\frac{max(R_t - R_i, 0)}{n}}
+    .. math:: OmegaSharpeRatio(R,MAR) = \\frac{R_p - R_t}{ \sum^n_{t=1} \\frac{max(R_t - R_i, 0)}{n} }
 
     where :math:`n` is the number of observations of the entire series
 
@@ -540,7 +540,7 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
 
     This function annualizes the number based on the scale parameter.
 
-    .. math:: \\frac{\sqrt[n]{prod(1+R_{a})^{scale}}-1}{\sqrt{scale}\cdot\sqrt{\sigma}}}
+    .. math:: \\frac{\sqrt[n]{prod(1+R_{a})^{scale}}-1}{\sqrt{scale}\cdot\sqrt{\sigma}}
 
     Using an annualized Sharpe Ratio is useful for comparison of multiple return
     streams.  The annualized Sharpe ratio is computed by dividing the annualized
@@ -913,7 +913,7 @@ def timing_ratio(Ra, Rb, Rf=0):
     Notes
     -----
 
-    .. math:: TimingRatio = \\frac{\\beta^{+}}{\\beta^{-}}}
+    .. math:: TimingRatio = \\frac{\\beta^{+}}{\\beta^{-}}
 
     Examples
     --------
