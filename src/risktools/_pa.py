@@ -19,7 +19,7 @@ def return_cumulative(r, geometric=True):
 
     product of all the individual period returns
 
-    \deqn{(1+r_{1})(1+r_{2})(1+r_{3})\ldots(1+r_{n})-1=prod(1+R)-1}{prod(1+R)-1}
+    .. math:: (1+r_{1})(1+r_{2})(1+r_{3})\ldots(1+r_{n})-1=prod(1+R)-1
 
     Parameters
     ----------
@@ -66,15 +66,15 @@ def return_annualized(r, scale=None, geometric=True):
     scale your observations to an annual scale by raising the compound return to
     the number of periods in a year, and taking the root to the number of total
     observations:
-    \deqn{prod(1+R_{a})^{\frac{scale}{n}}-1=\sqrt[n]{prod(1+R_{a})^{scale}}-1}{prod(1
-    + Ra)^(scale/n) - 1}
+    
+    .. math:: prod(1+R_{a})^{\\frac{scale}{n}}-1=\sqrt[n]{prod(1+R_{a})^{scale}}-1
 
     where scale is the number of periods in a year, and n is the total number of
     periods for which you have observations.
 
     For simple returns (geometric=FALSE), the formula is:
 
-    \deqn{\overline{R_{a}} \cdot scale}{mean(R)*scale}
+    .. math:: \overline{R_{a}} \cdot scale
 
     Parameters
     ----------
@@ -96,8 +96,7 @@ def return_annualized(r, scale=None, geometric=True):
 
     References
     ----------
-    Bacon, Carl. \emph{Practical Portfolio Performance Measurement
-    and Attribution}. Wiley. 2004. p. 6
+    Bacon, Carl. *Practical Portfolio Performance Measurement and Attribution*. Wiley. 2004. p. 6
 
     Examples
     --------
@@ -135,13 +134,13 @@ def return_excess(R, Rf=0):
 
     Mean of the period return minus the period risk free rate
 
-    \deqn{\overline{(R_{a}-R_{f})}}{mean(Ra-Rf=0)}
+    .. math:: \overline{(R_{a}-R_{f})}
 
     OR
 
     mean of the period returns minus a single numeric risk free rate
 
-    \deqn{\overline{R_{a}}-R_{f}}{mean(R)-rf}
+    .. math:: \overline{R_{a}}-R_{f}
 
     Note that while we have, in keeping with common academic usage, assumed that
     the second parameter will be a risk free rate, you may also use any other
@@ -273,28 +272,29 @@ def omega_sharpe_ratio(R, MAR, *args):
     Acceptable Returns (MAR)) return from the portfolio return and we divide
     it by the opposite of the Downside Deviation.
 
-    \deqn{OmegaSharpeRatio(R,MAR) = \frac{r_p - r_t}{\sum^n_{t=1}\frac{max(r_t - r_i, 0)}{n}}}{OmegaSharpeRatio(R,MAR) = (Rp - Rt) / -DownsidePotential(R,MAR)}
+    .. math:: OmegaSharpeRatio(R,MAR) = \\frac{R_p - R_t}{ \sum^n_{t=1} \\frac{max(R_t - R_i, 0)}{n} }
 
-    where \eqn{n} is the number of observations of the entire series
+    where :math:`n` is the number of observations of the entire series
 
     Parameters
     ----------
-    R : Series or DataFrame
+    R : {Series, DataFrame}
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
-    MAR : int or array_like
+    MAR : {float, array_like[float]}
         Minimum Acceptable Return, in the same periodicity as your
         returns
-    *args:
+    *args : tuple
         any other passthru parameters
 
     Returns
     -------
+    float
 
     Examples
     --------
     >>> mar = 0.005
-    >>> print(omega_sharpe_ratio(portfolio_bacon[,1], MAR))
+    >>> print(omega_sharpe_ratio(portfolio_bacon, MAR))
     """
     if isinstance(R, (_pd.Series, _pd.DataFrame)):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
@@ -339,43 +339,47 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     upside risk, variance and potential of the return distribution
 
     Upside Risk is the similar of semideviation taking the return above the
-    Minimum Acceptable Return instead of using the mean return or zero.
-
+    Minimum Acceptable Return instead of using the mean return or zero
+    .
     To calculate it, we take the subset of returns that are more than the target
     (or Minimum Acceptable Returns (MAR)) returns and take the differences of
     those to the target.  We sum the squares and divide by the total number of
     returns and return the square root.
 
-    \deqn{ UpsideRisk(R , MAR) = \sqrt{\sum^{n}_{t=1}\frac{
-    max[(R_{t} - MAR), 0]^2}{n}}}{UpsideRisk(R, MAR) = sqrt(1/n * sum(t=1..n)
-    ((max(R(t)-MAR, 0))^2))}
-
-    \deqn{ UpsideVariance(R, MAR) = \sum^{n}_{t=1}\frac{max[(R_{t} - MAR), 0]^2} {n}}{UpsideVariance(R, MAR) = 1/n * sum(t=1..n)((max(R(t)-MAR, 0))^2)}
-
-    \deqn{UpsidePotential(R, MAR) = \sum^{n}_{t=1}\frac{max[(R_{t} - MAR), 0]} {n}}{DownsidePotential(R, MAR) =  1/n * sum(t=1..n)(max(R(t)-MAR, 0))}
-
-    where \eqn{n} is either the number of observations of the entire series or
-    the number of observations in the subset of the series falling below the
-    MAR.
-
     Parameters
     ----------
-    R : Series or DataFrame
+    R : {Series, DataFrame}
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
         returns
-    method : str
+    method : {'full','subset'}, default 'full'
         Either "full" or "subset", indicating whether to use the
         length of the full series or the length of the subset of the series below
         the MAR as the denominator, defaults to "full"
-    stat : str
+    stat : {"risk", "variance", "potential"}, default 'risk'
         one of "risk", "variance" or "potential" indicating whether
         to return the Upside risk, variance or potential. By default,
         'risk'
-    *args :
-        any other passthru parameters
+
+    Returns
+    -------
+        float
+
+    Notes
+    -----
+    Equations:
+
+    .. math:: 
+        
+        UpsideRisk(R, MAR) = \sqrt{\sum_{n}^{t=1} \\frac{max[(R_{t} - MAR), 0]^2}{n}}\f
+        UpsideVariance(R, MAR) = \sum^{n}_{t=1} \\frac{max[(R_{t} - MAR), 0]^2}{n}\f
+        UpsidePotential(R, MAR) = \sum^{n}_{t=1} \\frac{max[(R_{t} - MAR), 0]} {n}
+
+    where `n` is either the number of observations of the entire series or
+    the number of observations in the subset of the series falling below the
+    MAR.
 
     Examples
     --------
@@ -389,6 +393,9 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     >>> print(upside_risk(df['Adj Close'], MAR=0, stat='variance'))
     >>> print(upside_risk(df['Adj Close'], MAR=0, stat='potential'))
     """
+    # .. math:: UpsideRisk(R , MAR) = \sqrt{\sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]^2}{n}}
+    # .. math:: UpsideVariance(R, MAR) = \sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]^2} {n}}
+    # .. math:: UpsidePotential(R, MAR) = \sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]} {n}}
 
     if isinstance(R, (_pd.Series, _pd.DataFrame)):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
@@ -533,7 +540,7 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
 
     This function annualizes the number based on the scale parameter.
 
-    \deqn{\frac{\sqrt[n]{prod(1+R_{a})^{scale}}-1}{\sqrt{scale}\cdot\sqrt{\sigma}}}
+    .. math:: \\frac{\sqrt[n]{prod(1+R_{a})^{scale}}-1}{\sqrt{scale}\cdot\sqrt{\sigma}}
 
     Using an annualized Sharpe Ratio is useful for comparison of multiple return
     streams.  The annualized Sharpe ratio is computed by dividing the annualized
@@ -573,13 +580,6 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
-
-    data(managers)
-    SharpeRatio.annualized(managers[,1,drop=FALSE], Rf=.035/12)
-    SharpeRatio.annualized(managers[,1,drop=FALSE], Rf = managers[,10,drop=FALSE])
-    SharpeRatio.annualized(managers[,1:6], Rf=.035/12)
-    SharpeRatio.annualized(managers[,1:6], Rf = managers[,10,drop=FALSE])
-    SharpeRatio.annualized(managers[,1:6], Rf = managers[,10,drop=FALSE],geometric=FALSE)
     """
     R, scale = _check_ts(R, scale)
 
@@ -590,18 +590,17 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
     return res
 
 
-def drawdowns(R, geometric=True, *args):
+def drawdowns(R, geometric=True):
     """
     Function to calculate drawdown levels in a timeseries
 
     Parameters
     ----------
-    R : Series or DataFrame
+    R : {Series, DataFrame}
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
         cummmulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
-
     """
 
     if geometric:
@@ -626,13 +625,6 @@ def find_drawdowns(R, geometric=True, *args):
     drawdowns() will calculate the drawdown levels as percentages, for use
     in \code{\link{chart.Drawdown}}.
 
-    Returns an dictionary: \cr
-    \itemize{
-      \item return depth of drawdown
-      \item from starting period
-      \item to ending period \item length length in periods
-    }
-
     Parameters
     ----------
     R : Series or DataFrame
@@ -640,32 +632,30 @@ def find_drawdowns(R, geometric=True, *args):
         cummmulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
-    *args
-        any pass-through parameters
 
     Returns
     -------
     Nested dictionary with asset name(s) as the top level key(s). Nested below that as another
     dictionary are the following keys and values:
-        'return': numpy array of minimum of returns below the risk free rate of return (Rf) for each
-            trough. If returns are positive, array has 0 value
-        'from' : array index positiion of beginning of each trough or recovery period corresponding to each
-            element of 'return'
-        'trough' : array index position of peak trough period corresponding to each
-            element of 'return'. Returns beginning of recovery periods
-        'to' : array index positiion of end of each trough or recovery period corresponding to each
-            element of 'return'
-        'length' : length of each trough period corresponding to each element of 'return' as given by
-            the difference in to and from index positions
-        'peaktotrough' : array index distance from the peak of each trough or recovery period from the
-            beginning of each trough or recovery period, corresponding to each element of 'return'
-        'recovery' : array index distance from the peak of each trough or recovery period to the
-            end of each trough or recovery period, corresponding to each element of 'return'
+
+    'return'- numpy array of minimum of returns below the risk free rate of return (Rf) for each
+        trough. If returns are positive, array has 0 value
+    'from' - array index positiion of beginning of each trough or recovery period corresponding to each
+        element of 'return'
+    'trough' - array index position of peak trough period corresponding to each
+        element of 'return'. Returns beginning of recovery periods
+    'to' - array index positiion of end of each trough or recovery period corresponding to each
+        element of 'return'
+    'length' - length of each trough period corresponding to each element of 'return' as given by
+        the difference in to and from index positions
+    'peaktotrough' - array index distance from the peak of each trough or recovery period from the
+        beginning of each trough or recovery period, corresponding to each element of 'return'
+    'recovery' - array index distance from the peak of each trough or recovery period to the
+        end of each trough or recovery period, corresponding to each element of 'return'
 
     References
     ----------
-    Bacon, C. \emph{Practical Portfolio Performance Measurement and
-    Attribution}. Wiley. 2004. p. 88 \cr
+    Bacon, C. *Practical Portfolio Performance Measurement and Attribution*. Wiley. 2004. p. 88
 
     Examples
     --------
@@ -811,11 +801,10 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     This function uses a linear intercept model to achieve the same results as
     the symbolic model used by \code{\link{BetaCoVariance}}
 
-    \deqn{\beta_{a,b}=\frac{CoV_{a,b}}{\sigma_{b}}=\frac{\sum((R_{a}-\bar{R_{a}})(R_{b}-\bar{R_{b}}))}{\sum(R_{b}-\bar{R_{b}})^{2}}}{beta
-    = cov(Ra,Rb)/var(R)}
+    .. math:: \\beta_{a,b}=\\frac{CoV_{a,b}}{\sigma_{b}}=\\frac{\sum((R_{a}-\\bar{R_{a}})(R_{b}-\\bar{R_{b}}))}{\sum(R_{b}-\\bar{R_{b}})^{2}}
 
     Ruppert(2004) reports that this equation will give the estimated slope of
-    the linear regression of \eqn{R_{a}}{Ra} on \eqn{R_{b}}{Rb} and that this
+    the linear regression of :math:`R_{a}` on :math:`R_{b}` and that this
     slope can be used to determine the risk premium or excess expected return
     (see Eq. 7.9 and 7.10, p. 230-231).
 
@@ -826,9 +815,11 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     Alternatively, kind='bear' provides the calculation on negative
     market returns.
 
-    The function \code{TimingRatio} may help assess whether the manager is a good timer
+    The function `timing_ratio` may help assess whether the manager is a good timer
     of asset allocation decisions.  The ratio, which is calculated as
-    \deqn{TimingRatio =\frac{\beta^{+}}{\beta^{-}}}{Timing Ratio = beta+/beta-}
+    
+    :math:`TimingRatio =\\frac{\\beta^{+}}{\\beta^{-}}`
+    
     is best when greater than one in a rising market and less than one in a
     falling market.
 
@@ -838,14 +829,14 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
 
     Parameters
     ----------
-    Ra : array-like or DataFrame
+    Ra : {array_like | DataFrame}
         Array-like or DataFrame with datetime index of asset returns to be tested vs benchmark
-    Rb : array-like
+    Rb : array_like
         Benchmark returns to use to test Ra
-    Rf : array-like | float
+    Rf : {array_like | float}
         risk free rate, in same period as your returns, or as a single
         digit average
-    kind : str
+    kind : {'all','bear','bull'}, default 'all'
         Market type to return, by default 'all'
         'all' : returns beta for all market types
         'bear' : returns beta for bear markets
@@ -858,11 +849,9 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
 
     References
     ----------
-    Sharpe, W.F. Capital Asset Prices: A theory of market
-    equilibrium under conditions of risk. \emph{Journal of finance}, vol 19,
-    1964, 425-442.
-    Ruppert, David. \emph{Statistics and Finance, an Introduction}. Springer. 2004.
-    Bacon, Carl. \emph{Practical portfolio performance measurement and attribution}. Wiley. 2004. \cr
+    Sharpe, W.F. Capital Asset Prices: A theory of market equilibrium under conditions of risk. *Journal of finance*, vol 19, 1964, 425-442.\f
+    Ruppert, David. *Statistics and Finance, an Introduction*. Springer. 2004.\f
+    Bacon, Carl. *Practical portfolio performance measurement and attribution*. Wiley. 2004.
 
     Examples
     --------
@@ -902,11 +891,9 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
 
 def timing_ratio(Ra, Rb, Rf=0):
     """
-    The function \code{TimingRatio} may help assess whether the manager is a good timer
-    of asset allocation decisions.  The ratio, which is calculated as
-    \deqn{TimingRatio =\frac{\beta^{+}}{\beta^{-}}}{Timing Ratio = beta+/beta-}
-    is best when greater than one in a rising market and less than one in a
-    falling market.
+    The function `timing_ratio` may help assess whether the manager is a good timer
+    of asset allocation decisions.  The ratio is best when greater than one in a 
+    rising market and less than one in a falling market.
 
     Parameters
     ----------
@@ -922,6 +909,11 @@ def timing_ratio(Ra, Rb, Rf=0):
     -------
     If Ra is array-like, function returns beta as a scalar. If Ra is a DataFrame, it will return
     a series indexed with asset names from df columns
+
+    Notes
+    -----
+
+    .. math:: TimingRatio = \\frac{\\beta^{+}}{\\beta^{-}}
 
     Examples
     --------

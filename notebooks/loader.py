@@ -11,7 +11,6 @@ def _load_json(fn, dataframe=True):
     with open(fp) as js:
         if dataframe == True:
             df = pd.read_json(js)
-            print(df)
             df.columns = df.columns.str.replace(".", "_", regex=False)
         else:
             df = json.load(js)

@@ -1,7 +1,5 @@
 import pandas as _pd
 import requests as _requests
-import numpy as _np
-import json as _json
 import urllib as _urllib
 import re as _re
 import io as _io

@@ -14,5 +14,6 @@ Module contents
 
 .. automodule:: risktools
    :members:
+   :imported-members:
    :undoc-members:
    :show-inheritance:

@@ -2,7 +2,6 @@ import warnings
 import pandas as _pd
 import numpy as _np
 import quandl as _quandl
-from math import sqrt
 from . import data
 import arch as _arch
 from scipy.optimize import least_squares as _least_squares
@@ -17,7 +16,7 @@ from pandas.plotting import (
 )
 import seaborn as _sns
 
-from .pa import *
+from ._pa import *
 
 
 def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
@@ -215,7 +214,7 @@ def trade_stats(R, Rf=0):
         rs[lab]["cum_ret"] = return_cumulative(con, geometric=True)
         rs[lab]["ret_ann"] = return_annualized(con, scale=252)
         rs[lab]["sd_ann"] = sd_annualized(con, scale=252)
-        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf)  # * sqrt(252)
+        rs[lab]["omega"] = omega_sharpe_ratio(con, MAR=Rf)  # * _np.sqrt(252)
         rs[lab]["sharpe"] = sharpe_ratio_annualized(con, Rf=Rf)
 
         # need to dropna to calc perc_win properly
@@ -444,7 +443,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     # # calc annualized volatility from variance
     yhat = _np.sqrt(
         garch_fitted.forecast(horizon=forecast_horizon, start=0, reindex=True).variance
-    ) * sqrt(scale)
+    ) * _np.sqrt(scale)
 
     if out == "data":
         return yhat
@@ -479,24 +478,27 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     df : DataFrame
         Wide dataframe with datetime index and multiple series columns for each futures contract.
         Always use continuous contracts for columns.
-    period : str | int | float
+    period : [str | int | float]
         Timeframe to use to calculate beta. "all" to use all data available or scalar number
         n to only use the last n periods/rows of data from the last, by default 'all'. i.e.
         for WTI contracts (CL), 30 would be the last 30 days. Recommend running roll_adjust
         function prior to using prompt_beta to remove swings from contract expiry
-    beta_type : str
-        'all', 'bull', or 'bear', by default 'all'
-    output : str
-        'betas', 'chart', 'stats', by default 'chart'
+    beta_type : {'all', 'bull', 'bear'}, default 'all'
+        Beta types to return
+    output : {'betas', 'chart', 'stats'}, default 'chart'
+        Output type
 
     Returns
     -------
-    output='chart' : A plotly figure with the beta lines charted for 'all', 'bear' and 'bull' markets
-    output='betas' : A dataframe of betas by contract order for 'all', 'bear' and 'bull' markets
-    output='stats' : A scipy object from a least_squares fit of the betas by market type. Model used
-                        to fit betas was of the form:
-                            \{beta} = x0 * exp(x1*t) + x2
-                        where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
+    chart
+        A plotly figure with the beta lines charted for 'all', 'bear' and 'bull' markets
+    betas
+        A dataframe of betas by contract order for 'all', 'bear' and 'bull' markets
+    stats
+        A scipy object from a least_squares fit of the betas by market type. Model used
+        to fit betas was of the form:
+        .. math:: \{beta} = x0 * exp(x1*t) + x2
+        where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
 
     chart, df of betas or stats
 
@@ -695,8 +697,8 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
     dt = T / n
 
     # define u, d, and risk-neutral probability
-    u = _np.exp(sigma * sqrt(dt))
-    d = _np.exp(-sigma * sqrt(dt))
+    u = _np.exp(sigma * _np.sqrt(dt))
+    d = _np.exp(-sigma * _np.sqrt(dt))
     q = (_np.exp(Rf * dt) - d) / (u - d)
 
     # define our asset tree prices
@@ -726,7 +728,7 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
             ) / _np.exp(Rf * dt)
 
     # indicator if model can be used sigma > rsqrt(dt)
-    if sigma > sqrt(dt) * Rf:
+    if sigma > _np.sqrt(dt) * Rf:
         note = "ok"
     else:
         note = "sigma < Rf*sqrt(dt) do not use"

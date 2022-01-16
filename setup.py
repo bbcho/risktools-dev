@@ -28,6 +28,11 @@ setuptools.setup(
     ],
     url="https://github.com/bbcho/risktools-dev",
     # download_url="https://github.com/bbcho/risktools-dev/archive/v0.5.0-beta.1.tar.gz",
+    project_urls = {
+        # "Bug Tracker": "https://github.com/statsmodels/statsmodels/issues",
+        "Documentation": "https://risktools.readthedocs.io/en/latest/",
+        # "Source Code": "https://github.com/statsmodels/statsmodels",
+    }
     install_requires=[
         "pandas",
         "numpy",
