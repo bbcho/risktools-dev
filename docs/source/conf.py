@@ -34,7 +34,7 @@ release = "0.2.0"
 extensions = [
     # "rinoh.frontend.sphinx",
     "sphinx.ext.autodoc",
-    "numpydoc",
+    # "numpydoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
