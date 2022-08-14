@@ -1,20 +1,34 @@
 import pandas as _pd
 import numpy as _np
 
-# from math import sqrt
 
-
-def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1 / 12):
+def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **kwargs):
     """
-    Simulates a Geometric Brownian Motion process
+    Simulates a Geometric Brownian Motion stochastic process (random walk)
 
     Parameters
     ----------
-    s0 : spot price at time = 0
-    drift : drift %
-    sigma : standard deviation
-    T : maturity in years
-    dt : time step in period e.g. 1/250 = 1 business day
+    s0 : float
+        Starting value for GBM process at time = 0. By default, this is 10.
+    mu : float
+        Mean for normally distribution for normally distributed returns.
+        Not used if eps is provided. By default, this is 0.
+    sigma : float
+        Annualized standard deviation for normally distributed returns. By default, this is 0.2.
+        Not used if eps is provided.
+    r : float
+        Interest rate to discount the process by. By default, this is 0.
+    T : float
+        Time to maturity in years. But default, this is 1.
+    dt : float
+        Time step in period e.g. 1/252 = 1 business day. By default, this is 1/252.
+    sims : int
+        Number of simulations to run. By default, this is 1000.
+    eps : numpy array
+        Random numbers to use for the returns. If provided, mu and sigma are ignored.
+        Must of size (p x sims) where p is the number of periods in T/dt.
+    kwargs : dict
+        Additional arguments to pass to numpy.random.normal.
 
     Returns
     -------
@@ -23,16 +37,25 @@ def simGBM(s0=10, drift=0, sigma=0.2, T=1, dt=1 / 12):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.simGBM(s0=5, drift=0, sigma=0.2, T=2, dt=0.25)
+    >>> rt.simGBM(s0=5, mu=0, sigma=0.2, r=0.01, T=2, dt=1/252, sims=1000)
     """
-    periods = T / dt
-    s = [s0] * int(periods)
 
-    for i in range(1, int(periods)):
-        s[i] = s[i - 1] * _np.exp(
-            (drift - (sigma ** 2) / 2) * dt
-            + sigma * _np.random.normal(loc=0, scale=1) * _np.sqrt(dt)
-        )
+    periods = int(T / dt)
+    s = _np.zeros((periods + 1, sims))
+    s = _pd.DataFrame(data=s)
+
+    if eps is None:
+        eps = _np.random.normal(mu, sigma, size=(periods, sims))
+
+    s.loc[0, :] = s0
+    s.loc[1:, :] = eps
+
+    # calc geometric brownian motion
+    s.loc[1:, :] = _np.exp(
+        (r - sigma ** 2 / 2) * dt + sigma * _np.sqrt(dt) * s.loc[1:, :]
+    )
+
+    s = s.cumprod()
 
     return s
 
