@@ -46,7 +46,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **
     s = _pd.DataFrame(data=s)
 
     if eps is None:
-        eps = _np.random.normal(mu, sigma, size=(periods, sims))
+        eps = _np.random.normal(mu, sigma, size=(periods, sims), kwargs=kwargs)
 
     s.loc[0, :] = s0
     s.loc[1:, :] = eps
@@ -61,7 +61,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **
     return s
 
 
-def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -114,11 +114,11 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None
 
     if isinstance(mu, list):
         assert len(mu) == (
-            periods - 1
+            periods
         ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
-    out = _np.zeros((periods, sims))
+    out = _np.zeros((periods + 1, sims))
     out = _pd.DataFrame(data=out)
 
     # set first row as starting value of sim
@@ -130,6 +130,7 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None
     if isinstance(mu, list):
         mu = _pd.Series(mu)
 
+    # calc gaussian vector
     if eps is None:
         eps = _np.random.normal(size=(periods, sims))
 
@@ -137,70 +138,24 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None
         if i == 0:
             continue  # skip first row
 
-        # calc gaussian vector
-        # eps = _pd.Series(_np.random.normal(size=sims))
-
         # calc step
         if isinstance(mu, list) | isinstance(mu, _pd.Series):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) * dt
-                + sigma * eps[i, :] * _np.sqrt(dt)
+                + sigma * eps[i-1, :] * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu - out.iloc[i - 1, :]) * dt
-                + sigma * eps[i, :] * _np.sqrt(dt)
+                + sigma * eps[i-1, :] * _np.sqrt(dt)
             )
 
     return out
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252):
-    """
-    Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk)
-
-    From Wikipedia:
-
-    https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
-
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
-    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
-    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
-    towards its mean function: such a process is called mean-reverting.
-
-    Parameters
-    ----------
-    s0 : float
-        Starting value for mean reverting random walk at time = 0
-    mu : float, int or pandas Series
-        Mean that the function will revert to
-    theta : float
-        Mean reversion rate, higher number means it will revert slower
-    sigma : float
-        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
-    T : float or int
-        Period length in years (i.e. 0.25 for 3 months)
-    dt : float
-        Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
-        days in a year
-
-    Returns
-    -------
-    A numpy array of simulated values
-
-    Examples
-    --------
-    >>> import risktools as rt
-    >>> rt.simOU()
-    """
-    s = _np.array(simOU_arr(s0, mu, theta, sigma, T, dt, sims=1).iloc[:, 0])
-
-    return s
-
-
-def simOUJ_arr(
+def simOUJ(
     s0=5,
     mu=5,
     theta=0.5,
@@ -315,72 +270,6 @@ def simOUJ_arr(
                 + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
                 + jp * elp
             )
-
-    return s
-
-
-def simOUJ(
-    s0=5,
-    mu=5,
-    theta=0.5,
-    sigma=0.2,
-    jump_prob=0.05,
-    jump_avgsize=3,
-    jump_stdv=0.05,
-    T=1,
-    dt=1 / 12,
-):
-    """
-    Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with Jump
-
-    From Wikipedia:
-
-    https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
-
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
-    and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
-    up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
-    towards its mean function: such a process is called mean-reverting.
-
-    Parameters
-    ----------
-    s0 : float
-        Starting value for mean reverting random walk at time = 0
-    mu : float, int or pandas Series
-        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a
-        time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
-    theta : float
-        Mean reversion rate, higher number means it will revert slower
-    sigma : float
-        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
-    jump_prob : float
-        Probablity of jumps
-    jump_avgsize : float
-        Average size of jumps
-    jump_stdv : float
-        Standard deviation of average jump size
-    T : float or int
-        Period length in years (i.e. 0.25 for 3 months)
-    dt : float
-        Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
-        days in a year
-    sims : int
-        Number of simulations to run
-
-    Returns
-    -------
-    A pandas dataframe with the time steps as rows and the number of simulations as columns
-
-    Examples
-    --------
-    >>> import risktools as rt
-    >>> rt.simOUJ()
-    """
-    s = _np.array(
-        simOUJ_arr(
-            s0, mu, theta, sigma, jump_prob, jump_avgsize, jump_stdv, T, dt, sims=1
-        ).iloc[:, 0]
-    )
 
     return s
 

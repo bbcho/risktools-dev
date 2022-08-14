@@ -113,14 +113,14 @@ def generate_eps_MV(sigma, cor, T, dt, sims, mu=None):
     N = int(T / dt)
 
     if ~isinstance(sigma, _np.ndarray):
-        sd = _np.array(sd)
+        sigma = _np.array(sigma)
     if ~isinstance(cor, _np.matrix):
         cor = _np.matrix(cor)
     if mu is not None:
         if ~isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
     else:
-        mu = _np.zeros(len(sd))
+        mu = _np.zeros(len(sigma))
 
     sd = _np.diag(sigma)
 
@@ -258,7 +258,78 @@ def simOU_MV(
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
+        print(simOU(s0[i], mu[i], theta[i], T, dt=dt, eps=eps[:, :, i], **kwargs).shape)
         s[:, :, i] = simOU(s0[i], mu[i], theta[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
 
     return s
+
+
+def generate_random_portfolio_weights(number_assets, number_sims=2500):
+    """
+    Generate a matrix of random portfolio weights.
+
+    Parameters
+    ----------
+    number_assets : int
+        Number of assets in the portfolio.
+    number_sims : int, optional
+        Number of simulations. By default 2500.
+
+    Returns
+    -------
+    Matrix of random portfolio weights. The first dimension corresponds to the
+    simulations and the second dimension corresponds to the assets.
+
+    Example
+    -------
+    >>> import risktools as rt
+    >>> rt.generate_random_portfolio_weights(5, 1000)
+    """
+    weights = _np.random.uniform(size=(number_sims, number_assets))
+    weights = _np.multiply(weights.T, 1 / weights.sum(axis=1)).T
+
+    return weights
+
+
+def calc_payoffs(df, payoff_funcs=None):
+    """
+    Calculate the payoffs for a series of simulated assets using asset specific payoff functions
+
+    Parameters
+    ----------
+
+    df : array-like[float]
+        Array of (m x n x N) floats where m is the number of periods that the assets are simulated
+        forward in time, n is the number of simulations run and N is the number of assets.
+    payoff_funcs : array-like[function], optional
+        Array of payoff functions. Must be a 1D array of length N. Each function must take a
+        single argument (the simulated asset price) and return a single value (the payoff) along 
+        the time axis. By default None. If none, the payoff is the max of the asset price and 0, 
+        summed over every time step for each simulation.
+
+    Returns
+    -------
+    Matrix of payoffs for each simulation. The first dimension corresponds to the
+    simulations and the second dimension corresponds to the assets.
+
+    Example
+    -------
+    >>> import risktools as rt
+    >>> def payoff(x):
+            ret = _np.clip(x, 0, None)
+            return ret.sum(axis=0)
+    >>> rt.calc_payoffs(df, payoff_funcs=[payoff, payoff])
+    """
+    if payoff_funcs is None:
+        payoffs = _np.clip(df, 0, None).sum(axis=0)
+    else:
+        if len(payoff_funcs) != df.shape[2]:
+            raise ValueError("Must provide a payoff function for each asset.")
+
+        payoffs = _np.zeros((df.shape[1], df.shape[2]))
+
+        for i in range(0, len(payoff_funcs)):
+            payoffs[:, i] = payoff_funcs[i](df[:, :, i])
+
+    return payoffs
 
