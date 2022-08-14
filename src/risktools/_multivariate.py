@@ -261,3 +261,4 @@ def simOU_MV(
         s[:, :, i] = simOU(s0[i], mu[i], theta[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
 
     return s
+

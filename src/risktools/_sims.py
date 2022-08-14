@@ -61,7 +61,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **
     return s
 
 
-def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000):
+def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -92,7 +92,10 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000):
         Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
         days in a year
     sims : int
-        Number of simulations to run
+        Number of simulations to run. By default, this is 1000.
+    eps : matrix-like[float]
+        Random numbers to use for the returns. If provided, mu, sigma, T, dt and sims are ignored.
+        Must of size (p x sims) where p is the number of periods in T/dt.
 
     Returns
     -------
@@ -127,25 +130,28 @@ def simOU_arr(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000):
     if isinstance(mu, list):
         mu = _pd.Series(mu)
 
+    if eps is None:
+        eps = _np.random.normal(size=(periods, sims))
+
     for i, _ in out.iterrows():
         if i == 0:
             continue  # skip first row
 
         # calc gaussian vector
-        ep = _pd.Series(_np.random.normal(size=sims))
+        # eps = _pd.Series(_np.random.normal(size=sims))
 
         # calc step
         if isinstance(mu, list) | isinstance(mu, _pd.Series):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) * dt
-                + sigma * ep * _np.sqrt(dt)
+                + sigma * eps[i, :] * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu - out.iloc[i - 1, :]) * dt
-                + sigma * ep * _np.sqrt(dt)
+                + sigma * eps[i, :] * _np.sqrt(dt)
             )
 
     return out
