@@ -397,7 +397,8 @@ def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
     method : ['OLS', 'MLE']
         Method to use for parameter estimation. Default is 'OLS'.
     verbose : bool
-        If True, prints the estimated parameters. Default is False.
+        If True, prints the estimated parameters. Only used is method is OLS.
+        Default is False.
 
     Returns
     -------
@@ -470,7 +471,7 @@ def _fitOU_MLE(spread):
     return theta
 
 
-def _fitOU_OLS(spread, dt, log_price=False, verbose=False):
+def _fitOU_OLS(spread, dt, verbose=False):
     """
     Parameter estimation for the Ornstein-Uhlenbeck process
 
@@ -478,6 +479,12 @@ def _fitOU_OLS(spread, dt, log_price=False, verbose=False):
     ----------
     spread : array-like
         OU process as a list or series to estimate parameters for
+    dt : float
+        Time step size in fractions of a year. So a day would be 1/252, 
+        where 252 is the number of business days in a year. Default is 1/252.
+        Only used if method is "OLS".
+    verbose : bool
+        If True, prints the estimated parameters. Default is False.
 
     Returns
     -------
@@ -520,3 +527,16 @@ def _fitOU_OLS(spread, dt, log_price=False, verbose=False):
 
     return {"theta": theta, "mu": mu, "sigma": sigma}
 
+
+if __name__ == "__main__":
+    import risktools as rt
+
+    sim = rt.simOU(s0=5, mu=4, theta=2, sigma=0.2, T=5, dt=1 / 252)
+
+    params = rt.fitOU(sim, dt=1 / 252, method="OLS", verbose=True)
+
+    print(params)
+
+    params = rt.fitOU(sim, dt=1 / 252, method="MLE", verbose=True)
+
+    print(params)
