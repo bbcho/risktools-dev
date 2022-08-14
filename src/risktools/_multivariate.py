@@ -71,7 +71,7 @@ def fitOU_MV(df, dt, method="OLS"):
     params = _pd.DataFrame()
 
     for c in df.columns:
-        ret = fitOU(df[c], dt)
+        ret = fitOU(df[c], dt, method=method)
         params.loc["theta", c] = ret["theta"]
         params.loc["annualized_sigma", c] = ret["annualized_sigma"]
         params.loc["mu", c] = ret["mu"]
