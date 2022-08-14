@@ -1,5 +1,6 @@
 import pandas as _pd
 import numpy as _np
+import statsmodels.formula.api as _smf
 
 
 def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **kwargs):
@@ -378,7 +379,47 @@ def simOUJ(
     return s
 
 
-def fitOU(spread):
+def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
+    """
+    Parameter estimation for the Ornstein-Uhlenbeck process
+
+    Parameters
+    ----------
+    spread : array-like
+        OU process as a list or series to estimate parameters for
+    dt : float
+        Time step size in fractions of a year. So a day would be 1/252, 
+        where 252 is the number of business days in a year. Default is 1/252.
+        Only used if method is "OLS".
+    log_price : bool
+        If True, the spread is assumed to be log prices and the log of the spread is taken.
+        Default is False.
+    method : ['OLS', 'MLE']
+        Method to use for parameter estimation. Default is 'OLS'.
+    verbose : bool
+        If True, prints the estimated parameters. Default is False.
+
+    Returns
+    -------
+    Dictionary of alpha, mu and theta
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> spread = rt.simOU(mu=5, theta=0.5, sigma=0.2, T=5, dt=1/252)
+    >>> rt.fitOU(spread, method='MLE')
+    """
+
+    if log_price == True:
+        spread = _np.log(spread)
+
+    if method == "MLE":
+        return _fitOU_MLE(spread)
+    elif method == "OLS":
+        return _fitOU_OLS(spread, dt, log_price, verbose)
+
+
+def _fitOU_MLE(spread):
     """
     Parameter estimation for the Ornstein-Uhlenbeck process
 
@@ -396,7 +437,6 @@ def fitOU(spread):
     >>> import risktools as rt
     >>> spread = rt.simOU(mu=5, theta=0.5, signma=0.2, T=5, dt=1/250)
     >>> rt.fitOU(spread)
-
     """
     n = len(spread)
     delta = 1
@@ -428,3 +468,55 @@ def fitOU(spread):
     theta = {"theta": theta, "mu": mu, "sigma": sigma}
 
     return theta
+
+
+def _fitOU_OLS(spread, dt, log_price=False, verbose=False):
+    """
+    Parameter estimation for the Ornstein-Uhlenbeck process
+
+    Parameters
+    ----------
+    spread : array-like
+        OU process as a list or series to estimate parameters for
+
+    Returns
+    -------
+    Dictionary of alpha, mu and theta
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> spread = rt.simOU(mu=5, theta=0.5, signma=0.2, T=5, dt=1/250)
+    >>> rt.fitOU(spread)
+    """
+
+    if isinstance(spread, _pd.DataFrame):
+        raise ValueError("Spread must be a series or array-like, not a dataframe")
+
+    df = _pd.DataFrame()
+
+    df["mrg"] = spread
+    df["delta"] = df["mrg"].diff().shift(-1)
+
+    df = df.dropna().reset_index()
+
+    mod = _smf.ols(formula="delta ~ mrg", data=df)
+    res = mod.fit()
+
+    theta = -res.params.mrg / dt
+    mu = res.params.Intercept / theta / dt
+    sigma = res.resid.std() / _np.sqrt(dt)
+
+    if verbose == True:
+        print(res.summary())
+        print(
+            "theta: ",
+            round(theta, 2),
+            "| mu: ",
+            round(mu, 2),
+            "| annualized_sigma: ",
+            round(sigma, 2),
+        )
+
+    return {"theta": theta, "mu": mu, "sigma": sigma}
+
