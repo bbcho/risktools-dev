@@ -52,15 +52,16 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     """
     N = int(T / dt)
 
-    if isinstance(s0, list):
+    if ~isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
-    if isinstance(sigma, list):
+    if ~isinstance(sigma, _np.ndarray):
         sigma = _np.array(sigma)
-    if isinstance(mu, list):
-        mu = _np.array(mu)
-    if isinstance(r, list):
+    if mu is not None:
+        if ~isinstance(mu, _np.ndarray):
+            mu = _np.array(mu)
+    if ~isinstance(r, _np.ndarray):
         r = _np.array(r)
-    if isinstance(cor, list):
+    if ~isinstance(cor, _np.matrix):
         cor = _np.matrix(cor)
 
     if mu is None:
@@ -70,7 +71,6 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
 
     if eps is None:
         cov = sd @ cor @ sd
-        print(cov)
         eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
 
     s = _np.zeros((N + 1, sims, len(s0)))
