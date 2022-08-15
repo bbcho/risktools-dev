@@ -5,7 +5,7 @@ import pandas as _pd
 import matplotlib.pyplot as _plt
 import plotly.graph_objects as _go
 from ._sims import fitOU, simOU
-from abc import ABC, abstractmethod
+from abc import ABC as _ABC, abstractmethod as _abstractmethod
 
 
 def calc_spread_MV(df, formulas):
@@ -555,17 +555,17 @@ def plot_portfolio(df, weights, fig, weight_names=None):
     return fig
 
 
-class MVSIM(ABC):
+class MVSIM(_ABC):
     """
     Abstract base class for multivariate simulation classes for
     calculating the payoffs of a portfolio of assets.
     """
 
-    @abstractmethod
+    @_abstractmethod
     def fit():
         pass
 
-    @abstractmethod
+    @_abstractmethod
     def simulate():
         pass
 
