@@ -5,6 +5,7 @@ import pandas as _pd
 import matplotlib.pyplot as _plt
 import plotly.graph_objects as _go
 from ._sims import fitOU, simOU
+from abc import ABC, abstractmethod
 
 
 def calc_spread_MV(df, formulas):
@@ -512,8 +513,10 @@ def plot_portfolio(df, weights, fig, weight_names=None):
     if isinstance(df, _pd.DataFrame):
         df = df.to_numpy()
 
+    # calculate portfolio
     df = df @ _np.array(weights)
 
+    # construct portfolio labels
     if weight_names is not None:
         tmp = zip(weight_names, weights)
         weights = [str(j[0]) + " = " + str(round(j[1], 2)) for j in tmp]
@@ -550,4 +553,121 @@ def plot_portfolio(df, weights, fig, weight_names=None):
     )
 
     return fig
+
+
+class MVSIM(ABC):
+    """
+    Abstract base class for multivariate simulation classes for
+    calculating the payoffs of a portfolio of assets.
+    """
+
+    @abstractmethod
+    def fit():
+        pass
+
+    @abstractmethod
+    def simulate():
+        pass
+
+
+class MVGBM(MVSIM):
+    """
+    Class for simulating a multivariate GBM process for a portfolio of assets
+
+    Parameters
+    ----------
+        s0 : array-like[float]
+            Initial price of each asset in the portfolio. 
+        r : array-like[float]
+            Risk free rate of each asset in the portfolio.
+        sigma : array-like[float]
+            Volatility of each asset in the portfolio.
+        T : float
+            Time to maturity of the portfolio.
+        dt : float
+            Time step for the simulation.
+        cor : array-like[float]
+            Correlation matrix for the assets in the portfolio.
+        asset_names : list[str]
+            List of strings to use as asset names in the output dataframe.
+    
+    Example
+    -------
+    >>> import risktools as rt
+    >>> mvgbm = rt.MVGBM(
+            s0=[100,100, 100], 
+            r=0.01, 
+            sigma=[0.1,0.1,0.1], 
+            T=1, 
+            dt=1/252, 
+            cor=[[1,0.5,0.5],[0.5,1,0.5],[0.5,0.5,1]],
+            asset_names=['A','B','C']
+        )
+    >>> mvgbm.fit()
+    >>> mvgbm.simulate()
+    >>> mvgbm.plot_efficient_frontier()
+    """
+
+    def __init__(self, s0, r, sigma, T, dt, cor, asset_names=None):
+        self._s0 = s0
+        self._r = r
+        self._sigma = sigma
+        self._T = T
+        self._dt = dt
+        self._cor = cor
+        self._asset_names = asset_names
+
+    def fit(self):
+        """
+        Method to fit the simulation parameters to the class. Not really needed for 
+        a GBM simulation, but included for consistency with other simulation classes.
+        """
+        # function not needed for this class since
+        # all parameters are passed in the constructor
+        # and there is nothing to fit.
+        pass
+
+    def simulate(self, sims=1000):
+
+        self._prices = simGBM_MV(
+            self._s0, self._r, self._sigma, self._T, self._dt, cor=self._cor, sims=sims
+        )
+        # return self._prices
+
+    def plot_efficient_frontier(self, payoff_funcs=None, portfolio_sims=5000):
+        """
+        Plot the efficient frontier based on a specificied payoff function.
+
+        Parameters
+        ----------
+        payoff_funcs : list[function]
+            List of payoff functions to use for calculating the efficient frontier.
+        portfolio_sims : int
+            Number of random portfolios to simulate for the efficient frontier.
+
+        Returns
+        -------
+        Plot of the efficient frontier.
+
+        Examples
+        --------
+        >>> import risktools as rt
+
+        """
+
+        self._payoffs = calc_payoffs(self._prices, payoff_funcs)
+
+        # calculate efficient frontier
+        weights = generate_random_portfolio_weights(len(self._s0), portfolio_sims)
+        port = sim_efficient_frontier(self._payoffs, weights)
+
+        # make dataframe
+        port = make_efficient_frontier_table(
+            port, weights, asset_names=self._asset_names
+        )
+
+        # plot efficient frontier
+        fig = plot_efficient_frontier(port)
+
+        return fig
 
