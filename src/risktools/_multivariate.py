@@ -333,3 +333,221 @@ def calc_payoffs(df, payoff_funcs=None):
 
     return payoffs
 
+
+def sim_efficient_frontier(assets, weights):
+    """
+    Generate portfolio expected returns and risk using simulated
+    asset prices and randomized weights.
+
+    Parameters
+    ----------
+    assets : array-like[float]
+        Array of (m x N) floats where m is the simulations of the assets and N is the number of assets.
+    weights : array-like[float]
+        Array of (n x N) floats where n is the number of portfolios and N is the number of assets.
+
+    Returns
+    -------
+    Matrix of simulated portfolios. The first dimension corresponds to the
+    simulations and the second dimension corresponds to the assets.
+
+    Example
+    -------
+    >>> import risktools as rt
+    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.calc_payoffs(assets)
+    >>> weights = rt.generate_random_portfolio_weights(5, 1000)
+    >>> rt.sim_efficient_frontier(assets, weights)
+    """
+
+    out = _np.zeros((weights.shape[0], 2))
+
+    for i in range(0, weights.shape[0]):
+        ret = assets @ weights[i]
+
+        out[i, 0] = ret.std()  # risk
+        out[i, 1] = ret.mean()  # return
+
+    return out
+
+
+def make_efficient_frontier_table(returns, weights, asset_names=None):
+    """
+    Produce dataframe with portfolio returns, risk, and asset weights.
+
+    Parameters
+    ----------
+    returns : array-like[float]
+        Numpy array of (n x 2) floats where n in the number of portfolios simulated. First
+        columns is the standard deviation or risk associated with the portfolio and the second
+        column is the expected return.
+    weights : array-like[float]
+        Numpy array of (n x N) floats where n in the number of simulated portfolios and N in the
+        number of assets in the portfolio.
+    asset_names : list[str]
+        List of strings to use as asset names in the output dataframe. Should be of length N
+        where N is the number of assets in the portfolio.
+
+    Returns
+    -------
+    Dataframe with the portfolio risk, expected return and asset weights as columns
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.calc_payoffs(assets)
+    >>> weights = rt.generate_random_portfolio_weights(5, 1000)
+    >>> port = rt.sim_efficient_frontier(assets, weights)
+    >>> port = rt.make_efficient_frontier_table(port, weights, asset_names=['A', 'B'])
+    """
+    out = _pd.DataFrame(_np.zeros((weights.shape[0], weights.shape[1] + 2)))
+
+    out.iloc[:, [0, 1]] = returns
+    out.iloc[:, 2:] = weights
+
+    if asset_names is None:
+        asset_names = list(range(1, weights.shape[1] + 1))
+
+    out.columns = ["Risk", "Expected Return"] + asset_names
+
+    return out
+
+
+def plot_efficient_frontier(df):
+    """
+    Plot the efficient frontier for simulated portfolios stored in df.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Must be a dataframe with the first two columns being the risk and expected return of the
+        portfolio and the remaining columns being the weights of the assets in the portfolio.
+
+    Returns
+    -------
+    Plot of the efficient frontier.
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.calc_payoffs(assets)
+    >>> weights = rt.generate_random_portfolio_weights(5, 1000)
+    >>> port = rt.sim_efficient_frontier(assets, weights)
+    >>> port = rt.make_efficient_frontier_table(port, weights, asset_names=['A', 'B'])
+    >>> rt.plot_efficient_frontier(port)
+    """
+
+    df = df.copy()
+    N = df.shape[1] - 2
+
+    # convert weights columns into a list of strings with the asset names
+    # fmt: off
+    for i in range(0, N):
+        df.iloc[:, i + 2] = (
+            list(df.columns.astype(str))[i + 2] + " = " + df.iloc[:, i + 2].round(2).astype(str)
+        )
+    # fmt: on
+
+    # build labels for portfolio weights
+    df["text"] = df.iloc[:, 2:].apply(
+        lambda x: "[" + ", ".join(x.dropna().astype(str)) + "]", axis=1
+    )
+
+    fig = _go.Figure()
+
+    fig.add_trace(
+        _go.Scattergl(
+            x=df.iloc[:, 0],
+            y=df.iloc[:, 1],
+            marker_color=df.iloc[:, 1] / df.iloc[:, 0],
+            mode="markers",
+            marker_colorscale="Viridis",
+            text=df["text"],
+            showlegend=False,
+            marker_colorbar=dict(
+                title="Sharpe Ratio", titleside="right", tickmode="array",
+            ),
+        )
+    )
+
+    fig.update_traces(hovertemplate=None)
+
+    return fig
+
+
+def plot_portfolio(df, weights, fig, weight_names=None):
+    """
+    Plot a single portfolio on an efficient frontier chart
+
+    Parameters
+    ----------
+    df : DataFrame[float] | array-like[float]
+        Dataframe or array of simulated asset payoffs from the calc_payoffs function.
+    weights : array-like[float]
+        Array of asset weights for the portfolio to be plotted. Must sum to 1.
+    fig : Figure
+        Figure object to plot the portfolio on.
+    weight_names : list[str]
+        List of strings to use as asset names in the output dataframe. Should be of length N
+        where N is the number of assets in the portfolio.
+
+    Returns
+    -------
+    Plot of the efficient frontier with the portfolio added.
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.calc_payoffs(assets)
+    >>> weights = rt.generate_random_portfolio_weights(5, 1000)
+    >>> port = rt.sim_efficient_frontier(assets, weights)
+    >>> port = rt.make_efficient_frontier_table(port, weights, asset_names=['A', 'B'])
+    >>> fig = rt.plot_efficient_frontier(port)
+    >>> rt.plot_portfolio(assets, [.5, .5], fig)
+    """
+
+    if isinstance(df, _pd.DataFrame):
+        df = df.to_numpy()
+
+    df = df @ _np.array(weights)
+
+    if weight_names is not None:
+        tmp = zip(weight_names, weights)
+        weights = [str(j[0]) + " = " + str(round(j[1], 2)) for j in tmp]
+    else:
+        weights = [str(round(j, 2)) for j in weights]
+
+    text = "[" + ", ".join([str(w) for w in weights]) + "]"
+
+    x = [df.std()]
+    y = [df.mean()]
+
+    # add portfolio to efficient frontier chart
+    fig.add_trace(
+        _go.Scattergl(
+            x=x,
+            y=y,
+            text=text,
+            marker_color="red",
+            mode="markers",
+            legendgroup="hide",
+            showlegend=False,
+            marker_size=15,
+        )
+    )
+
+    fig.add_annotation(
+        x=x[0],
+        y=y[0],
+        text=text,
+        showarrow=False,
+        yshift=20,
+        font_size=12,
+        font_color="red",
+    )
+
+    return fig
+
