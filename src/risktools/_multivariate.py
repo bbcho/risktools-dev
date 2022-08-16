@@ -1,5 +1,6 @@
 # multivariate simulations
 
+from ast import arguments
 import numpy as _np
 import pandas as _pd
 import matplotlib.pyplot as _plt
@@ -12,6 +13,8 @@ def calc_spread_MV(df, formulas):
     """
     Calculate a series of spreads for a multivariate stochastic process.
 
+    Parameters
+    ----------
     df : DataFrame
         DataFrame containing the simulated values of the stochastic processes.
         The columns correspond to the assets and the index corresponds to the
@@ -25,7 +28,6 @@ def calc_spread_MV(df, formulas):
 
     Returns
     -------
-
     DataFrame containing the simulated values of the spreads. The columns
     correspond to the spreads and the index corresponds to the time steps.
 
@@ -49,6 +51,8 @@ def fitOU_MV(df, dt, method="OLS"):
     """
     Fit multiple OU processes
 
+    Parameters
+    ----------
     df : DataFrame
         DataFrame of multiple OU processes where each process is a column
     dt : float
@@ -60,9 +64,8 @@ def fitOU_MV(df, dt, method="OLS"):
 
     Returns
     -------
-
-    DataFrame of the fitted parameters for each OU process. The columns
-    correspond to the parameters and the rows correspond to the OU processes.
+    DataFrame of the fitted parameters for each OU process. The rows
+    correspond to the parameters and the columns correspond to the OU processes.
 
     Example
     -------
@@ -80,10 +83,13 @@ def fitOU_MV(df, dt, method="OLS"):
     return params
 
 
-def generate_eps_MV(sigma, cor, T, dt, sims, mu=None):
+def generate_eps_MV(sigma, cor, T, dt, sims=1000, mu=None):
     """
-    Generate multivariate epsilons for use in multivariate stochastic simulations
+    Generate epsilons from a multivariate normal distribution
+    for use in multivariate stochastic simulations
 
+    Parameters
+    ----------
     sigma : array-like[float]
         Array of annualized standard deviations to use for each OU or GBM process
     cor : matrix-like[float]
@@ -94,14 +100,13 @@ def generate_eps_MV(sigma, cor, T, dt, sims, mu=None):
     dt : float
         Time step of the simulation (in years).
     sims : int
-        Number of simulations.
+        Number of simulations. By default 1000.
     mu : array-like[float], optional
         Array of means to use for the multivariate normal for each random process. 
         If None, mu = 0 is used for all random processes. By default None.
 
     Returns
     -------
-
     Matrix of random numbers to use for the simulation. The first dimension
     corresponds to the time steps, the second dimension corresponds to the simulations,
     and the third dimension corresponds to the OU processes.
@@ -136,6 +141,8 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     Simulate Geometric Brownian Motion for stochastic processes with
     multiple assets using a multivariate normal distribution.
 
+    Parameters
+    ----------
     s0 : array-like
         Initial values of the stochastic processes. Must be a 1D array of length
         N where N is the number of assets.
@@ -157,7 +164,7 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
         size N x N and positive definite. Only used if eps is None.
     eps : array-like, optional
         Random numbers to use for the simulation. If not provided, random numbers are
-        generated using a multivariate normal distribution. Must be a 2D array of
+        generated using a multivariate normal distribution. Must be a 3-D array of
         size (p x sims x N) where p is the number of time steps, sims is the number of
         simulations, and N is the number of assets. By default None.
     sims : int
@@ -165,7 +172,6 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
 
     Returns
     -------
-
     Matrix of simulated values of the stochastic processes. The first dimension
     corresponds to the time steps, the second dimension corresponds to the simulations,
     and the third dimension corresponds to the assets.
@@ -175,27 +181,35 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     >>> import risktools as rt
     >>> rt.simGBM_MV(s0=[100,100], r=0.0, sigma=[0.1,0.1], T=1, dt=1/252, cor=cor, sims=100)
     """
-    N = int(T / dt)
-
     if ~isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
     if ~isinstance(sigma, _np.ndarray):
         sigma = _np.array(sigma)
-    if mu is not None:
-        if ~isinstance(mu, _np.ndarray):
-            mu = _np.array(mu)
-    else:
-        mu = _np.zeros(len(s0))
     if ~isinstance(r, _np.ndarray):
         r = _np.array(r)
     if ~isinstance(cor, _np.matrix):
         cor = _np.matrix(cor)
 
+    if mu is not None:
+        if ~isinstance(mu, _np.ndarray):
+            mu = _np.array(mu)
+    else:
+        mu = _np.zeros(len(s0))
+
+    N = int(T / dt)
+
     if eps is None:
+        print(sigma)
         eps = generate_eps_MV(sigma, cor, T, dt, sims, mu)
+        print(eps.shape)
+        # print(eps.std())
 
     s = _np.zeros((N + 1, sims, len(s0)))
-    s[1:, :, :] = _np.exp((r - 0.5 * sigma ** 2) * dt + sigma * _np.sqrt(dt) * eps)
+
+    for i in range(0, s.shape[2]):
+        s[1:, :, i] = _np.exp(
+            (r - 0.5 * sigma[i] ** 2) * dt + sigma[i] * _np.sqrt(dt) * eps[:, :, i]
+        )
     s[0, :, :] = s0
 
     return s.cumprod(axis=0)
@@ -205,9 +219,11 @@ def simOU_MV(
     s0, mu, theta, T, dt=None, sigma=None, cor=None, eps=None, sims=1000, **kwargs
 ):
     """
-    Simulate Ornstein-Uhlenbeck process for stochastic processes with
+    Simulate Ornstein-Uhlenbeck process for stochastic processes for
     multiple assets using a multivariate normal distribution.
 
+    Parameters
+    ----------
     s0 : array-like[float]
         Initial values of the stochastic processes. Must be a 1D array of length
         N where N is the number of assets.
@@ -232,11 +248,10 @@ def simOU_MV(
     sims : int
         Number of simulations. By default 1000. Not used if eps is provided.
     **kwargs : optional
-        Keyword arguments to pass to simOU.
+        Keyword arguments to pass to simOU function.
 
     Returns
     -------
-
     Matrix of simulated values of the stochastic processes. The first dimension
     corresponds to the time steps, the second dimension corresponds to the simulations,
     and the third dimension corresponds to the assets.
@@ -259,7 +274,6 @@ def simOU_MV(
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
-        print(simOU(s0[i], mu[i], theta[i], T, dt=dt, eps=eps[:, :, i], **kwargs).shape)
         s[:, :, i] = simOU(s0[i], mu[i], theta[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
 
     return s
@@ -267,7 +281,8 @@ def simOU_MV(
 
 def generate_random_portfolio_weights(number_assets, number_sims=2500):
     """
-    Generate a matrix of random portfolio weights.
+    Generate a matrix of random portfolio weights based on
+    a number of assets using a uniform distribution.
 
     Parameters
     ----------
@@ -278,7 +293,7 @@ def generate_random_portfolio_weights(number_assets, number_sims=2500):
 
     Returns
     -------
-    Matrix of random portfolio weights. The first dimension corresponds to the
+    2-D matrix of random portfolio weights. The first dimension corresponds to the
     simulations and the second dimension corresponds to the assets.
 
     Example
@@ -292,9 +307,9 @@ def generate_random_portfolio_weights(number_assets, number_sims=2500):
     return weights
 
 
-def calc_payoffs(df, payoff_funcs=None):
+def calculate_payoffs(df, payoff_funcs=None):
     """
-    Calculate the payoffs for a series of simulated assets using asset specific payoff functions
+    Calculate the payoffs for a series of simulated assets using asset specific payoff functions.
 
     Parameters
     ----------
@@ -335,7 +350,7 @@ def calc_payoffs(df, payoff_funcs=None):
     return payoffs
 
 
-def sim_efficient_frontier(assets, weights):
+def simulate_efficient_frontier(assets, weights):
     """
     Generate portfolio expected returns and risk using simulated
     asset prices and randomized weights.
@@ -478,7 +493,7 @@ def plot_efficient_frontier(df):
     return fig
 
 
-def plot_portfolio(df, weights, fig, weight_names=None):
+def plot_portfolio(df, weights, fig, weight_names=None, label=True):
     """
     Plot a single portfolio on an efficient frontier chart
 
@@ -493,6 +508,8 @@ def plot_portfolio(df, weights, fig, weight_names=None):
     weight_names : list[str]
         List of strings to use as asset names in the output dataframe. Should be of length N
         where N is the number of assets in the portfolio.
+    label : bool
+        If True, the portfolio marker will be labeled with the asset weights.
 
     Returns
     -------
@@ -542,17 +559,30 @@ def plot_portfolio(df, weights, fig, weight_names=None):
         )
     )
 
-    fig.add_annotation(
-        x=x[0],
-        y=y[0],
-        text=text,
-        showarrow=False,
-        yshift=20,
-        font_size=12,
-        font_color="red",
-    )
+    if label == True:
+        fig.add_annotation(
+            x=x[0],
+            y=y[0],
+            text=text,
+            showarrow=False,
+            yshift=20,
+            font_size=12,
+            font_color="red",
+        )
 
     return fig
+
+
+def shift(xs, n=1):
+    # shift along first axis only
+    e = _np.empty_like(xs)
+    if n >= 0:
+        e[:n] = _np.nan
+        e[n:] = xs[:-n]
+    else:
+        e[n:] = _np.nan
+        e[:n] = xs[-n:]
+    return e
 
 
 class MVSIM(_ABC):
@@ -608,14 +638,25 @@ class MVGBM(MVSIM):
     >>> mvgbm.plot_efficient_frontier()
     """
 
-    def __init__(self, s0, r, sigma, T, dt, cor, asset_names=None):
-        self._s0 = s0
+    def __init__(
+        self, r, T, dt, s0=None, sigma=None, cor=None, prices=None, asset_names=None
+    ):
         self._r = r
-        self._sigma = sigma
         self._T = T
         self._dt = dt
-        self._cor = cor
+        self._prices = prices
         self._asset_names = asset_names
+        self._s0 = s0
+        self._sigma = sigma
+        self._cor = cor
+
+        if prices is None:
+            items = [s0, sigma, cor]
+            if any([i is None for i in items]):
+                raise ValueError(
+                    "Must pass an array of prices to the constructor or provide optional \
+                    arugments s0, sigma and cor."
+                )
 
     def fit(self):
         """
@@ -625,14 +666,19 @@ class MVGBM(MVSIM):
         # function not needed for this class since
         # all parameters are passed in the constructor
         # and there is nothing to fit.
-        pass
+
+        if self._prices is not None:
+            prices = _pd.DataFrame(self._prices)
+            returns = (_np.log(prices) - _np.log(prices.shift())).dropna()
+            self._s0 = prices.iloc[-1, :]
+            self._sigma = returns.std() * _np.sqrt(1 / self._dt)
+            self._cor = returns.corr()
 
     def simulate(self, sims=1000):
 
-        self._prices = simGBM_MV(
+        self._sims = simGBM_MV(
             self._s0, self._r, self._sigma, self._T, self._dt, cor=self._cor, sims=sims
         )
-        # return self._prices
 
     def plot_efficient_frontier(self, payoff_funcs=None, portfolio_sims=5000):
         """
@@ -655,11 +701,11 @@ class MVGBM(MVSIM):
 
         """
 
-        self._payoffs = calc_payoffs(self._prices, payoff_funcs)
+        self._payoffs = calculate_payoffs(self._sims, payoff_funcs)
 
         # calculate efficient frontier
         weights = generate_random_portfolio_weights(len(self._s0), portfolio_sims)
-        port = sim_efficient_frontier(self._payoffs, weights)
+        port = simulate_efficient_frontier(self._payoffs, weights)
 
         # make dataframe
         port = make_efficient_frontier_table(
@@ -671,3 +717,14 @@ class MVGBM(MVSIM):
 
         return fig
 
+    @property
+    def sims(self):
+        return self._sims
+
+    @property
+    def prices(self):
+        return self._prices
+
+    # @prices.setter
+    # def prices(self, value):
+    #     self._prices = value
