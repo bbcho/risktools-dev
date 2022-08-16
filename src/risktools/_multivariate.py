@@ -199,16 +199,13 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     N = int(T / dt)
 
     if eps is None:
-        print(sigma)
         eps = generate_eps_MV(sigma, cor, T, dt, sims, mu)
-        print(eps.shape)
-        # print(eps.std())
 
     s = _np.zeros((N + 1, sims, len(s0)))
 
     for i in range(0, s.shape[2]):
         s[1:, :, i] = _np.exp(
-            (r - 0.5 * sigma[i] ** 2) * dt + sigma[i] * _np.sqrt(dt) * eps[:, :, i]
+            (r - 0.5 * sigma[i] ** 2) * dt + _np.sqrt(dt) * eps[:, :, i]  # sigma[i] *
         )
     s[0, :, :] = s0
 
@@ -307,7 +304,7 @@ def generate_random_portfolio_weights(number_assets, number_sims=2500):
     return weights
 
 
-def calculate_payoffs(df, payoff_funcs=None):
+def calculate_payoffs(df, strike=0, payoff_funcs=None):
     """
     Calculate the payoffs for a series of simulated assets using asset specific payoff functions.
 
@@ -317,11 +314,13 @@ def calculate_payoffs(df, payoff_funcs=None):
     df : array-like[float]
         Array of (m x n x N) floats where m is the number of periods that the assets are simulated
         forward in time, n is the number of simulations run and N is the number of assets.
+    strike : float, optional
+        Only used if payoff_funcs is None. Strike price of the option. By default None.
     payoff_funcs : array-like[function], optional
         Array of payoff functions. Must be a 1D array of length N. Each function must take a
         single argument (the simulated asset price) and return a single value (the payoff) along 
-        the time axis. By default None. If none, the payoff is the max of the asset price and 0, 
-        summed over every time step for each simulation.
+        the time axis. By default None. If none, the payoff is the max of the asset price and strike price at
+        time T.
 
     Returns
     -------
@@ -337,7 +336,7 @@ def calculate_payoffs(df, payoff_funcs=None):
     >>> rt.calc_payoffs(df, payoff_funcs=[payoff, payoff])
     """
     if payoff_funcs is None:
-        payoffs = _np.clip(df, 0, None).sum(axis=0)
+        payoffs = _np.clip(df - strike, 0, None)[-1, :, :]
     else:
         if len(payoff_funcs) != df.shape[2]:
             raise ValueError("Must provide a payoff function for each asset.")
@@ -655,7 +654,7 @@ class MVGBM(MVSIM):
             if any([i is None for i in items]):
                 raise ValueError(
                     "Must pass an array of prices to the constructor or provide optional \
-                    arugments s0, sigma and cor."
+                    arguments s0, sigma and cor."
                 )
 
     def fit(self):
@@ -680,14 +679,19 @@ class MVGBM(MVSIM):
             self._s0, self._r, self._sigma, self._T, self._dt, cor=self._cor, sims=sims
         )
 
-    def plot_efficient_frontier(self, payoff_funcs=None, portfolio_sims=5000):
+    def plot_efficient_frontier(self, strike=0, payoff_funcs=None, portfolio_sims=5000):
         """
         Plot the efficient frontier based on a specificied payoff function.
 
         Parameters
         ----------
-        payoff_funcs : list[function]
-            List of payoff functions to use for calculating the efficient frontier.
+        strike : float, optional
+            Only used if payoff_funcs is None. Strike price of the option. By default None.
+        payoff_funcs : array-like[function], optional
+            Array of payoff functions. Must be a 1D array of length N. Each function must take a
+            single argument (the simulated asset price) and return a single value (the payoff) along 
+            the time axis. By default None. If none, the payoff is the max of the asset price and strike price at
+            time T.
         portfolio_sims : int
             Number of random portfolios to simulate for the efficient frontier.
 
@@ -701,7 +705,7 @@ class MVGBM(MVSIM):
 
         """
 
-        self._payoffs = calculate_payoffs(self._sims, payoff_funcs)
+        self._payoffs = calculate_payoffs(self._sims, strike, payoff_funcs)
 
         # calculate efficient frontier
         weights = generate_random_portfolio_weights(len(self._s0), portfolio_sims)
