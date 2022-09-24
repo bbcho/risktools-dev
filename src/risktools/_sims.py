@@ -143,13 +143,13 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) * dt
-                + sigma * eps[i-1, :] * _np.sqrt(dt)
+                + sigma * eps[i - 1, :] * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
                 + theta * (mu - out.iloc[i - 1, :]) * dt
-                + sigma * eps[i-1, :] * _np.sqrt(dt)
+                + sigma * eps[i - 1, :] * _np.sqrt(dt)
             )
 
     return out
@@ -166,6 +166,7 @@ def simOUJ(
     T=1,
     dt=1 / 12,
     sims=1000,
+    mr_lag=None,
 ):
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
@@ -237,6 +238,12 @@ def simOUJ(
 
     if isinstance(mu, list):
         mu = _pd.Series(mu)
+    else:
+        # turn scalar mu into a series to iterate over
+        mu = _pd.Series(_np.ones(periods) * mu)
+
+    # turn mu series into a dataframe to iterate over
+    mu = _pd.concat([mu] * sims, axis=1)
 
     for i, _ in s.iterrows():
         if i == 0:
@@ -250,26 +257,25 @@ def simOUJ(
         jp = _pd.Series(_np.random.poisson(lam=jump_prob * dt, size=sims))
 
         # calc step
-        if isinstance(mu, list) | isinstance(mu, _pd.Series):
-            s.iloc[i, :] = (
-                s.iloc[i - 1, :]
-                + theta
-                * (mu.iloc[i - 1] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
+        # fmt: off
+
+        s.iloc[i, :] = (
+            s.iloc[i - 1, :]
+            + theta
+                * (mu.iloc[i - 1, :] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
                 * s.iloc[i - 1, :]
                 * dt
-                + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
-                + jp * elp
-            )
-        else:
-            s.iloc[i, :] = (
-                s.iloc[i - 1, :]
-                + theta
-                * (mu - jump_prob * jump_avgsize - s.iloc[i - 1, :])
-                * s.iloc[i - 1, :]
-                * dt
-                + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
-                + jp * elp
-            )
+            + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
+            + jp * elp
+        )
+
+        # if there is a jump in this step, add it to the mean reversion
+        # level so that it doesn't drop back down to the given mean too
+        # quickly. Simulates impact of lagged market response to a jump
+        if mr_lag is not None:
+            mu.iloc[(i):(i + mr_lag), :] += jp * elp
+
+        # fmt: on
 
     return s
 
