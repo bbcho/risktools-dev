@@ -205,6 +205,9 @@ def simOUJ(
         days in a year
     sims : int
         Number of simulations to run
+    mr_lag : int
+        Lag in mean reversion. If None, then no lag is used. If > 0, then the diffusion does not immediately
+        return the mean after a jump at theta but instead with remain near the jump level for mr_lag periods.
 
     Returns
     -------
