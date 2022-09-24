@@ -199,13 +199,13 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     N = int(T / dt)
 
     if eps is None:
-        eps = generate_eps_MV(sigma, cor, T, dt, sims, mu)
+        eps = generate_eps_MV(_np.ones(len(s0)), cor, T, dt, sims, mu)
 
     s = _np.zeros((N + 1, sims, len(s0)))
 
     for i in range(0, s.shape[2]):
         s[1:, :, i] = _np.exp(
-            (r - 0.5 * sigma[i] ** 2) * dt + _np.sqrt(dt) * eps[:, :, i]  # sigma[i] *
+            (r - 0.5 * sigma[i] ** 2) * dt + sigma[i] * _np.sqrt(dt) * eps[:, :, i]
         )
     s[0, :, :] = s0
 
