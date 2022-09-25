@@ -139,20 +139,31 @@ def open_data(nm):
     return df
 
 
-def _norm_df(fn):
+def _flatten_json_df(fn):
+
     rf = _pd.DataFrame()  # create results df
 
-    # read json files with nested dataframes from R
-    df = _pd.read_json(fn)
+    with open(fn, "r") as f:
+        data = _json.load(f)
 
-    for c in df.columns:
-        tmp = _pd.json_normalize(df[c])
+    for k, v in data.items():
+        # if k == "Kearl":
+        ts = _pd.Series(v)
+        tmp = _pd.DataFrame()
 
-        tmp = _pd.concat([tmp.set_index(tmp.columns[0])], keys=[c], axis=1).T
-        rf = rf.append(tmp)
+        for t in ts.index:
+            tmp[t] = _pd.Series(ts[t])
+
+        tmp = _pd.concat([tmp.set_index(tmp.columns[0])], keys=[k], axis=1).T
+
+        try:
+            rf = rf.append(tmp)
+        except:
+            print("Error appending", k)
 
     rf.columns.name = "specifications"
     rf.index = rf.index.set_names(["crude", "cut"])
+
     return rf.sort_index()
 
 
@@ -176,28 +187,28 @@ def _read_curves(fn):
 _file_actions = {
     "cancrudeassays": {
         "file": "cancrudeassays.json",
-        "date_fields": ["YM"],
+        "date_fields": ["date"],
         "load_func": _pd.read_json,
     },
     "cancrudeassayssum": {
         "file": "cancrudeassayssum.json",
-        "date_fields": ["YM"],
+        "date_fields": ["date"],
         "load_func": _pd.read_json,
     },
     "cancrudeprices": {
         "file": "cancrudeprices.json",
-        "date_fields": ["YM"],
+        "date_fields": ["date"],
         "load_func": _pd.read_json,
     },
     "crudeassaysBP": {
         "file": "crudeassaysBP.json",
         "date_fields": None,
-        "load_func": _norm_df,
+        "load_func": _flatten_json_df,
     },
     "crudeassaysXOM": {
         "file": "crudeassaysXOM.json",
         "date_fields": None,
-        "load_func": _norm_df,
+        "load_func": _flatten_json_df,
     },
     # "crudepipelines": {
     #     "file": "crudepipelines.geojson",
@@ -332,4 +343,7 @@ _file_actions = {
 }
 
 _path = _os.path.dirname(__file__)
+
+if __name__ == "__main__":
+    pass
 

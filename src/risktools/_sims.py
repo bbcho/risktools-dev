@@ -273,10 +273,10 @@ def simOUJ(
             + jp * elp
         )
 
-        # if there is a jump in this step, add it to the mean reversion
-        # level so that it doesn't drop back down to the given mean too
-        # quickly. Simulates impact of lagged market response to a jump
         if mr_lag is not None:
+            # if there is a jump in this step, add it to the mean reversion
+            # level so that it doesn't drop back down to the given mean too
+            # quickly. Simulates impact of lagged market response to a jump
             mu.iloc[(i):(i + mr_lag), :] += jp * elp
 
         # fmt: on

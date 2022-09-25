@@ -21,16 +21,25 @@ for (fn in filenames) {
   tryCatch({
     # use jsonlite first as it preserves dates properly
     data <- eval(parse(text=paste0('RTL::',fn)))
+    
+    tryCatch({
+      if (tibble::is_tibble(data[[1]])) {
+        print(paste(fn, "error"))
+      }
+    })
+    
     if (fn != "tickers_eia") {
       data <- data %>% dplyr::mutate_if(is.character, ~ str_replace_all(., "[.]", "_")) # remove . from strings
+      # data <- data %>% dplyr::mutate_if(is.character, ~ str_replace_all(., "[,]", "")) # remove , from strings
     }
     
     data <- jsonlite::toJSON(data,force = TRUE)
+    
     fn <- str_replace_all(fn,"[.]","_")
     write(data,paste0(save_loc,fn,'.json'))
     
   }, error = function(e) {
-    print(fn)
+    # print(fn)
     
     tryCatch({
       # first try geojson conversion for geospatial data
