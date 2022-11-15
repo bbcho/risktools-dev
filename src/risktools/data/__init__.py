@@ -6,7 +6,7 @@ import requests as _requests
 from io import BytesIO as _BytesIO
 from zipfile import ZipFile as _ZipFile
 import warnings as _warnings
-
+from io import BytesIO
 
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
     """
@@ -139,7 +139,7 @@ def open_data(nm):
     return df
 
 
-def _norm_df(fn):
+def _norm_df_bak(fn):
     rf = _pd.DataFrame()  # create results df
 
     # read json files with nested dataframes from R
@@ -154,6 +154,27 @@ def _norm_df(fn):
     rf.columns.name = "specifications"
     rf.index = rf.index.set_names(["crude", "cut"])
     return rf.sort_index()
+
+
+def _norm_df(fn):
+
+    with open(fn, mode='r') as file:
+        tmp = _json.load(file)
+
+    df = _pd.DataFrame()
+    for key in tmp.keys():
+        if key == 'Liza':
+            _warnings.warn('Liza crude not working for XOM - please let RTL package developer know')
+        else:
+            tf = _pd.DataFrame(tmp[key])
+            tf['crude'] = key
+            cols = ['Specification' , *tf.columns[1:]]
+            tf.columns = cols
+            tf = tf.set_index(['crude','Specification'])
+            df = _pd.concat([df,tf], axis=0)
+
+
+    return df
 
 
 def _read_curves(fn):
@@ -378,3 +399,6 @@ _file_actions = {
 
 _path = _os.path.dirname(__file__)
 
+
+if __name__ == "__main__":
+    pass
