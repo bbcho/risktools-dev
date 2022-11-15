@@ -811,9 +811,43 @@ def stl_decomposition(
         return res
 
 
-def get_eia_df(tables, key):
+def get_eia_df(tables, key, version=2):
     """
     Function for download data from the US Government EIA and return it as a pandas dataframe/series
+
+    To get an api key, go to https://www.eia.gov/opendata/register.php
+    To get table names, search via API explorer at https://www.eia.gov/opendata/qb.php
+
+    Parameters
+    ----------
+    tables : List[Tuple[str]]
+        EIA series to return. Can be a list or tuple of tables as well.
+    key : str
+        EIA key.
+    version : 1 | 2
+        API version to use, can be either 1 or 2. By default 2. As of Nov 2022, EIA is no
+        longer support v1 of the API. 
+
+    Returns
+    -------
+    pandas dataframe or series depending on the number of tables requested
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_eia_df('PET.WDIIM_R20-Z00_2.W', key=eia_key)
+    """
+
+    if int(version) == 1:
+        return _get_eia_df_v1(tables, key)
+    else:
+        return _get_eia_df_v2(tables, key)
+
+
+def _get_eia_df_v1(tables, key):
+    """
+    Function for download data from the US Government EIA and return it as a pandas dataframe/series
+    API version 1.
 
     To get an api key, go to https://www.eia.gov/opendata/register.php
     To get table names, search via API explorer at https://www.eia.gov/opendata/qb.php
@@ -857,6 +891,53 @@ def get_eia_df(tables, key):
 
     eia.date = _pd.to_datetime(eia.date)
     return eia
+
+
+def _get_eia_df_v2(tables, key):
+    """
+    Function for download data from the US Government EIA and return it as a pandas dataframe/series.
+    API version 2.
+
+    To get an api key, go to https://www.eia.gov/opendata/register.php
+    To get table names, search via API explorer at https://www.eia.gov/opendata/qb.php
+
+    Parameters
+    ----------
+    tables : List[Tuple[str]]
+        EIA series to return. Can be a list or tuple of tables as well.
+    key : str
+        EIA key.
+
+    Returns
+    -------
+    pandas dataframe or series depending on the number of tables requested
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_eia_df_v2('PET.WDIIM_R20-Z00_2.W', key=eia_key)
+    """
+    import requests
+    import json
+
+    if isinstance(tables, list) == False:
+        tables = [tables]
+
+    eia = _pd.DataFrame()
+
+    for tbl in tables:
+        url = f"http://api.eia.gov/v2/seriesid/{tbl}?api_key={key}"
+        tmp = json.loads(requests.get(url).text)
+
+        tf = _pd.DataFrame(tmp['response']['data'], columns=["period","series-description", "value"])
+        tf["series_id"] = tbl
+        eia = eia.append(tf)
+    
+    eia = eia.rename(columns={'period':'date','series-description':'table_name'})
+    eia.loc[eia.date.str.len() < 7, "date"] += "01"
+    eia.date = _pd.to_datetime(eia.date)
+    return eia[['date','value','table_name','series_id']]
+
 
 
 def _check_df(df):

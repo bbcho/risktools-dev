@@ -139,31 +139,20 @@ def open_data(nm):
     return df
 
 
-def _flatten_json_df(fn):
-
+def _norm_df(fn):
     rf = _pd.DataFrame()  # create results df
 
-    with open(fn, "r") as f:
-        data = _json.load(f)
+    # read json files with nested dataframes from R
+    df = _pd.read_json(fn)
 
-    for k, v in data.items():
-        # if k == "Kearl":
-        ts = _pd.Series(v)
-        tmp = _pd.DataFrame()
+    for c in df.columns:
+        tmp = _pd.json_normalize(df[c])
 
-        for t in ts.index:
-            tmp[t] = _pd.Series(ts[t])
-
-        tmp = _pd.concat([tmp.set_index(tmp.columns[0])], keys=[k], axis=1).T
-
-        try:
-            rf = rf.append(tmp)
-        except:
-            print("Error appending", k)
+        tmp = _pd.concat([tmp.set_index(tmp.columns[0])], keys=[c], axis=1).T
+        rf = rf.append(tmp)
 
     rf.columns.name = "specifications"
     rf.index = rf.index.set_names(["crude", "cut"])
-
     return rf.sort_index()
 
 
@@ -187,14 +176,14 @@ def _read_curves(fn):
 _file_actions = {
     "cancrudeassays": {
         "file": "cancrudeassays.json",
-        "date_fields": ["date"],
+        "date_fields": None,
         "load_func": _pd.read_json,
     },
-    "cancrudeassayssum": {
-        "file": "cancrudeassayssum.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-    },
+    # "cancrudeassayssum": {
+    #     "file": "cancrudeassayssum.json",
+    #     "date_fields": ["YM"],
+    #     "load_func": _pd.read_json,
+    # },
     "cancrudeprices": {
         "file": "cancrudeprices.json",
         "date_fields": ["date"],
@@ -203,12 +192,12 @@ _file_actions = {
     "crudeassaysBP": {
         "file": "crudeassaysBP.json",
         "date_fields": None,
-        "load_func": _flatten_json_df,
+        "load_func": _norm_df,
     },
     "crudeassaysXOM": {
         "file": "crudeassaysXOM.json",
         "date_fields": None,
-        "load_func": _flatten_json_df,
+        "load_func": _norm_df,
     },
     # "crudepipelines": {
     #     "file": "crudepipelines.geojson",
@@ -340,10 +329,52 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
+    "wti_swap": {
+        "file": "wtiSwap.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "ry": {
+        "file": "ry.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "CLc1": {
+        "file": "CLc1.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "CLc2": {
+        "file": "CLc2.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "CLc1c2": {
+        "file": "CLc1c2.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "futures_months": {
+        "file": "futuresMonths.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "futures_specs": {
+        "file": "futuresSpecs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "ohlc": {
+        "file": "ohlc.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "spy": {
+        "file": "spy.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
 }
 
 _path = _os.path.dirname(__file__)
-
-if __name__ == "__main__":
-    pass
 

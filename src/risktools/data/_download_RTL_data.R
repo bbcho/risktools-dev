@@ -8,8 +8,10 @@
 library(RTL)
 library(rjson)
 library(jsonlite)
-library(geojson)
+# library(geojson)
 library(stringr)
+
+setwd('./src/risktools/data/')
 
 save_loc = ''
 
