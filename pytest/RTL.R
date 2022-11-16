@@ -8,8 +8,10 @@ library(RTL)
 library(timetk)
 library(jsonlite)
 
+setwd('./pytest')
+
 # Give the input file name to the function.
-up <- jsonlite::fromJSON(file("../../user.json"))
+up <- jsonlite::fromJSON(file("../user.json"))
 
 username <- up$"m*"$user
 password <- up$"m*"$pass

@@ -35,12 +35,13 @@ def return_cumulative(r, geometric=True):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> spy = data.DataReader("SPY",  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> spy = spy.pct_change()
-    >>> return_cumulative(spy['Adj Close'])
-    >>> return_cumulative(spy['Adj Close'],geometric=FALSE)
+    >>> rt.return_cumulative(spy['Adj Close'])
+    >>> rt.return_cumulative(spy['Adj Close'], geometric=False)
     """
     r = r.dropna()
 
@@ -100,15 +101,16 @@ def return_annualized(r, scale=None, geometric=True):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
-    >>> return_annualized(r=df[('Adj Close','SPY')], geometric=True)
-    >>> return_annualized(r=df[('Adj Close','SPY')], geometric=False)
-    >>> return_annualized(r=df['Adj Close'], geometric=True)
-    >>> return_annualized(r=df['Adj Close'], geometric=False)
+    >>> rt.return_annualized(r=df[('Adj Close','SPY')], geometric=True)
+    >>> rt.return_annualized(r=df[('Adj Close','SPY')], geometric=False)
+    >>> rt.return_annualized(r=df['Adj Close'], geometric=True)
+    >>> rt.return_annualized(r=df['Adj Close'], geometric=False)
     """
     r, scale = _check_ts(r, scale, name="r")
 
@@ -164,11 +166,11 @@ def return_excess(R, Rf=0):
 
     Examples
     --------
-    data(managers)
-    head(Return.excess(managers[,1,drop=FALSE], managers[,10,drop=FALSE]))
-    head(Return.excess(managers[,1,drop=FALSE], .04/12))
-    head(Return.excess(managers[,1:6], managers[,10,drop=FALSE]))
-    head(Return.excess(managers[,1,drop=FALSE], managers[,8,drop=FALSE]))
+    >>> data(managers)
+    >>> head(Return.excess(managers[,1,drop=FALSE], managers[,10,drop=FALSE]))
+    >>> head(Return.excess(managers[,1,drop=FALSE], .04/12))
+    >>> head(Return.excess(managers[,1:6], managers[,10,drop=FALSE]))
+    >>> head(Return.excess(managers[,1,drop=FALSE], managers[,8,drop=FALSE]))
     """
 
     res = R - Rf
@@ -223,13 +225,14 @@ def sd_annualized(x, scale=None, *args):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
-    >>> sd_annualized(x=df[('Adj Close','SPY')])
-    >>> sd_annualized(x=df['Adj Close'])
+    >>> rt.sd_annualized(x=df[('Adj Close','SPY')])
+    >>> rt.sd_annualized(x=df['Adj Close'])
     """
     if (~isinstance(x, _pd.DataFrame) & ~isinstance(x, _pd.Series)) == True:
         raise ValueError("x must be a pandas Series or DataFrame")
@@ -383,15 +386,16 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
-    >>> print(upside_risk(df['Adj Close'], MAR=0))
-    >>> print(upside_risk(df[('Adj Close','SPY')], MAR=0))
-    >>> print(upside_risk(df['Adj Close'], MAR=0, stat='variance'))
-    >>> print(upside_risk(df['Adj Close'], MAR=0, stat='potential'))
+    >>> print(rt.upside_risk(df['Adj Close'], MAR=0))
+    >>> print(rt.upside_risk(df[('Adj Close','SPY')], MAR=0))
+    >>> print(rt.upside_risk(df['Adj Close'], MAR=0, stat='variance'))
+    >>> print(rt.upside_risk(df['Adj Close'], MAR=0, stat='potential'))
     """
     # .. math:: UpsideRisk(R , MAR) = \sqrt{\sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]^2}{n}}
     # .. math:: UpsideVariance(R, MAR) = \sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]^2} {n}}
@@ -473,13 +477,14 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
-    >>> print(downside_deviation(df[('Adj Close','SPY')], MAR=0))
-    >>> print(downside_deviation(df['Adj Close'], MAR=0))
+    >>> print(rt.downside_deviation(df[('Adj Close','SPY')], MAR=0))
+    >>> print(rt.downside_deviation(df['Adj Close'], MAR=0))
     """
 
     if isinstance(R, (_pd.Series, _pd.DataFrame)):
@@ -575,11 +580,13 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
+    >>> rt.sharpe_ratio_annualized(df, Rf=0, scale=None, geometric=True)
     """
     R, scale = _check_ts(R, scale)
 
@@ -659,12 +666,13 @@ def find_drawdowns(R, geometric=True, *args):
 
     Examples
     --------
+    >>> import risktools as rt
     >>> from pandas_datareader import data, wb
     >>> from datetime import datetime
     >>> df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
     >>> df = df.pct_change()
     >>> df = df.asfreq('B')
-    >>> rs = find_drawdowns(df['Adj Close'])
+    >>> rs = rt.find_drawdowns(df['Adj Close'])
     >>> print(rs['SPY']['peaktotrough'])
     """
     dd = drawdowns(R, geometric=geometric).dropna()
@@ -678,7 +686,7 @@ def find_drawdowns(R, geometric=True, *args):
         dd = _pd.DataFrame({"drawdown": dd})
         series_flag = True
 
-    for lab, con in dd.iteritems():
+    for lab, con in dd.items():
         rs[lab] = dict()
         rs[lab]["return"] = _np.array([]).astype(float)
         rs[lab]["from"] = _np.array([]).astype(int)

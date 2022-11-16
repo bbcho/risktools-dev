@@ -64,3 +64,5 @@ renv/
 
 # misc files
 .Rhistory
+
+user.json

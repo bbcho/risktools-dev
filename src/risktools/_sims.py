@@ -3,7 +3,7 @@ import numpy as _np
 import statsmodels.formula.api as _smf
 
 
-def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **kwargs):
+def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
     """
     Simulates a Geometric Brownian Motion stochastic process (random walk)
 
@@ -28,8 +28,6 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **
     eps : numpy array
         Random numbers to use for the returns. If provided, mu and sigma are ignored.
         Must of size (p x sims) where p is the number of periods in T/dt.
-    kwargs : dict
-        Additional arguments to pass to numpy.random.normal.
 
     Returns
     -------
@@ -46,7 +44,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None, **
     s = _pd.DataFrame(data=s)
 
     if eps is None:
-        eps = _np.random.normal(mu, sigma, size=(periods, sims), kwargs=kwargs)
+        eps = _np.random.normal(mu, sigma, size=(periods, sims))
 
     s.loc[0, :] = s0
     s.loc[1:, :] = eps
@@ -104,7 +102,7 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.simOU_arr()
+    >>> rt.simOU()
     """
     # number of business days in a year
     bdays_in_year = 252
@@ -217,7 +215,7 @@ def simOUJ(
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.simOUJ_arr()
+    >>> rt.simOUJ()
     """
     # number of business days in a year
     bdays_in_year = 252
@@ -313,7 +311,7 @@ def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
     --------
     >>> import risktools as rt
     >>> spread = rt.simOU(mu=5, theta=0.5, sigma=0.2, T=5, dt=1/252)
-    >>> rt.fitOU(spread, method='MLE')
+    >>> rt.fitOU(spread[0], method='MLE')
     """
 
     if log_price == True:
@@ -322,7 +320,7 @@ def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
     if method == "MLE":
         return _fitOU_MLE(spread)
     elif method == "OLS":
-        return _fitOU_OLS(spread, dt, log_price, verbose)
+        return _fitOU_OLS(spread, dt, verbose)
 
 
 def _fitOU_MLE(spread):

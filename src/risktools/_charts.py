@@ -54,7 +54,7 @@ def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
     >>> df = df.loc[df.series=='NGLower48',['date','value']].set_index('date')['value']
     >>> df = df.resample('W-FRI').mean()
     >>> stl = rt.chart_zscore(df, freq='M')
-    >>> stl.plot()
+    >>> stl.show()
     >>> stl = rt.chart_zscore(df, output='seasonal')
     >>> stl.show()
     >>> stl = rt.chart_zscore(df, output='zscore')
@@ -410,7 +410,7 @@ def chart_perf_summary(df, geometric=True, title=None):
     >>> df = rt.data.open_data('dfwide')
     >>> df = df[['CL01', 'CL12', 'CL36']]
     >>> df = rt.returns(df, period_return=1)
-    >>> rt.chart_perf_summary(df, title="Cummulative Returns and Drawdowns")
+    >>> rt.chart_perf_summary(df, geometric=False, title="Cummulative Returns and Drawdowns")
     """
     df = df.copy()
     if geometric == True:
@@ -674,11 +674,12 @@ def chart_spreads(
     Examples
     --------
     >>> import risktools as rt
-    >>> df = rt.chart_spreads(
-            username=up['m*']['user'],
-            password=up['m*']['pass'],
-            pairs=[('@HO4H', '@HO4J', '2014'), ('@HO9H', '@HO9J', '2019')],
-            feed="CME_NymexFutures_EOD")
+    >>> fig = rt.chart_spreads(
+                username=up['m*']['user'],
+                password=up['m*']['pass'],
+                pairs=[('@HO4H', '@HO4J', '2014'), ('@HO9H', '@HO9J', '2019')],
+                feed="CME_NymexFutures_EOD")
+    >>> fig.show()
     """
 
     codes = []
@@ -704,7 +705,8 @@ def chart_spreads(
         tmp.columns = ["days_from_exp", "date", "spread"]
         tmp.days_from_exp -= days_from_expiry
         tmp["year"] = c[2]
-        res = res.append(tmp)
+        # res = res.append(tmp)
+        res = pd.concat([res, tmp], axis=0)
 
         if output == "chart":
             fig.add_trace(

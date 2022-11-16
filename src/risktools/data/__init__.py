@@ -84,7 +84,7 @@ def get_names():
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.get_names()
+    >>> rt.data.get_names()
     """
     return list(_file_actions.keys())
 
@@ -105,7 +105,7 @@ def open_data(nm):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.open_data('cancrudeassays')
+    >>> rt.data.open_data('cancrudeassays')
     
     """
     fn = ""
