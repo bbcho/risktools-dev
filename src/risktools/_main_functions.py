@@ -549,7 +549,7 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     # correlation of a var with itself should always be 1. Also, the beta of the second contract
     # will likely be a lot less then 1, and so ignoring the 1st contract will allow for a better fit
     r = _least_squares(
-        beta_residuals, x0=[-1, -1, -1], args=(_np.array(mkt[1:]), prompt[1:])
+        beta_residuals, x0=[-1, -1, -1], args=(_np.array(mkt.iloc[1:]), prompt[1:])
     )
 
     # construct output df

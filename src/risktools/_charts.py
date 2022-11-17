@@ -236,7 +236,7 @@ def chart_eia_sd(market, key, start_dt="2010-01-01", output="chart", **kwargs):
         return df
 
 
-def chart_five_year_plot(df, **kwargs):
+def chart_five_year_plot(df, resample_freq=None, **kwargs):
     """
     Function to output a 5 yr range plot for commodity prices
 
@@ -244,12 +244,28 @@ def chart_five_year_plot(df, **kwargs):
     ----------
     df : Series
         Series or single column dataframe with a datetime index
+    resample_freq : str
+        Used to resample data. See Pandas documentation for valid freq types.
+        Uses the resampled mean. By default None.
+
+    Returns
+    -------
+    Plotly figure object
+
+    Example
+    -------
+    >>> import risktools as rt
+    >>> df = rt.data.open_data('dfwide')
+    >>> rt.chart_five_year_plot(df['CL01'])
     """
     df = df.copy()
     if isinstance(df, pd.Series):
         df = pd.DataFrame({"value": df})
 
-    freq = pd.infer_freq(df.index[-10:])
+    if resample_freq is None:
+        freq = pd.infer_freq(df.index[-10:])
+    else:
+        freq = resample_freq
 
     df["year"] = df.index.year
     start_dt = str(df.index.year.max() - 5) + "-01-01"
@@ -499,7 +515,7 @@ def chart_forward_curves(
     >>> import risktools as rt
     >>> df = rt.data.open_data('dfwide')
     >>> rt.chart_forward_curves(df, 'HO', yaxis_title='$/g', skip=10)
-    >>> rt.chart_forward_curves_new(df, 'HO', cmdty='cmeulsd', yaxis_title='$/g', skip=2)
+    >>> rt.chart_forward_curves(df, 'HO', cmdty='cmeulsd', yaxis_title='$/g', skip=2)
     """
     df = df.copy()
     fig = go.Figure()
@@ -522,7 +538,7 @@ def chart_forward_curves(
     def _plot_crv(df, date, d=curve_len, exp=exp):
         """
         Convert series index to align with front contract dates with the curve spanning 400 days thereafter
-        df
+        df : array-like
             dataframe with all contracts to be plotted
         d : int
             number of days that the curve should span
@@ -532,7 +548,7 @@ def chart_forward_curves(
         pandas series to plot with modified datetime index
         """
         df = df.copy()
-        df.columns = df.columns.str.replace("[^0-9]", "", regex=False).astype(int)
+        df.columns = df.columns.str.replace("[^0-9]", "", regex=True).astype(int)
         se = df.loc[date, :]
 
         n = len(se)
@@ -540,13 +556,13 @@ def chart_forward_curves(
 
         if exp is None:
             idx = []
-            for i, r in se.iteritems():
+            for i, r in se.items():
                 idx.append(
                     pd.to_datetime(date) + pd.DateOffset((i - 1) * days_per_step)
                 )
         else:
             idx = exp[exp > date]
-            idx = idx[: len(se)]
+            idx = idx.iloc[: len(se)]
 
         se.index = pd.Index(idx)
 
@@ -608,12 +624,19 @@ def chart_pairs(df, title="Time Series Pairs Plot", **kwargs):
         Chart title, by default "Time Series Pairs Plot"
     **kwargs
         keyword arguments to pass to plotly.graph_objects.Figure.update_layout function
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> df = rt.data.open_data('dfwide')
+    >>> df = df[['CL01', 'NG01', 'HO01', 'RB01']].dropna()
+    >>> rt.chart_pairs(df)
     """
     dt_idx = df.index.name
     df = df.reset_index().copy()
 
     dims = []
-    for c, i in df.iteritems():
+    for c, i in df.items():
         dims.append(dict(label=c, values=df[c],))
 
     fig = go.Figure()
