@@ -391,7 +391,7 @@ def _fitOU_OLS(spread, dt, verbose=False):
 
     Returns
     -------
-    Dictionary of alpha, mu and theta
+    Dictionary of annualized sigma, mu and theta
 
     Examples
     --------
@@ -428,7 +428,7 @@ def _fitOU_OLS(spread, dt, verbose=False):
             round(sigma, 2),
         )
 
-    return {"theta": theta, "mu": mu, "sigma": sigma}
+    return {"theta": theta, "mu": mu, "annualized_sigma": sigma}
 
 
 if __name__ == "__main__":

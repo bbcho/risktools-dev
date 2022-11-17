@@ -47,20 +47,28 @@ def calc_spread_MV(df, formulas):
     return spreads
 
 
-def fitOU_MV(df, dt, method="OLS"):
+def fitOU_MV(df, dt, log_price, method="OLS", verbose=False):
     """
     Fit multiple OU processes
 
     Parameters
     ----------
     df : DataFrame
-        DataFrame of multiple OU processes where each process is a column
+        DataFrame of multiple OU processes where each process is a column.  Thus
+        a matrix of size (p x N) where p is the number of time steps and N is 
+        the number of assets.
     dt : float
         Assumed time step for the OU processes. Must be the same for all
         OU processes.
+    log_price : bool
+        If True, the spread is assumed to be log prices and the log of the spread is taken.
+        All price series must be log_prices or all not. Default is False.
     method : ['OLS' | 'MLE'], optional
         Method used to fit OU process. OLE for ordinary least squares and MLE for 
         Maximum Liklihood. By default 'OLS'.
+    verbose : bool
+        If True, prints the estimated parameters. Only used is method is OLS.
+        Default is False.
 
     Returns
     -------
@@ -75,7 +83,7 @@ def fitOU_MV(df, dt, method="OLS"):
     params = _pd.DataFrame()
 
     for c in df.columns:
-        ret = fitOU(df[c], dt, method=method)
+        ret = fitOU(df[c], dt, log_price=log_price, method=method, verbose=verbose)
         params.loc["theta", c] = ret["theta"]
         params.loc["annualized_sigma", c] = ret["annualized_sigma"]
         params.loc["mu", c] = ret["mu"]
@@ -487,6 +495,14 @@ def plot_efficient_frontier(df):
         )
     )
 
+    fig.update_layout(
+        title='Efficient Frontier',
+        title_x = 0.5,
+        title_xanchor = 'center',
+        xaxis_title='Risk',
+        yaxis_title='Expected Returns'
+    )
+
     fig.update_traces(hovertemplate=None)
 
     return fig
@@ -584,11 +600,16 @@ def shift(xs, n=1):
     return e
 
 
-class MVSIM(_ABC):
+class _MVSIM(_ABC):
     """
     Abstract base class for multivariate simulation classes for
     calculating the payoffs of a portfolio of assets.
     """
+    _frontier = None
+    _sims = None
+    _prices = None
+    _params = None
+    _asset_names = None
 
     @_abstractmethod
     def fit():
@@ -598,27 +619,152 @@ class MVSIM(_ABC):
     def simulate():
         pass
 
+    def plot_efficient_frontier(self, strike=0, payoff_funcs=None, portfolio_sims=5000):
+        """
+        Plot the efficient frontier based on a specificied payoff function.
 
-class MVGBM(MVSIM):
+        Parameters
+        ----------
+        strike : float, optional
+            Only used if payoff_funcs is None. Strike price of the option. By default 0.
+        payoff_funcs : array-like[function], optional
+            Array of payoff functions. Must be a 1D array of length N. Each function must take a
+            single argument (the simulated asset price) and return a single value (the payoff) along 
+            the time axis. By default None. If none, the payoff is the max of the asset price and strike price at
+            time T.
+        portfolio_sims : int
+            Number of random portfolios to simulate for the efficient frontier.
+
+        Returns
+        -------
+        Plot of the efficient frontier.
+
+        Examples
+        --------
+        >>> import risktools as rt
+
+        """
+
+        self._payoffs = calculate_payoffs(self._sims, strike, payoff_funcs)
+
+        # calculate efficient frontier
+        weights = generate_random_portfolio_weights(len(self._s0), portfolio_sims)
+        port = simulate_efficient_frontier(self._payoffs, weights)
+
+        # make dataframe
+        port = make_efficient_frontier_table(
+            port, weights, asset_names=self._asset_names
+        )
+
+        # plot efficient frontier
+        self._frontier = plot_efficient_frontier(port)
+
+        return self._frontier
+
+    def plot_portfolio(self, weights, label=True, weight_names=True):
+        """
+        Plot a single portfolio on an efficient frontier chart
+
+        Parameters
+        ----------
+        df : DataFrame[float] | array-like[float]
+            Dataframe or array of simulated asset payoffs from the calc_payoffs function.
+        weights : array-like[float]
+            Array of asset weights for the portfolio to be plotted. Must sum to 1.
+        fig : Figure
+            Figure object to plot the portfolio on.
+        label : bool
+            If True, the portfolio marker will be labeled with the asset weights.
+        weight_names : bool
+            Include weight names in label if already defined in object
+
+        Returns
+        -------
+        Plot of the efficient frontier with the portfolio added.
+        """
+
+        if self._frontier is None:
+            ValueError('plot_efficient_frontier method must be run prior to this method')
+
+        names = self._asset_names if weight_names else None
+
+        self._frontier = plot_portfolio(self._payoffs, weights, self._frontier, names, label)
+
+        return self._frontier
+
+    @property
+    def sims(self):
+        """
+        Returns a 3-D array of size (p x sims x N) where p is the number of 
+        time steps, sims is the number of simulations, and N is the number 
+        of assets
+        """
+        return self._sims
+
+    @property
+    def prices(self):
+        if self._prices is None:
+            return "No time series we given to initialize the objects"
+        else:
+            return self._prices
+
+    @property
+    def parameters(self):
+        params = self._params.copy()
+        params.loc['s0',:] = self._s0
+        return params
+
+    def plot_sim(self, asset_num, sims=100, **kwargs):
+        """
+        Function to plot a subset of the simulates run for the asset
+        specified by asset_num.
+
+        Parameters
+        ----------
+        asset_num : int
+            Column number of the asset to be shown from 0 to N-1 where
+            N is the number of assets passed to the object.
+        sims : int
+            The number of simulations to show in the chart. Recommend
+            around 100. By default 100.
+        kwargs
+            parameters to be passed to the pandas dataframe plot method.
+        
+        Returns
+        -------
+        matplotlib figure object.
+        """
+
+        return _pd.DataFrame(self._sims[:,:,asset_num]).iloc[:,:sims].plot(legend=False, **kwargs)
+
+
+class MVGBM(_MVSIM):
     """
     Class for simulating a multivariate GBM process for a portfolio of assets
 
     Parameters
     ----------
-        s0 : array-like[float]
-            Initial price of each asset in the portfolio. 
-        r : array-like[float]
-            Risk free rate of each asset in the portfolio.
-        sigma : array-like[float]
-            Volatility of each asset in the portfolio.
-        T : float
-            Time to maturity of the portfolio.
-        dt : float
-            Time step for the simulation.
-        cor : array-like[float]
-            Correlation matrix for the assets in the portfolio.
-        asset_names : list[str]
-            List of strings to use as asset names in the output dataframe.
+    r : array-like[float]
+        Risk free rate of each asset in the portfolio.
+    T : float
+        Time to maturity of the portfolio.
+    dt : float
+        Time step for the simulation.
+    s0 : array-like[float], optional
+        Initial price of each asset in the portfolio. 
+        Required if prices not passed.
+    sigma : array-like[float], optional
+        Volatility of each asset in the portfolio.
+        Required if prices not passed.
+    cor : array-like[float], optional
+        Correlation matrix for the assets in the portfolio.
+        Required if prices not passed.
+    prices : array-like[float], optional
+        Matrix or dataframe of asset prices where the columns are
+        different assets. Used to calibrate model using fit
+        method if s0, sigma and cor not passed.
+    asset_names : list[str], optional
+        List of strings to use as asset names in the output dataframe.
     
     Example
     -------
@@ -679,56 +825,119 @@ class MVGBM(MVSIM):
             self._s0, self._r, self._sigma, self._T, self._dt, cor=self._cor, sims=sims
         )
 
-    def plot_efficient_frontier(self, strike=0, payoff_funcs=None, portfolio_sims=5000):
+
+class MVOU(_MVSIM):
+    """
+    Class for simulating a multivariate OU process for a portfolio of assets
+
+    Parameters
+    ----------
+    s0 : array-like[float], optional
+        Initial price of each asset in the portfolio.
+        Required if prices not passed.
+    mu : float, int or pandas Series, optional
+        Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a
+        time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods).
+        Required if prices not passed.
+    theta : float, optional
+        Mean reversion rate, higher number means it will revert slower.
+        Required if prices not passed.
+    sigma : array-like[float], optional
+        Volatility of each asset in the portfolio.
+        Required if prices not passed.
+    T : float
+        Time to maturity of the portfolio.
+    dt : float
+        Time step for the simulation.
+    cor : array-like[float]
+        Correlation matrix for the assets in the portfolio.
+    prices : array-like[float], optional
+        Matrix or dataframe of asset prices of size (p x N) where p is the number
+        of time steps and N is the number of assets. Used to calibrate model using fit
+        method if s0, mu, theta, sigma and cor not passed.
+    asset_names : list[str]
+        List of strings to use as asset names in the output dataframe.
+    
+    Example
+    -------
+    >>> import risktools as rt
+    >>> ou = rt.MVOU(
+            s0=[5,5,5],
+            mu=[4,4,4],
+            theta=[2,2,2],
+            sigma=[0.1,0.1,0.1], 
+            T=1, 
+            dt=1/252, 
+            cor=[[1,0.5,0.5],[0.5,1,0.5],[0.5,0.5,1]],
+            asset_names=['A','B','C']
+        )
+    >>> ou.fit()
+    >>> ou.simulate()
+    >>> ou.plot_efficient_frontier()
+    """
+    def __init__(
+        self, T, dt, s0=None, mu=None, theta=None, sigma=None, cor=None, prices=None, asset_names=None
+    ):
+        self._mu = mu
+        self._theta = theta
+        self._T = T
+        self._dt = dt
+        self._prices = prices
+        self._asset_names = asset_names
+        self._s0 = s0
+        self._sigma = sigma
+        self._cor = cor
+
+        if prices is None:
+            items = [s0, mu, theta, sigma, cor]
+            if any([i is None for i in items]):
+                raise ValueError(
+                    "Must pass an array of prices to the constructor or provide optional \
+                    arguments s0, mu, theta, sigma and cor."
+                )
+
+    def fit(self, log_price=False, method="OLS", verbose=False, s0=None):
         """
-        Plot the efficient frontier based on a specificied payoff function.
+        Method to fit the simulation parameters to the class.
 
         Parameters
         ----------
-        strike : float, optional
-            Only used if payoff_funcs is None. Strike price of the option. By default None.
-        payoff_funcs : array-like[function], optional
-            Array of payoff functions. Must be a 1D array of length N. Each function must take a
-            single argument (the simulated asset price) and return a single value (the payoff) along 
-            the time axis. By default None. If none, the payoff is the max of the asset price and strike price at
-            time T.
-        portfolio_sims : int
-            Number of random portfolios to simulate for the efficient frontier.
-
-        Returns
-        -------
-        Plot of the efficient frontier.
-
-        Examples
-        --------
-        >>> import risktools as rt
-
+        log_price : bool
+            If True, the spread is assumed to be log prices and the log of the spread is taken.
+            Default is False.
+        method : ['OLS', 'MLE']
+            Method to use for parameter estimation. Default is 'OLS'.
+        verbose : bool
+            If True, prints the estimated parameters. Only used is method is OLS.
+            Default is False.
+        s0 : array-like[float]
+            Of size N (number of assets) to override the last value for asset prices
+            of the passed prices dataframe in the object initializations. Mostly for
+            testing and teaching purposes. By default None.
         """
+        # Only relevent if prices not passed to constructor
+        if self._prices is not None:
+            prices = _pd.DataFrame(self._prices)
+            returns = (_np.log(prices) - _np.log(prices.shift())).dropna()
+            
+            self._s0 = prices.iloc[-1, :] if s0 is None else s0
 
-        self._payoffs = calculate_payoffs(self._sims, strike, payoff_funcs)
+            self._params = fitOU_MV(prices, self._dt, log_price=log_price, method=method, verbose=verbose)
+            self._cor = returns.corr()
+        else:
+            self._params = _pd.DataFrame()
+            self._params['mu'] = self._mu
+            self._params['annualized_sigma'] = self._sigma
+            self._params['theta'] = self._theta
+            self._params = self._params.T
 
-        # calculate efficient frontier
-        weights = generate_random_portfolio_weights(len(self._s0), portfolio_sims)
-        port = simulate_efficient_frontier(self._payoffs, weights)
+        if self._asset_names is not None:
+            self._params.columns = self._asset_names
 
-        # make dataframe
-        port = make_efficient_frontier_table(
-            port, weights, asset_names=self._asset_names
+    def simulate(self, sims=1000):
+
+        self._sims = self._sims = simOU_MV(
+            self._s0, self._params.loc['mu',:], self._params.loc['theta',:], self._T, self._dt, self._params.loc['annualized_sigma',:], 
+            self._cor, sims=sims
         )
 
-        # plot efficient frontier
-        fig = plot_efficient_frontier(port)
-
-        return fig
-
-    @property
-    def sims(self):
-        return self._sims
-
-    @property
-    def prices(self):
-        return self._prices
-
-    # @prices.setter
-    # def prices(self, value):
-    #     self._prices = value

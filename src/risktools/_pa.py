@@ -4,8 +4,6 @@ import pandas as _pd
 import numpy as _np
 from sklearn.linear_model import LinearRegression as _LinearRegression
 
-# from math import sqrt as _sqrt
-
 
 def return_cumulative(r, geometric=True):
     """
