@@ -58,8 +58,11 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
-# conda env
+# virtual env
 env/
+renv/
 
 # misc files
 .Rhistory
+
+user.json

@@ -6,7 +6,7 @@ import requests as _requests
 from io import BytesIO as _BytesIO
 from zipfile import ZipFile as _ZipFile
 import warnings as _warnings
-
+from io import BytesIO
 
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
     """
@@ -84,7 +84,7 @@ def get_names():
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.get_names()
+    >>> rt.data.get_names()
     """
     return list(_file_actions.keys())
 
@@ -105,7 +105,7 @@ def open_data(nm):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.open_data('cancrudeassays')
+    >>> rt.data.open_data('cancrudeassays')
     
     """
     fn = ""
@@ -139,7 +139,7 @@ def open_data(nm):
     return df
 
 
-def _norm_df(fn):
+def _norm_df_bak(fn):
     rf = _pd.DataFrame()  # create results df
 
     # read json files with nested dataframes from R
@@ -154,6 +154,27 @@ def _norm_df(fn):
     rf.columns.name = "specifications"
     rf.index = rf.index.set_names(["crude", "cut"])
     return rf.sort_index()
+
+
+def _norm_df(fn):
+
+    with open(fn, mode='r') as file:
+        tmp = _json.load(file)
+
+    df = _pd.DataFrame()
+    for key in tmp.keys():
+        if key == 'Liza':
+            _warnings.warn('Liza crude not working for XOM - please let RTL package developer know')
+        else:
+            tf = _pd.DataFrame(tmp[key])
+            tf['crude'] = key
+            cols = ['Specification' , *tf.columns[1:]]
+            tf.columns = cols
+            tf = tf.set_index(['crude','Specification'])
+            df = _pd.concat([df,tf], axis=0)
+
+
+    return df
 
 
 def _read_curves(fn):
@@ -176,17 +197,17 @@ def _read_curves(fn):
 _file_actions = {
     "cancrudeassays": {
         "file": "cancrudeassays.json",
-        "date_fields": ["YM"],
+        "date_fields": None,
         "load_func": _pd.read_json,
     },
-    "cancrudeassayssum": {
-        "file": "cancrudeassayssum.json",
-        "date_fields": ["YM"],
-        "load_func": _pd.read_json,
-    },
+    # "cancrudeassayssum": {
+    #     "file": "cancrudeassayssum.json",
+    #     "date_fields": ["YM"],
+    #     "load_func": _pd.read_json,
+    # },
     "cancrudeprices": {
         "file": "cancrudeprices.json",
-        "date_fields": ["YM"],
+        "date_fields": ["date"],
         "load_func": _pd.read_json,
     },
     "crudeassaysBP": {
@@ -329,7 +350,55 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
+    "wti_swap": {
+        "file": "wtiSwap.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "ry": {
+        "file": "ry.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "CLc1": {
+        "file": "CLc1.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "CLc2": {
+        "file": "CLc2.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "CLc1c2": {
+        "file": "CLc1c2.json",
+        "date_fields": ["Date"],
+        "load_func": _pd.read_json,
+    },
+    "futures_months": {
+        "file": "futuresMonths.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "futures_specs": {
+        "file": "futuresSpecs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "ohlc": {
+        "file": "ohlc.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "spy": {
+        "file": "spy.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
 }
 
 _path = _os.path.dirname(__file__)
 
+
+if __name__ == "__main__":
+    pass

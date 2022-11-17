@@ -49,6 +49,15 @@ def get_prices(
         lastest date to return data from, by default None. If None, the function return everything from start_dt forward
     intraday : bool
         not implemented yet
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_prices(username=up['m*']['user'], password=up['m*']['pass'])
+
+    Returns
+    -------
+    Pandas dataframe with prices
     """
     if isinstance(codes, list) == False:
         codes = [codes]
@@ -119,6 +128,7 @@ def get_prices(
 
         params = _urllib.parse.urlencode(p_dict)
         r = s.get(url.format(feed, params),)
+
         tf = _pd.read_csv(_io.StringIO(r.content.decode("utf-8"))).set_index("Date")
         tf.index = _pd.to_datetime(tf.index)
         tf.columns = tf.columns.str.replace(
@@ -126,7 +136,8 @@ def get_prices(
         )  # clean up columns by removing ticker/code names
         tf = _pd.concat([tf], keys=[code])
 
-        df = df.append(tf)
+        # df = df.append(tf)
+        df = _pd.concat([df, tf], axis=0)
 
     return df
 
@@ -159,6 +170,18 @@ def get_curves(
         either a string contract root code (i.e. "CL" for NYMEX WTI) or a list roots to return, by default ["CL", "BG"]. 
     date : str | datetime, optional
         Date of curve to pull. By default None which causes function to return data for today.
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_curves(
+        username=username, 
+        password=password, 
+        feed='Crb_Futures_Price_Volume_And_Open_Interest', 
+        contract_roots=['CL', 'BG'], 
+        fields=['Open', 'High', 'Low', 'Close'], 
+        date=None
+        )
     """
     if isinstance(contract_roots, list) == False:
         contract_roots = [contract_roots]
@@ -237,7 +260,8 @@ def get_curves(
                 ]
             ]
 
-        df = df.append(tf)
+        # df = df.append(tf)
+        df = _pd.concat([df,tf], axis=0)
 
     return df
 

@@ -40,7 +40,7 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     Examples
     --------
     >>> import risktools as rt
-    >>> ir = rt.ir_df_us()
+    >>> rt.ir_df_us()
     """
 
     if date is None:
@@ -283,16 +283,16 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
 
     # calc return type
     if ret_type == "abs":
-        df = df.groupby(level=0).apply(lambda x: x.diff())
+        df = df.groupby(level=0, group_keys=False).apply(lambda x: x.diff())
     elif ret_type == "rel":
-        df = df.groupby(level=0).apply(lambda x: x / x.shift(period_return) - 1)
+        df = df.groupby(level=0, group_keys=False).apply(lambda x: x / x.shift(period_return) - 1)
     elif ret_type == "log":
         if df[df < 0].count().sum() > 0:
             warnings.warn(
                 "Negative values passed to log returns. You will likely get NaN values using log returns",
                 RuntimeWarning,
             )
-        df = df.groupby(level=0).apply(lambda x: _np.log(x / x.shift(period_return)))
+        df = df.groupby(level=0, group_keys=False).apply(lambda x: _np.log(x / x.shift(period_return)))
     else:
         raise ValueError("ret_type is not valid")
 
@@ -401,10 +401,10 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
     >>> dflong = dflong['CL01']
     >>> df = rt.returns(df=dflong, ret_type="rel", period_return=1)
     >>> df = rt.roll_adjust(df=df, commodity_name="cmewti", roll_type="Last_Trade")
-    >>> rt.garch(df, out="data")
-    >>> rt.garch(df, out="fit")
-    >>> rt.garch(df, out="plotly")
-    >>> rt.garch(df, out="matplotlib")
+    >>> rt.garch(df, scale=252, out="data")
+    >>> rt.garch(df, scale=252, out="fit")
+    >>> rt.garch(df, scale=252, out="plotly")
+    >>> rt.garch(df, scale=252, out="matplotlib")
     """
     df = _check_df(df).sort_index()
 
@@ -549,7 +549,7 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     # correlation of a var with itself should always be 1. Also, the beta of the second contract
     # will likely be a lot less then 1, and so ignoring the 1st contract will allow for a better fit
     r = _least_squares(
-        beta_residuals, x0=[-1, -1, -1], args=(_np.array(mkt[1:]), prompt[1:])
+        beta_residuals, x0=[-1, -1, -1], args=(_np.array(mkt.iloc[1:]), prompt[1:])
     )
 
     # construct output df
@@ -811,9 +811,43 @@ def stl_decomposition(
         return res
 
 
-def get_eia_df(tables, key):
+def get_eia_df(tables, key, version=2):
     """
     Function for download data from the US Government EIA and return it as a pandas dataframe/series
+
+    To get an api key, go to https://www.eia.gov/opendata/register.php
+    To get table names, search via API explorer at https://www.eia.gov/opendata/qb.php
+
+    Parameters
+    ----------
+    tables : List[Tuple[str]]
+        EIA series to return. Can be a list or tuple of tables as well.
+    key : str
+        EIA key.
+    version : 1 | 2
+        API version to use, can be either 1 or 2. By default 2. As of Nov 2022, EIA is no
+        longer support v1 of the API. 
+
+    Returns
+    -------
+    pandas dataframe or series depending on the number of tables requested
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_eia_df('PET.WDIIM_R20-Z00_2.W', key=eia_key)
+    """
+
+    if int(version) == 1:
+        return _get_eia_df_v1(tables, key)
+    else:
+        return _get_eia_df_v2(tables, key)
+
+
+def _get_eia_df_v1(tables, key):
+    """
+    Function for download data from the US Government EIA and return it as a pandas dataframe/series
+    API version 1.
 
     To get an api key, go to https://www.eia.gov/opendata/register.php
     To get table names, search via API explorer at https://www.eia.gov/opendata/qb.php
@@ -851,12 +885,60 @@ def get_eia_df(tables, key):
         tf = _pd.DataFrame(tmp["series"][0]["data"], columns=["date", "value"])
         tf["table_name"] = tmp["series"][0]["name"]
         tf["series_id"] = tmp["series"][0]["series_id"]
-        eia = eia.append(tf)
+        eia = _pd.concat([eia, tf], axis=0)
+        # eia = eia.append(tf)
 
     eia.loc[eia.date.str.len() < 7, "date"] += "01"
 
     eia.date = _pd.to_datetime(eia.date)
     return eia
+
+
+def _get_eia_df_v2(tables, key):
+    """
+    Function for download data from the US Government EIA and return it as a pandas dataframe/series.
+    API version 2.
+
+    To get an api key, go to https://www.eia.gov/opendata/register.php
+    To get table names, search via API explorer at https://www.eia.gov/opendata/qb.php
+
+    Parameters
+    ----------
+    tables : List[Tuple[str]]
+        EIA series to return. Can be a list or tuple of tables as well.
+    key : str
+        EIA key.
+
+    Returns
+    -------
+    pandas dataframe or series depending on the number of tables requested
+
+    Examples
+    --------
+    >>> import risktools as rt
+    >>> rt.get_eia_df_v2('PET.WDIIM_R20-Z00_2.W', key=eia_key)
+    """
+    import requests
+    import json
+
+    if isinstance(tables, list) == False:
+        tables = [tables]
+
+    eia = _pd.DataFrame()
+
+    for tbl in tables:
+        url = f"http://api.eia.gov/v2/seriesid/{tbl}?api_key={key}"
+        tmp = json.loads(requests.get(url).text)
+
+        tf = _pd.DataFrame(tmp['response']['data'], columns=["period","series-description", "value"])
+        tf["series_id"] = tbl
+        eia = _pd.concat([eia, tf], axis=0)
+        # eia = eia.append(tf)
+    
+    eia = eia.rename(columns={'period':'date','series-description':'table_name'})
+    eia.loc[eia.date.str.len() < 7, "date"] += "01"
+    eia.date = _pd.to_datetime(eia.date)
+    return eia[['date','value','table_name','series_id']]
 
 
 def _check_df(df):
