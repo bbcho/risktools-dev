@@ -16,8 +16,12 @@ from pandas_datareader import data
 
 test_date = "2021-12-24"
 
-with open(os.path.dirname(os.path.realpath(__file__)) + '/../user.json', mode='r') as file:
-    upf = json.load(file)
+upf = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
+try:
+    with open(os.path.dirname(os.path.realpath(__file__)) + '/../user.json', mode='r') as file:
+        upf = json.load(file)
+except:
+    pass
 
 # Github Actions CI Env Vars
 up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
