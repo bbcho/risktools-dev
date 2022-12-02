@@ -2,6 +2,7 @@
 *.pyc
 
 .vscode/
+.pytest_cache/
 .ipynb_checkpoints/
 
 # saved data in pytest folder
