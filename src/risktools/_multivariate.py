@@ -139,6 +139,7 @@ def generate_eps_MV(sigma, cor, T, dt, sims=1000, mu=None):
     sd = _np.diag(sigma)
 
     cov = sd @ cor @ sd
+    cov = cor
     eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
 
     return eps

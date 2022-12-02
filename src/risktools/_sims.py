@@ -44,10 +44,10 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
     s = _pd.DataFrame(data=s)
 
     if eps is None:
-        eps = _np.random.normal(mu, sigma, size=(periods, sims))
+        eps = _np.random.normal(mu, 1, size=(periods, sims))
 
-    s.loc[0, :] = s0
-    s.loc[1:, :] = eps
+    s.iloc[0, :] = s0
+    s.iloc[1:, :] = eps
 
     # calc geometric brownian motion
     s.loc[1:, :] = _np.exp(
@@ -432,14 +432,26 @@ def _fitOU_OLS(spread, dt, verbose=False):
 
 
 if __name__ == "__main__":
-    import risktools as rt
+    import os
+    import sys
+    print(os.path.dirname(os.path.realpath(__file__)))
 
-    sim = rt.simOU(s0=5, mu=4, theta=2, sigma=0.2, T=5, dt=1 / 252)
+    eps = _pd.read_csv('./pytest/data/diffusion.csv', header=None)
+    
+    df = simGBM(s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1/252, sims=20, eps=eps).round(2)
 
-    params = rt.fitOU(sim, dt=1 / 252, method="OLS", verbose=True)
+    act = _pd.read_csv('./pytest/data/simGBM_output.csv')
+    act = act.drop('t', axis=1).T.reset_index(drop=True).T.round(2)
 
-    print(params)
+    assert df.equals(act), "simGBM RTL eps failed"
 
-    params = rt.fitOU(sim, dt=1 / 252, method="MLE", verbose=True)
+    _np.random.seed(123)
+    df = simGBM(s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1/252, sims=20).astype('float').round(4)
 
-    print(params)
+
+    act = _pd.read_csv('./pytest/data/simGBM_output_no_eps.csv').astype('float').round(4)
+    act = act.T.reset_index(drop=True).T
+
+    assert df.equals(act), "simGBM generated eps failed"
+
+

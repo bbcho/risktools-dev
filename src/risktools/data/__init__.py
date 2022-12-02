@@ -13,26 +13,17 @@ def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
     Returns a SpatialPointsDataFrame from a shapefile URL. Examples with EIA and Government of Alberta
 
     US Energy Information Agency:
-    
-        EIA crude pipelines : https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
-
-        EIA Refinery Map : https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip
-        
-        EIA Products Pipelines : https://www.eia.gov/maps/map_data/PetroleumProduct_Pipelines_US_EIA.zip
-        
-        EIA Products Terminals : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
-        
-        EIA NG Pipelines : https://www.eia.gov/maps/map_data/NaturalGas_InterIntrastate_Pipelines_US_EIA.zip
-        
-        EIA NG Storage : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
-        
-        EIA NG Hubs : https://www.eia.gov/maps/map_data/NaturalGas_TradingHubs_US_EIA.zip
-        
-        EIA LNG Terminals : https://www.eia.gov/maps/map_data/Lng_ImportExportTerminals_US_EIA.zip
+    - EIA crude pipelines : https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
+    - EIA Refinery Map : https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip  
+    - EIA Products Pipelines : https://www.eia.gov/maps/map_data/PetroleumProduct_Pipelines_US_EIA.zip
+    - EIA Products Terminals : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
+    - EIA NG Pipelines : https://www.eia.gov/maps/map_data/NaturalGas_InterIntrastate_Pipelines_US_EIA.zip
+    - EIA NG Storage : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
+    - EIA NG Hubs : https://www.eia.gov/maps/map_data/NaturalGas_TradingHubs_US_EIA.zip
+    - EIA LNG Terminals : https://www.eia.gov/maps/map_data/Lng_ImportExportTerminals_US_EIA.zip
 
     Alberta Oil Sands, Petroleum and Natural Gas
-
-        AB : https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip
+    - AB : https://gis.energy.gov.ab.ca/GeoviewData/OS_Agreements_Shape.zip
 
     Parameters
     ----------
