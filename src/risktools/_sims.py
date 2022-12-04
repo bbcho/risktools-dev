@@ -1,6 +1,24 @@
 import pandas as _pd
 import numpy as _np
 import statsmodels.formula.api as _smf
+import ctypes
+from numpy.ctypeslib import ndpointer
+import os
+import multiprocessing as mp
+import time
+from numpy.random import default_rng
+
+ST = time.time()
+
+class Result():
+    def __init__(self):
+        self.val = _pd.DataFrame()
+
+    def update_result(self, val):
+        print(time.time() - ST)
+        self.val = _pd.concat([self.val, val], axis=1) # append by columns
+        print(time.time() - ST)
+
 
 
 def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
@@ -59,7 +77,25 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
     return s
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
+def _import_csimOU():
+    dir = os.path.dirname(os.path.realpath(__file__)) + "/c/"
+    lib = ctypes.cdll.LoadLibrary(dir + "simOU.so")
+    fun = lib.csimOU
+    fun.restype = None
+    fun.argtypes = [
+        ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+        ctypes.c_double,
+        ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
+        ctypes.c_double,
+        ctypes.c_double,
+        ctypes.c_size_t,
+        ctypes.c_size_t
+    ]
+    fun.restype = ndpointer(ctypes.c_double, flags="C_CONTIGUOUS")
+    return fun
+
+
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=True):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -94,6 +130,8 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
     eps : matrix-like[float]
         Random numbers to use for the returns. If provided, mu, sigma, T, dt and sims are ignored.
         Must of size (p x sims) where p is the number of periods in T/dt.
+    c : bool
+        Whether or not to run C optimized code. By default True. Otherwise price python loop.
 
     Returns
     -------
@@ -104,8 +142,70 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
     >>> import risktools as rt
     >>> rt.simOU()
     """
+
     # number of business days in a year
     bdays_in_year = 252
+
+    # print half-life of theta
+    print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
+
+    if c == True:
+        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps)
+    else:
+        return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps)
+
+
+def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None):
+    fun = _import_csimOU()
+
+    # calc periods
+    N = int(T/dt)
+    
+    # check on random number size
+    if (N+1)*sims > 200_000_000:
+        import warnings
+        warnings.warn(
+            '''
+            Note that this simulation will generate more than
+            200M random numbers which may crash the python kernel. It may
+            be a better idea to split the simulation into a series of smaller
+            sims and then join them after.
+            '''
+            )
+    
+    # make mu an array of same size as N+1
+    try:
+        iter(mu)
+        if len(mu) != N+1:
+            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt) + 1 to account for starting value s0")
+    except:
+        mu = _np.ones((N+1))*mu
+    
+    # make same size as 1D array of all periods and sims
+    mu = _np.tile(_np.array(mu), sims)
+
+    # generate a 1D array of random numbers that is based on a 
+    # 2D array of size P x S where P is the number of time steps
+    # including s0 (so N + 1) and S is the number of sims. 1D 
+    # array will be of size P * S. This is actually the slowest
+    # part.
+    if eps is None:
+        rng = default_rng()
+        x = rng.normal(loc=0, scale=_np.sqrt(dt), size=((N+1)*sims))
+        x[0] = s0
+        x[::(N+1)] = s0
+    else:
+        x = eps.T
+        x = x.reshape((N+1)*sims)
+        x[:,0] = s0
+    
+    # run simulation directly in-place on memory to save time.
+    fun(x, theta, mu, dt, sigma, N+1, sims)
+    
+    return _pd.DataFrame(x.reshape((sims, N+1)).T)
+
+
+def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None):
 
     # number of periods dt in T
     periods = int(T / dt)
@@ -122,15 +222,13 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None):
     # set first row as starting value of sim
     out.loc[0, :] = s0
 
-    # print half-life of theta
-    print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
-
     if isinstance(mu, list):
         mu = _pd.Series(mu)
 
     # calc gaussian vector
     if eps is None:
-        eps = _np.random.normal(size=(periods, sims))
+        rng = default_rng()
+        eps = rng.normal(size=(periods, sims))
 
     for i, _ in out.iterrows():
         if i == 0:
