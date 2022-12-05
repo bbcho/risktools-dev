@@ -5,11 +5,11 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="risktools",
-    version="0.2.3",
+    version="0.2.4",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
-    description="Python implementation of the R package RTL v0.1.8",
+    description="Python implementation of the R package RTL",
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages("src"),

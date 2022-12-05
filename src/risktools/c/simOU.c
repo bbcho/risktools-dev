@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 
 // https://stackoverflow.com/questions/5862915/passing-numpy-arrays-to-a-c-function-for-input-and-output
 // https://stackoverflow.com/questions/4355524/getting-data-from-ctypes-array-into-numpy
@@ -17,8 +18,9 @@ void csimOU(
     size_t j = 0;
 
     // pre-compute to make faster
-    const double dt_theta = dt * theta;
     const int ll = rows * cols;
+    const double ss = 0.5 * sigma * sigma;
+    const double sq = sqrt(dt);
 
     // input x is a 2D array that has been reshaped to be 1D.
     // Loop through entire 1D array of length rows*cols,
@@ -34,7 +36,7 @@ void csimOU(
         else
         {
             j = j + 1;
-            x[i] = x[i - 1] + (mu[i] - x[i - 1]) * dt_theta + sigma * x[i];
+            x[i] = x[i - 1] + (theta * (mu[i] - x[i - 1]) - ss) * dt + sigma * sq * x[i];
         }
     }
     // return x;

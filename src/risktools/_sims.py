@@ -95,7 +95,7 @@ def _import_csimOU():
     return fun
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=True):
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=True, seed=None):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -129,9 +129,12 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
         Number of simulations to run. By default, this is 1000.
     eps : matrix-like[float]
         Random numbers to use for the returns. If provided, mu, sigma, T, dt and sims are ignored.
-        Must of size (p x sims) where p is the number of periods in T/dt.
+        Must of size (p x sims) where p is the number of periods in T, i.e. int(T/dt). 
+        Excludes time 0.
     c : bool
         Whether or not to run C optimized code. By default True. Otherwise price python loop.
+    seed : int
+        To pass to numpy random number generator as seed. For testing only. 
 
     Returns
     -------
@@ -150,12 +153,12 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
     if c == True:
-        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps)
+        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed)
     else:
-        return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps)
+        return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed)
 
 
-def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None):
+def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None):
     fun = _import_csimOU()
 
     # calc periods
@@ -190,14 +193,14 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None):
     # array will be of size P * S. This is actually the slowest
     # part.
     if eps is None:
-        rng = default_rng()
-        x = rng.normal(loc=0, scale=_np.sqrt(dt), size=((N+1)*sims))
+        rng = default_rng(seed)
+        x = rng.normal(loc=0, scale=1, size=((N+1)*sims))
         x[0] = s0
         x[::(N+1)] = s0
     else:
         x = eps.T
+        x = _np.c_[_np.ones(sims)*s0, x]
         x = x.reshape((N+1)*sims)
-        x[:,0] = s0
     
     # run simulation directly in-place on memory to save time.
     fun(x, theta, mu, dt, sigma, sims, N+1)
@@ -205,7 +208,7 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None):
     return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
 
-def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None):
+def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None):
 
     # number of periods dt in T
     periods = int(T / dt)
@@ -227,8 +230,10 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None):
 
     # calc gaussian vector
     if eps is None:
-        rng = default_rng()
+        rng = default_rng(seed)
         eps = rng.normal(size=(periods, sims))
+
+    out.iloc[1:,:] = eps
 
     for i, _ in out.iterrows():
         if i == 0:
@@ -238,14 +243,14 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None):
         if isinstance(mu, list) | isinstance(mu, _pd.Series):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) * dt
-                + sigma * eps[i - 1, :] * _np.sqrt(dt)
+                + (theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) - 0.5 * sigma * sigma) * dt
+                + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + theta * (mu - out.iloc[i - 1, :]) * dt
-                + sigma * eps[i - 1, :] * _np.sqrt(dt)
+                + (theta * (mu - out.iloc[i - 1, :]) - 0.5 * sigma * sigma)* dt
+                + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
 
     return out
