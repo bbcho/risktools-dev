@@ -200,7 +200,7 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None):
         x[:,0] = s0
     
     # run simulation directly in-place on memory to save time.
-    fun(x, theta, mu, dt, sigma, N+1, sims)
+    fun(x, theta, mu, dt, sigma, sims, N+1)
     
     return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
