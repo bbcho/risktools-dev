@@ -558,3 +558,17 @@ if __name__ == "__main__":
     assert df.equals(act), "simGBM generated eps failed"
 
 
+
+
+def OU_lastcol(sims=100000, steps=250, T=25, sigma=.1, mu=1, theta=1, S0=1):     
+    # https://stackoverflow.com/questions/24973961/vectorizing-an-equation
+    dt = T/steps     
+    c = (1-theta*dt)
+    cv = c**_np.arange(steps)[::-1]
+
+    R = _np.random.normal(theta*mu*dt, sigma, (sims,steps))
+
+    SN = _np.dot(R, cv) + S0*c**steps
+    
+    df = _pd.DataFrame(SN)     
+    return df

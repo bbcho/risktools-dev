@@ -91,15 +91,13 @@ def fitOU_MV(df, dt, log_price, method="OLS", verbose=False):
     return params
 
 
-def generate_eps_MV(sigma, cor, T, dt, sims=1000, mu=None):
+def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     """
     Generate epsilons from a multivariate normal distribution
     for use in multivariate stochastic simulations
 
     Parameters
     ----------
-    sigma : array-like[float]
-        Array of annualized standard deviations to use for each OU or GBM process
     cor : matrix-like[float]
         Correlation matrix of the OU processes. Must be a square matrix of 
         size N x N and positive definite.
@@ -126,19 +124,19 @@ def generate_eps_MV(sigma, cor, T, dt, sims=1000, mu=None):
     """
     N = int(T / dt)
 
-    if ~isinstance(sigma, _np.ndarray):
-        sigma = _np.array(sigma)
+    # if ~isinstance(sigma, _np.ndarray):
+    #     sigma = _np.array(sigma)
     if ~isinstance(cor, _np.matrix):
         cor = _np.matrix(cor)
     if mu is not None:
         if ~isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
     else:
-        mu = _np.zeros(len(sigma))
+        mu = _np.zeros(cor.shape[0])
 
-    sd = _np.diag(sigma)
-
-    cov = sd @ cor @ sd
+    # unneeded since we multiple by sigma in simOU/GBM
+    # sd = _np.diag(sigma)
+    # cov = sd @ cor @ sd
     cov = cor
     eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
 
@@ -188,8 +186,12 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     Example
     -------
     >>> import risktools as rt
-    >>> rt.simGBM_MV(s0=[100,100], r=0.0, sigma=[0.1,0.1], T=1, dt=1/252, cor=cor, sims=100)
+    >>> rt.simGBM_MV(s0=[100,100], r=0.0, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
     """
+    if (cor is None) & (eps is None):
+        raise ValueError("correlation matrix cor required if eps not passed")
+    
+
     if ~isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
     if ~isinstance(sigma, _np.ndarray):
@@ -208,7 +210,7 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     N = int(T / dt)
 
     if eps is None:
-        eps = generate_eps_MV(_np.ones(len(s0)), cor, T, dt, sims, mu)
+        eps = generate_eps_MV(cor, T, dt, sims, mu)
 
     s = _np.zeros((N + 1, sims, len(s0)))
 
@@ -271,7 +273,7 @@ def simOU_MV(
     if eps is None:
         if (T is None) | (dt is None):
             raise ValueError("Must provide T and dt if eps is not provided.")
-        eps = generate_eps_MV(sigma=sigma, cor=cor, T=T, dt=dt, sims=sims)
+        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims)
     else:
         dt = T / eps.shape[0]
 
