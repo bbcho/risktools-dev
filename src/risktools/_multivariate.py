@@ -47,7 +47,7 @@ def calc_spread_MV(df, formulas):
     return spreads
 
 
-def fitOU_MV(df, dt, log_price, method="OLS", verbose=False):
+def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
     """
     Fit multiple OU processes
 
@@ -269,6 +269,8 @@ def simOU_MV(
     >>> import risktools as rt
     >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], theta=[0.1,0.1], T=1, dt=1/252, eps=eps)
     """
+    if sigma is None:
+        sigma = _np.ones(len(s0))
 
     if eps is None:
         if (T is None) | (dt is None):
@@ -278,11 +280,11 @@ def simOU_MV(
         dt = T / eps.shape[0]
 
     N = int(T / dt)
-
+    
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
-        s[:, :, i] = simOU(s0[i], mu[i], theta[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
+        s[:, :, i] = simOU(s0[i], mu[i], theta[i], sigma[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
 
     return s
 

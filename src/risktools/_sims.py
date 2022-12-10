@@ -243,13 +243,13 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None):
         if isinstance(mu, list) | isinstance(mu, _pd.Series):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + (theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) - 0.5 * sigma * sigma) * dt
+                + (theta * (mu.iloc[i - 1] - out.iloc[i - 1, :])) * dt
                 + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + (theta * (mu - out.iloc[i - 1, :]) - 0.5 * sigma * sigma)* dt
+                + (theta * (mu - out.iloc[i - 1, :]))* dt
                 + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
 
