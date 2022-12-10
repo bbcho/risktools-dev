@@ -249,7 +249,7 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None):
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + (theta * (mu - out.iloc[i - 1, :]))* dt
+                + (theta * (mu - out.iloc[i - 1, :])) * dt
                 + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
 
