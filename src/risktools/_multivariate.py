@@ -270,7 +270,7 @@ def simOU_MV(
     >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], theta=[0.1,0.1], T=1, dt=1/252, eps=eps)
     """
     if sigma is None:
-        sigma = _np.ones(len(s0.shape[0]))
+        sigma = _np.ones(len(s0))
 
     if eps is None:
         if (T is None) | (dt is None):
