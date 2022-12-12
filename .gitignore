@@ -62,6 +62,7 @@ docs/_build/
 # virtual env
 env/
 renv/
+tenv/
 
 # misc files
 .Rhistory

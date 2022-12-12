@@ -78,7 +78,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
 
 
 def _import_csimOU():
-    dir = os.path.dirname(os.path.realpath(__file__)) + "/c/"
+    dir = os.path.dirname(os.path.realpath(__file__)) + "/../" #+ "/c/"
     lib = ctypes.cdll.LoadLibrary(dir + "simOU.so")
     fun = lib.csimOU
     fun.restype = None
