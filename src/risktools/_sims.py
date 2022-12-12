@@ -95,7 +95,7 @@ def _import_csimOU():
     return fun
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=True, seed=None):
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=True, seed=None, log_price=False):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -134,7 +134,10 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
     c : bool
         Whether or not to run C optimized code. By default True. Otherwise price python loop.
     seed : int
-        To pass to numpy random number generator as seed. For testing only. 
+        To pass to numpy random number generator as seed. For testing only.
+    log_price : bool
+        Adds adjustment term to the mean reversion term if the prices passed are log prices. By
+        default False.
 
     Returns
     -------
@@ -153,12 +156,12 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
     if c == True:
-        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed)
+        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
     else:
-        return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed)
+        return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
 
 
-def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None):
+def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price=False):
     fun = _import_csimOU()
 
     # calc periods
@@ -203,12 +206,12 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None):
         x = x.reshape((N+1)*sims)
     
     # run simulation directly in-place on memory to save time.
-    fun(x, theta, mu, dt, sigma, sims, N+1)
+    fun(x, theta, mu, dt, sigma, sims, N+1, int(log_price))
     
     return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
 
-def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None):
+def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_price=False):
 
     # number of periods dt in T
     periods = int(T / dt)
@@ -235,6 +238,9 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None):
 
     out.iloc[1:,:] = eps
 
+    # add adjustment term if log(prices) is passed
+    ss = 0.5 * sigma * sigma if log_price else 0
+
     for i, _ in out.iterrows():
         if i == 0:
             continue  # skip first row
@@ -243,13 +249,13 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None):
         if isinstance(mu, list) | isinstance(mu, _pd.Series):
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + (theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) - 0.5 * sigma * sigma) * dt
+                + (theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) - ss) * dt
                 + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
         else:
             out.iloc[i, :] = (
                 out.iloc[i - 1, :]
-                + (theta * (mu - out.iloc[i - 1, :]) - 0.5 * sigma * sigma)* dt
+                + (theta * (mu - out.iloc[i - 1, :]) - ss)* dt
                 + sigma * out.iloc[i, :] * _np.sqrt(dt)
             )
 

@@ -12,14 +12,21 @@ void csimOU(
     const double dt,
     const double sigma,
     const size_t rows,
-    const size_t cols)
+    const size_t cols,
+    const int log_price)
 {
     size_t i;
     size_t j = 0;
 
     // pre-compute to make faster
-    const int ll = rows * cols;
-    const double ss = 0.5 * sigma * sigma;
+    const size_t ll = rows * cols;
+    float ss = 0;
+
+    if (log_price != 0)
+    {
+        ss = 0.5 * sigma * sigma;
+    }
+
     const double sq = sqrt(dt);
 
     // input x is a 2D array that has been reshaped to be 1D.
