@@ -49,13 +49,13 @@ def test_simOU():
     ans = pd.DataFrame(np.c_[ans, ans])
 
     # test using dummy eps in both C and Python
-    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=True)
+    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=True, log_price=True)
     df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
     ans = ans.T.reset_index(drop=True).T.reset_index(drop=True)
     
     assert np.allclose(df, ans), "C eps test failed"
 
-    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=False)
+    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=False, log_price=True)
     df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
 
     assert np.allclose(df, ans), "Py eps test failed"
@@ -66,8 +66,8 @@ def test_simOU():
     rng = default_rng(seed=12345)
     eps = pd.DataFrame(rng.normal(0,1,size=(16, 2)))
 
-    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=False)
-    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, c=False, seed=12345)
+    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=False, log_price=False)
+    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, c=False, seed=12345, log_price=False)
     assert np.allclose(df1, df2), "Py gen eps test failed"
 
     rng = default_rng(seed=12345)
@@ -75,8 +75,8 @@ def test_simOU():
     eps = eps.reshape((2,17)).T
     eps = pd.DataFrame(eps).iloc[1:,:]
 
-    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=True)
-    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, c=True, seed=12345)
+    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, c=True, log_price=False)
+    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, c=True, seed=12345, log_price=False)
     assert np.allclose(df1, df2), "Py gen eps test failed"
 
 
