@@ -2,3 +2,5 @@ recursive-include risktools *.csv
 recursive-include risktools *.docx
 recursive-include risktools *.py
 recursive-include risktools *.zip
+recursive-include risktools *.toml
+recursive-include risktools *.c
