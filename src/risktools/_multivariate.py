@@ -284,7 +284,7 @@ def simOU_MV(
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
-        s[:, :, i] = simOU(s0[i], mu[i], theta[i],sigma[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
+        s[:, :, i] = simOU(s0[i], mu[i], theta[i], sigma[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
 
     return s
 
