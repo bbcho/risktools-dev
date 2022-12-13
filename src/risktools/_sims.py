@@ -7,6 +7,7 @@ import os
 import multiprocessing as mp
 import time
 from numpy.random import default_rng
+import platform
 
 ST = time.time()
 
@@ -79,7 +80,12 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
 
 def _import_csimOU():
     dir = os.path.dirname(os.path.realpath(__file__)) + "/../" #+ "/c/"
-    lib = ctypes.cdll.LoadLibrary(dir + "simOU.so")
+    
+    ext = ".so"
+    if platform.system() == 'Windows':
+        ext = ".dll"
+    
+    lib = ctypes.cdll.LoadLibrary(dir + "simOU" + ext)
     fun = lib.csimOU
     fun.restype = None
     fun.argtypes = [
