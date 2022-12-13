@@ -20,7 +20,7 @@ void csimOU(
 
     // pre-compute to make faster
     const size_t ll = rows * cols;
-    float ss = 0;
+    double ss = 0;
 
     if (log_price != 0)
     {
