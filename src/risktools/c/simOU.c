@@ -27,7 +27,7 @@ void csimOU(
         ss = 0.5 * sigma * sigma;
     }
 
-    const double sq = sqrt(dt);
+    const float sq = sqrt(dt);
 
     // input x is a 2D array that has been reshaped to be 1D.
     // Loop through entire 1D array of length rows*cols,

@@ -14,7 +14,7 @@ class NoSuffixBuilder(build_ext):
 
 extensions = [
     Extension(
-    name="simOU", 
+    name="csimOU", 
     sources=["src/risktools/c/simOU.c"],
     extra_compile_args=['-fPIC', '-shared']
     )
