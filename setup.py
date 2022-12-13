@@ -16,7 +16,7 @@ extensions = [
     Extension(
     name="csimOU", 
     sources=["src/risktools/c/simOU.c"],
-    extra_compile_args=['-fPIC', '-shared','/LD', '../libs/pythonXY.lib']
+    extra_compile_args=['-fPIC', '-shared']
     )
 ]
 
