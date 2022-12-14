@@ -101,7 +101,7 @@ def _import_csimOU():
     return fun
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=False, seed=None, log_price=False):
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, seed=None, log_price=False):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -137,8 +137,6 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
         Random numbers to use for the returns. If provided, mu, sigma, T, dt and sims are ignored.
         Must of size (p x sims) where p is the number of periods in T, i.e. int(T/dt). 
         Excludes time 0.
-    c : bool
-        Whether or not to run C optimized code. By default False. Otherwise price python loop.
     seed : int
         To pass to numpy random number generator as seed. For testing only.
     log_price : bool
@@ -155,6 +153,11 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
     >>> rt.simOU()
     """
 
+        # c : bool
+        # Whether or not to run C optimized code. By default False. Otherwise price python loop.
+
+    c = False
+
     # number of business days in a year
     bdays_in_year = 252
 
@@ -162,7 +165,8 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, c=
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
     if c == True:
-        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
+        pass
+        # return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
     else:
         return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
 

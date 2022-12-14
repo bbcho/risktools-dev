@@ -3,6 +3,7 @@ from setuptools import Extension
 import os
 import sysconfig
 from Cython.Distutils import build_ext
+import platform
 
 
 class NoSuffixBuilder(build_ext):
@@ -12,20 +13,28 @@ class NoSuffixBuilder(build_ext):
         ext = os.path.splitext(filename)[1]
         return filename.replace(suffix, "") + ext
 
-extensions = [
-    Extension(
-    name="simOU", 
-    sources=["src/risktools/c/simOU.c"],
-    extra_compile_args=['-fPIC', '-shared']
-    )
-]
+# if platform.system() == "Windows":
+#     extensions = [
+#         Extension(
+#         name="simOU", 
+#         sources=[r"src\risktools\c\simOU.c"],
+#         )
+#     ]
+# else:
+#     extensions = [
+#         Extension(
+#         name="simOU", 
+#         sources=["src/risktools/c/simOU.c"],
+#         extra_compile_args=['-fPIC', '-shared']
+#         )
+#     ]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="risktools",
-    version="0.2.6.4",
+    version="0.2.6.5",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
@@ -75,6 +84,6 @@ setuptools.setup(
     ],
     python_requires=">=3.7",
     # ext_package='risktools',
-    cmdclass={"build_ext": NoSuffixBuilder},
-    ext_modules = extensions,
+    # cmdclass={"build_ext": NoSuffixBuilder},
+    # ext_modules = extensions,
 )
