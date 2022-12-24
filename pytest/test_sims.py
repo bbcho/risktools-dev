@@ -62,7 +62,7 @@ def test_simOU():
 
     # test using eps generator
 
-    from numpy.random import default_rng
+    from numpy.random import default_rng, Generator, SFC64
     rng = default_rng(seed=12345)
     eps = pd.DataFrame(rng.normal(0,1,size=(16, 2)))
 
@@ -70,7 +70,8 @@ def test_simOU():
     df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False) 
     assert np.allclose(df1, df2), "Py seed eps test failed"
 
-    rng = default_rng(seed=12345)
+    # rng = default_rng(seed=12345)
+    rng = Generator(SFC64(seed=12345))
     eps = rng.normal(0,1,size=17*2)
     eps = eps.reshape((2,17)).T
     eps = pd.DataFrame(eps).iloc[1:,:]
