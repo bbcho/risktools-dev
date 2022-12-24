@@ -234,7 +234,8 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_pr
 
     # calc gaussian vector
     if eps is None:
-        rng = default_rng(seed)
+        # rng = default_rng(seed)
+        rng = Generator(SFC64(seed))
         eps = rng.normal(size=(periods, sims))
 
     out.iloc[1:,:] = eps

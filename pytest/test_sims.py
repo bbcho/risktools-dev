@@ -63,7 +63,8 @@ def test_simOU():
     # test using eps generator
 
     from numpy.random import default_rng, Generator, SFC64
-    rng = default_rng(seed=12345)
+    # rng = default_rng(seed=12345)
+    rng = Generator(SFC64(seed=12345))
     eps = pd.DataFrame(rng.normal(0,1,size=(16, 2)))
 
     df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=False) 
