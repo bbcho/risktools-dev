@@ -43,7 +43,7 @@ preqs = ">=3.7"
 
 if platform.system() == "Windows":
     requirements.remove('numba')
-    preqs = ">=3.7, <3.11",
+    preqs = ">=3.7, <=3.10.*",
         
 with open("README.md", "r") as fh:
     long_description = fh.read()
