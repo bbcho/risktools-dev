@@ -130,7 +130,7 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
         Time step size in fractions of a year. So a day would be 1/252, where 252 is the number of business
         days in a year
     sims : int
-        Number of simulations to run. By default, this is 1000.
+        Number of simulations to run. By default, this is 1000. Not used if eps is provided.
     eps : matrix-like[float]
         Random numbers to use for the returns. If provided, mu, sigma, T, dt and sims are ignored.
         Must of size (p x sims) where p is the number of periods in T, i.e. int(T/dt). 
@@ -152,9 +152,7 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     >>> import risktools as rt
     >>> rt.simOU()
     """
-    if eps is None:
-        sims = sims
-    else:
+    if eps is not None:
         sims = eps.shape[1]
 
     # number of business days in a year
