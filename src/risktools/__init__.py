@@ -4,6 +4,7 @@ from ._swap import *
 from ._sims import *
 from ._main_functions import *
 from ._multivariate import *
+from .extensions import *
 
 # from .data import get_gis
 from ._refineryLP import *

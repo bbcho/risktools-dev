@@ -3,8 +3,9 @@ from setuptools import Extension
 import os
 import sysconfig
 from Cython.Distutils import build_ext
+import Cython.Build
 import platform
-
+import numpy
 
 class NoSuffixBuilder(build_ext):
     def get_ext_filename(self, ext_name):
@@ -21,13 +22,14 @@ class NoSuffixBuilder(build_ext):
 #         )
 #     ]
 # else:
-#     extensions = [
-#         Extension(
-#         name="simOU", 
-#         sources=["src/risktools/c/simOU.c"],
-#         extra_compile_args=['-fPIC', '-shared']
-#         )
-#     ]
+extensions = [
+    Extension(
+        name="extensions", 
+        sources=["src/risktools/pyx/simOU.pyx"],
+        include_dirs=[numpy.get_include()]
+        # extra_compile_args=['-fPIC', '-shared']
+    )
+]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -83,7 +85,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.7",
-    # ext_package='risktools',
-    # cmdclass={"build_ext": NoSuffixBuilder},
-    # ext_modules = extensions,
+    ext_package='risktools',
+    cmdclass={"build_ext": NoSuffixBuilder},
+    ext_modules = Cython.Build.cythonize(extensions),
 )
