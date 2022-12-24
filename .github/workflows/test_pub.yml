@@ -7,8 +7,10 @@
 
 name: Upload and Build Python Package
 on:
-  release:
-    types: [created]
+  # release:
+    # types: [created]
+  push:
+    branches: [cython]
 
 jobs:
   # https://github.com/marketplace/actions/python-wheels-manylinux-build
@@ -16,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-      TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
     steps:
       - uses: actions/checkout@v2
       - name: build manylinux wheels
@@ -32,13 +34,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install twine
-          twine upload dist/*-manylinux*.whl
+          twine upload --repository testpypi dist/*-manylinux*.whl
 
   Matrix-build:
     runs-on: ${{ matrix.os }}
     env:
       TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-      TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -57,7 +59,7 @@ jobs:
         run: |
           pip install wheel
           python setup.py sdist bdist_wheel
-          twine upload dist/*.whl
+          twine upload --repository testpypi dist/*.whl
         # continue-on-error: true 
   
   deploy:
@@ -77,7 +79,7 @@ jobs:
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
       run: |
         python setup.py sdist
-        twine upload dist/*
+        twine upload --repository testpypi dist/*

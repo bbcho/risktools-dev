@@ -11,6 +11,12 @@ https://cran.r-project.org/web/packages/RTL/index.html
     Purposely designed functions for trading, trading analytics and risk practitioners in Commodities and Finance.
     Build to support delivery of Finance classes from one of the co-authors of RTL at the Alberta School of Business.
 
+## Version Notes
+
+    Note that the latest version will require compilation on Windows for python version 3.11 due to the 
+    dependency on arch. Arch does not come with binaries and must be compiled on Windows which can be
+    avoided by installing numba, however numba is not yet available for python 3.11.
+
 ## Features
 
     Historical forward curves charting.

@@ -49,35 +49,37 @@ def test_simOU():
     ans = pd.DataFrame(np.c_[ans, ans])
 
     # test using dummy eps in both C and Python
-    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True) #c=True, 
+    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True, c=True)  
     df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
     ans = ans.T.reset_index(drop=True).T.reset_index(drop=True)
     
     assert np.allclose(df, ans), "C eps test failed"
 
-    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True) #c=False, 
+    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True, c=False) 
     df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
 
     assert np.allclose(df, ans), "Py eps test failed"
 
     # test using eps generator
 
-    from numpy.random import default_rng
-    rng = default_rng(seed=12345)
+    from numpy.random import default_rng, Generator, SFC64
+    # rng = default_rng(seed=12345)
+    rng = Generator(SFC64(seed=12345))
     eps = pd.DataFrame(rng.normal(0,1,size=(16, 2)))
 
-    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False) #c=False, 
-    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False) #c=False, 
+    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=False) 
+    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False) 
     assert np.allclose(df1, df2), "Py seed eps test failed"
 
     # rng = default_rng(seed=12345)
-    # eps = rng.normal(0,1,size=17*2)
-    # eps = eps.reshape((2,17)).T
-    # eps = pd.DataFrame(eps).iloc[1:,:]
+    rng = Generator(SFC64(seed=12345))
+    eps = rng.normal(0,1,size=17*2)
+    eps = eps.reshape((2,17)).T
+    eps = pd.DataFrame(eps).iloc[1:,:]
 
-    # df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False) #c=True, 
-    # df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False) #c=True, 
-    # assert np.allclose(df1, df2), "C seed eps test failed"
+    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=True) 
+    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
+    assert np.allclose(df1, df2), "C seed eps test failed"
 
 
 

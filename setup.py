@@ -3,8 +3,9 @@ from setuptools import Extension
 import os
 import sysconfig
 from Cython.Distutils import build_ext
+import Cython.Build
 import platform
-
+import numpy
 
 class NoSuffixBuilder(build_ext):
     def get_ext_filename(self, ext_name):
@@ -13,28 +14,41 @@ class NoSuffixBuilder(build_ext):
         ext = os.path.splitext(filename)[1]
         return filename.replace(suffix, "") + ext
 
-# if platform.system() == "Windows":
-#     extensions = [
-#         Extension(
-#         name="simOU", 
-#         sources=[r"src\risktools\c\simOU.c"],
-#         )
-#     ]
-# else:
-#     extensions = [
-#         Extension(
-#         name="simOU", 
-#         sources=["src/risktools/c/simOU.c"],
-#         extra_compile_args=['-fPIC', '-shared']
-#         )
-#     ]
+extensions = [
+    Extension(
+        name="extensions", 
+        sources=["src/risktools/pyx/simOU.pyx"],
+        include_dirs=[numpy.get_include()]
+        # extra_compile_args=['-fPIC', '-shared']
+    )
+]
 
+requirements = [
+    "pandas",
+    "numpy",
+    "numba", # requried to install arch on Windows
+    "matplotlib",
+    "plotly",
+    "quandl",
+    "scikit-learn",
+    "arch",
+    "scipy",
+    "statsmodels",
+    "seaborn",
+    "pandas_datareader",
+]
+
+preqs = ">=3.7"
+
+if platform.system() == "Windows":
+    requirements.remove('numba')
+        
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="risktools",
-    version="0.2.6.5",
+    version="0.2.6.14",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
@@ -62,19 +76,7 @@ setuptools.setup(
         "Documentation": "https://risktools.readthedocs.io/en/latest/",
         # "Source Code": "https://github.com/statsmodels/statsmodels",
     },
-    install_requires=[
-        "pandas",
-        "numpy",
-        "matplotlib",
-        "plotly",
-        "quandl",
-        "scikit-learn",
-        "arch",
-        "scipy",
-        "statsmodels",
-        "seaborn",
-        "pandas_datareader",
-    ],
+    install_requires=requirements,
     include_package_data=True,
     classifiers=[
         "Development Status :: 4 - Beta",  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
@@ -82,8 +84,8 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
-    # ext_package='risktools',
-    # cmdclass={"build_ext": NoSuffixBuilder},
-    # ext_modules = extensions,
+    python_requires=preqs,
+    ext_package='risktools',
+    cmdclass={"build_ext": NoSuffixBuilder},
+    ext_modules = Cython.Build.cythonize(extensions),
 )
