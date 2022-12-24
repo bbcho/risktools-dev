@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-      TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
     steps:
       - uses: actions/checkout@v2
       - name: build manylinux wheels
@@ -37,7 +37,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-      TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -76,7 +76,7 @@ jobs:
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
       run: |
         python setup.py sdist
         twine upload --repository testpypi dist/*
