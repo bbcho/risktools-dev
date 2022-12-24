@@ -1,19 +1,67 @@
 # This workflows will upload a Python Package using Twine when a release is created
 # For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
 
+# This is a pypi deployment workflow for github actions to build and deploy
+# python packages to pypi.org and test.pypi.org that have cython extensions.
+# Manylinux wheels are built for linux and universal wheels for macos and windows.
 
-# This workflows will upload a Python Package using Twine when a release is created
-# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
-
-name: Upload Python Package
-
+name: Upload and Build Python Package
 on:
   release:
     types: [created]
 
 jobs:
-  deploy:
+  # https://github.com/marketplace/actions/python-wheels-manylinux-build
+  Linux-build:
+    runs-on: ubuntu-latest
+    env:
+      TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: build manylinux wheels
+        uses: RalfG/python-wheels-manylinux-build@v0.6.0 #-manylinux2014_x86_64
+        with:
+          python-versions: 'cp37-cp37m cp38-cp38 cp39-cp39 cp310-cp310 cp311-cp311'
+          build-requirements: 'setuptools wheel twine cython numpy cryptography'
+          system-packages: 'libffi libffi-devel'
+          # pre-build-command: 'sh pre-build-script.sh'
+          # package-path: 'my_project'
+          pip-wheel-args: '-w ./dist --no-deps'
+      - name: publish
+        run: |
+          python -m pip install --upgrade pip
+          pip install twine
+          twine upload dist/*-manylinux*.whl
 
+  Matrix-build:
+    runs-on: ${{ matrix.os }}
+    env:
+      TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
+      TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+        python-version: [3.7, 3.8, 3.9, "3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine cython numpy
+      - name: build wheel
+        run: |
+          pip install wheel
+          python setup.py sdist bdist_wheel
+          twine upload dist/*.whl
+        # continue-on-error: true 
+  
+  deploy:
+    name: Upload Source
     runs-on: ubuntu-latest
 
     steps:
@@ -25,66 +73,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel twine cython
+        pip install setuptools wheel twine cython numpy
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        python setup.py sdist bdist_wheel
+        python setup.py sdist
         twine upload dist/*
-
-# python setup.py sdist bdist_wheel
-
-# name: Upload Python Package
-
-# on:
-#   release:
-#     types: [created]
-
-# jobs:
-#   Linux-build:
-#     runs-on: ubuntu-latest
-#     env:
-#       TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-#       TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-#     steps:
-#       - uses: actions/checkout@v2
-
-#       - name: Install dependencies
-#         run: |
-#           python -m pip install --upgrade pip
-#           apt-get install -y libffi-dev
-#           pip install setuptools wheel twine cython
-
-#       - name: build and upload manylinux wheels
-#         uses: Niraj-Kamdar/manylinux-wheel-builder@master
-
-#   Matrix-build:
-#     runs-on: ${{ matrix.os }}
-#     env:
-#       TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-#       TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-#     strategy:
-#       matrix:
-#         os: [macos-latest, windows-latest]
-#         python-version: [3.7, 3.8, 3.9, "3.10", "3.11"]
-#     steps:
-#       - uses: actions/checkout@v2
-#       - name: Set up Python
-#         uses: actions/setup-python@v2
-#         with:
-#           python-version: ${{ matrix.python-version }}
-#       - name: Install dependencies
-#         run: |
-#           python -m pip install --upgrade pip
-#           pip install setuptools wheel twine cython
-#       - name: build wheel
-#         run: |
-#           pip install wheel
-#           python setup.py sdist bdist_wheel
-#       - name: upload wheel
-#         run: |
-#           pip install twine
-#           twine upload dist/*
-#         continue-on-error: true
