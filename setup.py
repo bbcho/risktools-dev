@@ -43,14 +43,14 @@ preqs = ">=3.7"
 
 if platform.system() == "Windows":
     requirements.remove('numba')
-    preqs = ">=3.7,<=3.10.*",
+    preqs = ">=3.7, !=3.11.*",
         
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="risktools",
-    version="0.2.6.12",
+    version="0.2.6.13",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
