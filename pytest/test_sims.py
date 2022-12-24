@@ -82,6 +82,29 @@ def test_simOU():
     assert np.allclose(df1, df2), "C seed eps test failed"
 
 
+    # test time varying mu
+
+    mu = np.ones(16) * 5
+      
+    rng = Generator(SFC64(seed=12345))
+    eps = pd.DataFrame(rng.normal(0,1,size=(16, 2)))
+
+    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=False) 
+    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False) 
+    assert np.allclose(df1, df2), "Py time varying mu test failed"
+
+    # rng = default_rng(seed=12345)
+    rng = Generator(SFC64(seed=12345))
+    eps = rng.normal(0,1,size=17*2)
+    eps = eps.reshape((2,17)).T
+    eps = pd.DataFrame(eps).iloc[1:,:]
+
+    df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=True) 
+    df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
+    assert np.allclose(df1, df2), "C time varying mu test failed"
+
+
+
 
 if __name__ == "__main__":
     test_simOU()

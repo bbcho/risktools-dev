@@ -119,7 +119,8 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
         Starting value for mean reverting random walk at time = 0
     mu : float, int or pandas Series
         Mean that the function will revert to. Can be either a scalar value (i.e. 5) or a pandas series for a
-        time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
+        time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods,
+        excluding start value)
     theta : float
         Mean reversion rate, higher number means it will revert slower
     sigma : float
@@ -157,9 +158,25 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
 
     # number of business days in a year
     bdays_in_year = 252
+    
+    # calc periods
+    N = int(T/dt)
 
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
+
+    # make mu an array of same size as N+1
+    try:
+        iter(mu)
+        if len(mu) == N:
+            mu = _np.append(mu[0] , mu)
+        else: 
+            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
+    except:
+        mu = _np.ones(N+1)*mu
+        
+    # make same size as 1D array of all periods and sims
+    mu = _np.tile(_np.array(mu), sims)
 
     if c == True:
         return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
@@ -183,17 +200,6 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
             '''
             )
     
-    # make mu an array of same size as N+1
-    try:
-        iter(mu)
-        if len(mu) != N+1:
-            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt) + 1 to account for starting value s0")
-    except:
-        mu = _np.ones((N+1))*mu
-    
-    # make same size as 1D array of all periods and sims
-    mu = _np.tile(_np.array(mu), sims)
-
     # generate a 1D array of random numbers that is based on a 
     # 2D array of size P x S where P is the number of time steps
     # including s0 (so N + 1) and S is the number of sims. 1D 
@@ -216,14 +222,10 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
 
 
 def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_price=False):
-
+    mu = _pd.Series(mu)
+    
     # number of periods dt in T
     periods = int(T / dt)
-
-    if isinstance(mu, list):
-        assert len(mu) == (
-            periods
-        ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
     out = _np.zeros((periods + 1, sims))
@@ -231,9 +233,6 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_pr
 
     # set first row as starting value of sim
     out.loc[0, :] = s0
-
-    if isinstance(mu, list):
-        mu = _pd.Series(mu)
 
     # calc gaussian vector
     if eps is None:
@@ -251,18 +250,13 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_pr
             continue  # skip first row
 
         # calc step
-        if isinstance(mu, list) | isinstance(mu, _pd.Series):
-            out.iloc[i, :] = (
-                out.iloc[i - 1, :]
-                + (theta * (mu.iloc[i - 1] - out.iloc[i - 1, :]) - ss) * dt
-                + sigma * out.iloc[i, :] * _np.sqrt(dt)
-            )
-        else:
-            out.iloc[i, :] = (
-                out.iloc[i - 1, :]
-                + (theta * (mu - out.iloc[i - 1, :]) - ss)* dt
-                + sigma * out.iloc[i, :] * _np.sqrt(dt)
-            )
+
+        out.iloc[i, :] = (
+            out.iloc[i - 1, :]
+            + (theta * (mu.iloc[i] - out.iloc[i - 1, :]) - ss) * dt
+            + sigma * out.iloc[i, :] * _np.sqrt(dt)
+        )
+
 
     return out
 
