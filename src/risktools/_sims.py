@@ -152,6 +152,11 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     >>> import risktools as rt
     >>> rt.simOU()
     """
+    if eps is None:
+        sims = sims
+    else:
+        sims = eps.shape[1]
+
     # number of business days in a year
     bdays_in_year = 252
 
