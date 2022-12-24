@@ -39,15 +39,18 @@ requirements = [
     "pandas_datareader",
 ]
 
+preqs = ">=3.7"
+
 if platform.system() == "Windows":
     requirements.remove('numba')
+    preqs = ">=3.7, <3.11",
         
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="risktools",
-    version="0.2.6.9",
+    version="0.2.6.10",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
@@ -83,7 +86,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
+    python_requires=preqs,
     ext_package='risktools',
     cmdclass={"build_ext": NoSuffixBuilder},
     ext_modules = Cython.Build.cythonize(extensions),
