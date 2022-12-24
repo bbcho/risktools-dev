@@ -14,14 +14,6 @@ class NoSuffixBuilder(build_ext):
         ext = os.path.splitext(filename)[1]
         return filename.replace(suffix, "") + ext
 
-# if platform.system() == "Windows":
-#     extensions = [
-#         Extension(
-#         name="simOU", 
-#         sources=[r"src\risktools\c\simOU.c"],
-#         )
-#     ]
-# else:
 extensions = [
     Extension(
         name="extensions", 
@@ -31,6 +23,25 @@ extensions = [
     )
 ]
 
+
+requirements = [
+    "pandas",
+    "numpy",
+    "numba", # requried to install arch on Windows
+    "matplotlib",
+    "plotly",
+    "quandl",
+    "scikit-learn",
+    "arch",
+    "scipy",
+    "statsmodels",
+    "seaborn",
+    "pandas_datareader",
+]
+
+if platform.system() == "Windows":
+    requirements.remove('numba')
+        
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
@@ -64,20 +75,7 @@ setuptools.setup(
         "Documentation": "https://risktools.readthedocs.io/en/latest/",
         # "Source Code": "https://github.com/statsmodels/statsmodels",
     },
-    install_requires=[
-        "pandas",
-        "numpy",
-        "numba", # requried to install arch on Windows
-        "matplotlib",
-        "plotly",
-        "quandl",
-        "scikit-learn",
-        "arch",
-        "scipy",
-        "statsmodels",
-        "seaborn",
-        "pandas_datareader",
-    ],
+    install_requires=requirements,
     include_package_data=True,
     classifiers=[
         "Development Status :: 4 - Beta",  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
