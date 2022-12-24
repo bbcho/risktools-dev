@@ -6,20 +6,18 @@ from numpy.ctypeslib import ndpointer
 import os
 import multiprocessing as mp
 import time
-from numpy.random import default_rng
+from numpy.random import default_rng, Generator, SFC64
 import platform
+from .extensions import csimOU as _csimOU
 
-ST = time.time()
+
 
 class Result():
     def __init__(self):
         self.val = _pd.DataFrame()
 
     def update_result(self, val):
-        print(time.time() - ST)
         self.val = _pd.concat([self.val, val], axis=1) # append by columns
-        print(time.time() - ST)
-
 
 
 def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
@@ -101,7 +99,7 @@ def _import_csimOU():
     return fun
 
 
-def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, seed=None, log_price=False):
+def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, seed=None, log_price=False, c=True):
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -142,6 +140,8 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     log_price : bool
         Adds adjustment term to the mean reversion term if the prices passed are log prices. By
         default False.
+    c : bool
+        Whether or not to run C optimized code. By default True. Otherwise use python loop.
 
     Returns
     -------
@@ -152,12 +152,6 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     >>> import risktools as rt
     >>> rt.simOU()
     """
-
-        # c : bool
-        # Whether or not to run C optimized code. By default False. Otherwise price python loop.
-
-    c = False
-
     # number of business days in a year
     bdays_in_year = 252
 
@@ -165,15 +159,12 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
     if c == True:
-        pass
-        # return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
+        return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
     else:
         return _simOUpy(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
 
 
 def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price=False):
-    fun = _import_csimOU()
-
     # calc periods
     N = int(T/dt)
     
@@ -206,7 +197,8 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
     # array will be of size P * S. This is actually the slowest
     # part.
     if eps is None:
-        rng = default_rng(seed)
+        # rng = default_rng(seed)
+        rng = Generator(SFC64(seed))
         x = rng.normal(loc=0, scale=1, size=((N+1)*sims))
         x[0] = s0
         x[::(N+1)] = s0
@@ -215,8 +207,7 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
         x = _np.c_[_np.ones(sims)*s0, x]
         x = x.reshape((N+1)*sims)
     
-    # run simulation directly in-place on memory to save time.
-    fun(x, theta, mu, dt, sigma, sims, N+1, int(log_price))
+    x = _csimOU(x, theta, mu, dt, sigma, sims, N+1, int(log_price))
     
     return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
@@ -243,7 +234,8 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_pr
 
     # calc gaussian vector
     if eps is None:
-        rng = default_rng(seed)
+        # rng = default_rng(seed)
+        rng = Generator(SFC64(seed))
         eps = rng.normal(size=(periods, sims))
 
     out.iloc[1:,:] = eps
