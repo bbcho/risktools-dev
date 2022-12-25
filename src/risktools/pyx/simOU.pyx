@@ -12,7 +12,7 @@ def csimOU(
     double theta,
     double[::1] mu,
     double dt,
-    double sigma,
+    double[::1] sigma,
     unsigned long long int rows,
     unsigned long long int cols,
     unsigned int log_price
@@ -22,11 +22,7 @@ def csimOU(
 
     # pre-compute to make faster
     cdef long long int ll = rows * cols
-    cdef double ss = 0
 
-    if log_price != 0:
-        ss = 0.5 * sigma * sigma
-    
     cdef double sq = np.sqrt(dt)
 
     # input x is a 2D array that has been reshaped to be 1D.
@@ -34,11 +30,19 @@ def csimOU(
     # skips value every time counter j is reaches row
     # count - effectively a new sim.
 
-    for i in range(1, ll):
-        if j >= (cols - 1):
-            j = 0
-        else:
-            j = j + 1;
-            x[i] = x[i - 1] + (theta * (mu[i] - x[i - 1]) - ss) * dt + sigma * sq * x[i];
+    if log_price != 0:
+        for i in range(1, ll):
+            if j >= (cols - 1):
+                j = 0
+            else:
+                j = j + 1;
+                x[i] = x[i - 1] + (theta * (mu[i] - x[i - 1]) - 0.5 * sigma[i] * sigma[i]) * dt + sigma[i] * sq * x[i];
+    else:
+        for i in range(1, ll):
+            if j >= (cols - 1):
+                j = 0
+            else:
+                j = j + 1;
+                x[i] = x[i - 1] + (theta * (mu[i] - x[i - 1])) * dt + sigma[i] * sq * x[i];  
 
     return np.asarray(x)

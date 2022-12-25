@@ -19,15 +19,26 @@ class Result():
         self.val = _pd.concat([self.val, val], axis=1) # append by columns
 
 
-def make_into_array(x, N):
-    # make an array of same size as N+1
+def is_iterable(x):
     try:
         iter(x)
-        if len(x) == N:
+        return True
+    except:
+        return False
+
+def make_into_array(x, N):
+    # make an array of same size as N+1
+    if is_iterable(x):
+        if x.shape[0] == N:
             x = _np.append(x[0] , x)
         else: 
             raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
-    except:
+
+        if len(x.shape) == 2:
+            # if a 2D array is passed, return it as is
+            # good for stocastic volatility matrix
+            return x
+    else:
         x = _np.ones(N+1)*x
 
     return x
@@ -180,9 +191,14 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
 
     # make mu array
     mu = make_into_array(mu, N)
+    sigma = make_into_array(sigma, N)
         
     # make same size as 1D array of all periods and sims
     mu = _np.tile(_np.array(mu), sims)
+
+    # Don't run if 2D array passed for sigma
+    if len(sigma.shape) == 1:
+        sigma = _np.tile(_np.array(sigma), sims)
 
     if c == True:
         return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
@@ -228,13 +244,18 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
 
 
 def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_price=False):
-    mu = _pd.Series(mu)
     
     # number of periods dt in T
-    periods = int(T / dt)
+    N = int(T / dt)
+
+    mu = mu.reshape((sims, N+1)).T
+    sigma = sigma.reshape((sims, N+1)).T
+
+    mu = _pd.DataFrame(mu)
+    sigma = _pd.DataFrame(sigma)
 
     # init df with zeros, rows are steps forward in time, columns are simulations
-    out = _np.zeros((periods + 1, sims))
+    out = _np.zeros((N + 1, sims))
     out = _pd.DataFrame(data=out)
 
     # set first row as starting value of sim
@@ -244,24 +265,27 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_pr
     if eps is None:
         # rng = default_rng(seed)
         rng = Generator(SFC64(seed))
-        eps = rng.normal(size=(periods, sims))
+        eps = rng.normal(size=(N, sims))
 
     out.iloc[1:,:] = eps
 
-    # add adjustment term if log(prices) is passed
-    ss = 0.5 * sigma * sigma if log_price else 0
-
-    for i, _ in out.iterrows():
-        if i == 0:
-            continue  # skip first row
-
-        # calc step
-
-        out.iloc[i, :] = (
-            out.iloc[i - 1, :]
-            + (theta * (mu.iloc[i] - out.iloc[i - 1, :]) - ss) * dt
-            + sigma * out.iloc[i, :] * _np.sqrt(dt)
-        )
+    if log_price:
+        ss = 0.5 * sigma * sigma
+        for i in range(1, N + 1):
+            # calc step
+            out.iloc[i, :] = (
+                out.iloc[i - 1, :]
+                + (theta * (mu.iloc[i, :] - out.iloc[i - 1, :]) - ss.iloc[i, :]) * dt
+                + sigma.iloc[i, :] * out.iloc[i, :] * _np.sqrt(dt)
+            )
+    else:
+        for i in range(1, N + 1):
+            # calc step
+            out.iloc[i, :] = (
+                out.iloc[i - 1, :]
+                + (theta * (mu.iloc[i, :] - out.iloc[i - 1, :])) * dt
+                + sigma.iloc[i, :] * out.iloc[i, :] * _np.sqrt(dt)
+            )
 
 
     return out
