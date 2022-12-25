@@ -11,13 +11,26 @@ import platform
 from .extensions import csimOU as _csimOU
 
 
-
 class Result():
     def __init__(self):
         self.val = _pd.DataFrame()
 
     def update_result(self, val):
         self.val = _pd.concat([self.val, val], axis=1) # append by columns
+
+
+def make_into_array(x, N):
+    # make an array of same size as N+1
+    try:
+        iter(x)
+        if len(x) == N:
+            x = _np.append(x[0] , x)
+        else: 
+            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
+    except:
+        x = _np.ones(N+1)*x
+
+    return x
 
 
 def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
@@ -165,15 +178,8 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
-    # make mu an array of same size as N+1
-    try:
-        iter(mu)
-        if len(mu) == N:
-            mu = _np.append(mu[0] , mu)
-        else: 
-            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
-    except:
-        mu = _np.ones(N+1)*mu
+    # make mu array
+    mu = make_into_array(mu, N)
         
     # make same size as 1D array of all periods and sims
     mu = _np.tile(_np.array(mu), sims)
