@@ -150,8 +150,11 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
         excluding start value)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float
-        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
+    sigma : float | array-like (1D or 2D)
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        1D arrays are support for time varying volatility which must be the same length as T/dt (i.e. the number of 
+        periods). 2D arrays are also supported for stochastic volatility where the first dimension is the number of 
+        periods and the second dimension is the number of simulations.
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
     dt : float
@@ -312,6 +315,7 @@ def simOUJ(
     eps=None,
     elp=None,
     ejp=None,
+    seed=None
 ):
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
@@ -335,8 +339,11 @@ def simOUJ(
         time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float
-        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
+    sigma : float | array-like (1D or 2D)
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        1D arrays are support for time varying volatility which must be the same length as T/dt (i.e. the number of 
+        periods). 2D arrays are also supported for stochastic volatility where the first dimension is the number of 
+        periods and the second dimension is the number of simulations.
     jump_prob : float
         Probablity of jumps
     jump_avgsize : float
@@ -363,6 +370,8 @@ def simOUJ(
     ejp : numpy array
         Array of random numbers to use for the jump size. If None, then random numbers are generated.
         By default, this is None.
+    seed : int
+        To pass to numpy random number generator as seed. For testing only.
 
     Returns
     -------
@@ -379,11 +388,6 @@ def simOUJ(
     # number of periods dt in T
     N = int(T / dt)
 
-    if isinstance(mu, list):
-        assert len(mu) == (
-            N
-        ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
-
     # init df with zeros, rows are steps forward in time, columns are simulations
     s = _np.zeros((N + 1, sims))
     s = _pd.DataFrame(data=s)
@@ -394,16 +398,24 @@ def simOUJ(
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
-    
     if eps is None:
-        eps = _np.random.normal(size=(N, sims))
+        rng = Generator(SFC64(seed))
+        
+    if eps is None:
+        eps = rng.normal(size=(N, sims))
     if elp is None:
-        elp = _np.random.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=(N, sims))
+        elp = rng.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=(N, sims))
     if ejp is None:
-        ejp = _np.random.poisson(lam=jump_prob * dt, size=(N, sims))
+        ejp = rng.poisson(lam=jump_prob * dt, size=(N, sims))
 
     mu = make_into_array(mu, N)
     mu = _pd.DataFrame(_np.vstack([mu] * sims).T)
+
+    sigma = make_into_array(sigma, N)
+    if len(sigma.shape) == 1:
+        sigma = _np.vstack([sigma] * sims).T
+    sigma = _pd.DataFrame(sigma)
+    
 
     # repeats first row of eps, elp, and ejp to match the number of simulations
     eps = _pd.DataFrame(make_into_array(eps, N))
@@ -439,7 +451,7 @@ def _simOUJpy(
                 * (mu.iloc[i, :] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
                 * s.iloc[i - 1, :]
                 * dt
-            + sigma * s.iloc[i - 1, :] * eps.iloc[i, :] * _np.sqrt(dt)
+            + sigma.iloc[i, :] * s.iloc[i - 1, :] * eps.iloc[i, :] * _np.sqrt(dt)
             + ejp.iloc[i, :] * elp.iloc[i, :]
         )
 

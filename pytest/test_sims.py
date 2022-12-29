@@ -29,7 +29,7 @@ def test_simGBM():
     assert df.equals(act), "simGBM generated eps failed"
 
 
-def test_simOU():
+def test_simOU_logic():
     s0 = 5
     mu = 4
     theta = 2
@@ -60,6 +60,14 @@ def test_simOU():
 
     assert np.allclose(df, ans), "Py eps test failed"
 
+def test_simOU_eps():
+    s0 = 5
+    mu = 4
+    theta = 2
+    dt = 0.25
+    T = 4
+    sigma = 0.32
+
     # test using eps generator
 
     from numpy.random import default_rng, Generator, SFC64
@@ -81,6 +89,14 @@ def test_simOU():
     df2 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
     assert np.allclose(df1, df2), "C seed eps test failed"
 
+def test_simOU_mu():
+    s0 = 5
+    mu = 4
+    theta = 2
+    dt = 0.25
+    T = 4
+    sigma = 0.32
+
     #################################
     # test time varying mu
     #################################
@@ -93,6 +109,14 @@ def test_simOU():
     df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
     df2 = rt.simOU(s0, mus, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
     assert np.allclose(df1, df2), "C time varying mu test failed"
+
+def test_simOU_sigma():
+    s0 = 5
+    mu = 4
+    theta = 2
+    dt = 0.25
+    T = 4
+    sigma = 0.32
 
     #################################
     # test time varying sigma
@@ -114,14 +138,21 @@ def test_simOU():
     df2 = rt.simOU(s0, mu, theta, sigmas, T, dt, sims=2, seed=12345, log_price=False, c=False) 
     assert np.allclose(df1, df2), "Py time varying sigma array test failed"
 
-    # assert False
-
     df1 = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
     df2 = rt.simOU(s0, mu, theta, sigmas, T, dt, sims=2, seed=12345, log_price=False, c=True) 
     assert np.allclose(df1, df2), "C time varying sigma array test failed"
 
+    # test time varying and 2D sigma
 
-def test_simOUJ():
+    sigma = np.ones((252, 1000)) * 0.1
+    sigma[100:,:] = 0.5
+
+    df = rt.simOU(s0, mu, theta, sigma, T=1, dt=1/252, sims=1000, seed=12345, log_price=False, c=False)
+
+    assert df.iloc[152,:].std()/df.iloc[25,:].std() > 3, "Time varying sigma test failed"
+
+
+def test_simOUJ_logic():
 
     eps = np.array([0.1,-0.2,0.5,0.3,-0.4,-0.3,0.2,0.1,-0.2,0.5,0.3,-0.4,-0.3,0.2,0.1,0.5])
     eps = np.c_[eps, eps]
@@ -159,7 +190,90 @@ def test_simOUJ():
     assert np.allclose(df, ans), "Py eps test failed"
 
 
+def test_simOUJ_eps():
+
+    s0=5
+    mu=4
+    theta=2
+    dt=0.25
+    sigma=0.32
+    T=4
+    sims=2
+    jump_avgsize=1
+    jump_prob=0.1
+    jump_stdv=0.32
+    # test using eps generator
+
+    from numpy.random import default_rng, Generator, SFC64
+    rng = Generator(SFC64(seed=12345))
+        
+    eps = rng.normal(size=(int(T/dt), sims))
+    elp = rng.lognormal(mean=np.log(jump_avgsize), sigma=jump_stdv, size=(int(T/dt), sims))
+    ejp = rng.poisson(lam=jump_prob * dt, size=(int(T/dt), sims))
+
+    df1 = rt.simOUJ(
+        s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, 
+        eps=eps, elp=elp, ejp=ejp, 
+        jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv
+        )
+    df2 = rt.simOUJ(
+        s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2,
+        jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv, 
+        seed=12345
+        ) 
+    assert np.allclose(df1, df2), "Py seed eps test failed"
+
+def test_simOUJ_mu():
+    s0 = 5
+    mu = 4
+    theta = 2
+    dt = 0.25
+    T = 4
+    sigma = 0.32
+
+    #################################
+    # test time varying mu
+    #################################
+    mus = np.ones(int(T/dt)) * mu
+      
+    df1 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345) 
+    df2 = rt.simOUJ(s0=s0, mu=mus, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345) 
+    assert np.allclose(df1, df2), "Py time varying mu test failed"
+
+    # df1 = rt.simOUJ(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
+    # df2 = rt.simOUJ(s0, mus, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
+    # assert np.allclose(df1, df2), "C time varying mu test failed"
+
+def test_simOUJ_sigma():
+
+    s0=5
+    mu=4
+    theta=2
+    dt=0.25
+    sigma=0.32
+    T=4
+
+    #################################
+    # test time varying sigma
+    #################################
+    sigmas = np.ones(16) * sigma
+
+    df1 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345) 
+    df2 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigmas, T=T, dt=dt, sims=2, seed=12345) 
+    assert np.allclose(df1, df2), "Py time varying sigma test failed"
+
+    # test time varying and 2D sigma
+
+    sigma = np.ones((252, 1000)) * 0.1
+    sigma[100:,:] = 0.5
+
+    df = rt.simOUJ(sigma=sigma, theta=20, T=1, dt=1/252, sims=1000, seed=12345)
+
+    assert df.iloc[152,:].std()/df.iloc[25,:].std() > 3, "Time varying sigma test failed"
+
+
+
 if __name__ == "__main__":
-    test_simOU()
+    test_simOU_eps()
 
 
