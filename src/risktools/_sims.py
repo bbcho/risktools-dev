@@ -29,15 +29,18 @@ def is_iterable(x):
 def make_into_array(x, N):
     # make an array of same size as N+1
     if is_iterable(x):
+        if len(x.shape) == 2:
+            # if a 2D array is passed, return it as is
+            # good for stocastic volatility matrix
+            x = _np.vstack((x[0], x))
+            return x
+
         if x.shape[0] == N:
             x = _np.append(x[0] , x)
         else: 
             raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
 
-        if len(x.shape) == 2:
-            # if a 2D array is passed, return it as is
-            # good for stocastic volatility matrix
-            return x
+
     else:
         x = _np.ones(N+1)*x
 
@@ -198,7 +201,10 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
 
     # Don't run if 2D array passed for sigma
     if len(sigma.shape) == 1:
+        print('a')
         sigma = _np.tile(_np.array(sigma), sims)
+    else:
+        sigma = sigma.flatten('F')
 
     if c == True:
         return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
@@ -303,6 +309,9 @@ def simOUJ(
     dt=1 / 12,
     sims=1000,
     mr_lag=None,
+    eps=None,
+    elp=None,
+    ejp=None,
 ):
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
@@ -345,6 +354,15 @@ def simOUJ(
         Lag in mean reversion. If None, then no lag is used. If > 0, then the diffusion does not immediately
         return the mean after a jump at theta but instead with remain near the jump level for mr_lag periods.
         By default, this is None.
+    eps : numpy array
+        Array of random numbers to use for the simulation. If None, then random numbers are generated.
+        By default, this is None.
+    elp : numpy array
+        Array of random numbers to use for the log price jump. If None, then random numbers are generated.
+        By default, this is None.
+    ejp : numpy array
+        Array of random numbers to use for the jump size. If None, then random numbers are generated.
+        By default, this is None.
 
     Returns
     -------
@@ -359,61 +377,57 @@ def simOUJ(
     bdays_in_year = 252
 
     # number of periods dt in T
-    periods = int(T / dt)
+    N = int(T / dt)
 
     if isinstance(mu, list):
         assert len(mu) == (
-            periods - 1
+            N
         ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
 
     # init df with zeros, rows are steps forward in time, columns are simulations
-    s = _np.zeros((periods, sims))
+    s = _np.zeros((N + 1, sims))
     s = _pd.DataFrame(data=s)
 
     # set first row as starting value of sim
-    s.loc[0, :] = s0
+    s.iloc[0, :] = s0
 
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
-    if isinstance(mu, list):
-        mu = _pd.Series(mu)
-    else:
-        # turn scalar mu into a series to iterate over
-        mu = _pd.Series(_np.ones(periods) * mu)
+    
+    if eps is None:
+        eps = _np.random.normal(size=(N, sims))
+    if elp is None:
+        elp = _np.random.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=(N, sims))
+    if ejp is None:
+        ejp = _np.random.poisson(lam=jump_prob * dt, size=(N, sims))
 
-    # turn mu series into a dataframe to iterate over
-    mu = _pd.concat([mu] * sims, axis=1)
+    mu = make_into_array(mu, N)
+    mu = _pd.DataFrame(_np.vstack([mu] * sims).T)
 
-    for i, _ in s.iterrows():
-        if i == 0:
-            continue  # skip first row
+    # repeats first row of eps, elp, and ejp to match the number of simulations
+    eps = _pd.DataFrame(make_into_array(eps, N))
+    elp = _pd.DataFrame(make_into_array(elp, N))
+    ejp = _pd.DataFrame(make_into_array(ejp, N))
 
-        # calc gaussian and poisson vectors
-        ep = _pd.Series(_np.random.normal(size=sims))
-        elp = _pd.Series(
-            _np.random.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=sims)
-        )
-        jp = _pd.Series(_np.random.poisson(lam=jump_prob * dt, size=sims))
-
+    for i in range(1, N + 1):
         # calc step
         # fmt: off
-
         s.iloc[i, :] = (
             s.iloc[i - 1, :]
             + theta
-                * (mu.iloc[i - 1, :] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
+                * (mu.iloc[i, :] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
                 * s.iloc[i - 1, :]
                 * dt
-            + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
-            + jp * elp
+            + sigma * s.iloc[i - 1, :] * eps.iloc[i, :] * _np.sqrt(dt)
+            + ejp.iloc[i, :] * elp.iloc[i, :]
         )
 
         if mr_lag is not None:
             # if there is a jump in this step, add it to the mean reversion
             # level so that it doesn't drop back down to the given mean too
             # quickly. Simulates impact of lagged market response to a jump
-            mu.iloc[(i):(i + mr_lag), :] += jp * elp
+            mu.iloc[(i):(i + mr_lag), :] += ejp.iloc[i, :] * elp.iloc[i, :]
 
         # fmt: on
 
