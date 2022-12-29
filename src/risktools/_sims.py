@@ -410,6 +410,26 @@ def simOUJ(
     elp = _pd.DataFrame(make_into_array(elp, N))
     ejp = _pd.DataFrame(make_into_array(ejp, N))
 
+    s = _simOUJpy(N, s, mu, theta, sigma, jump_prob, jump_avgsize, dt, mr_lag, eps, elp, ejp)
+
+    return s
+
+
+def _simOUJpy(
+    N,   
+    s,
+    mu,
+    theta,
+    sigma,
+    jump_prob,
+    jump_avgsize,
+    dt,
+    mr_lag,
+    eps,
+    elp,
+    ejp
+    ):
+
     for i in range(1, N + 1):
         # calc step
         # fmt: off
@@ -431,7 +451,8 @@ def simOUJ(
 
         # fmt: on
 
-    return s
+    return s    
+
 
 
 def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
