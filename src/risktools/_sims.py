@@ -407,13 +407,6 @@ def simOUJ(
             '''
             )
 
-    # init df with zeros, rows are steps forward in time, columns are simulations
-    s = _np.zeros((N + 1, sims))
-    s = _pd.DataFrame(data=s)
-
-    # set first row as starting value of sim
-    s.iloc[0, :] = s0
-
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
@@ -430,17 +423,20 @@ def simOUJ(
     mu = make_into_array(mu, N)
     sigma = make_into_array(sigma, N)
 
-    
     # repeats first row of eps, elp, and ejp to match the number of simulations
     eps = make_into_array(eps, N)
     elp = make_into_array(elp, N)
     ejp = make_into_array(ejp, N)
 
-    print(2)
-
     if c == True:
         s = _simOUJc(s0, eps, elp, ejp, theta, mu, dt, sigma, sims, N, mr_lag, jump_prob, jump_avgsize)
     else:
+        # init df with zeros, rows are steps forward in time, columns are simulations
+        s = _np.zeros((N + 1, sims))
+        s = _pd.DataFrame(data=s)
+
+        # set first row as starting value of sim
+        s.iloc[0, :] = s0
         s = _simOUJpy(N, s, mu, theta, sigma, jump_prob, jump_avgsize, dt, mr_lag, eps, elp, ejp)
 
     return s
@@ -461,7 +457,7 @@ def _simOUJc(
     jump_prob,
     jump_avgsize,
     ):
-    print(3)
+
     # generate a 1D array of random numbers that is based on a 
     # 2D array of size P x S where P is the number of time steps
     # including s0 (so N + 1) and S is the number of sims. 1D 

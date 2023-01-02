@@ -54,7 +54,7 @@ def csimOU(
 def csimOUJ(
     double[::1] x,
     double[::1] elp,
-    long[::1] ejp,
+    double[::1] ejp,
     double theta,
     double[::1] mu,
     double dt,
@@ -95,7 +95,7 @@ def csimOUJ(
                 + ejp[i] * elp[i]
             )
 
-            if (mr_lag is not None) & (ejp[i] > 0):
+            if (mr_lag > 0) & (ejp[i] > 0):
                 # if there is a jump in this step, add it to the mean reversion
                 # level so that it doesn't drop back down to the given mean too
                 # quickly. Simulates impact of lagged market response to a jump

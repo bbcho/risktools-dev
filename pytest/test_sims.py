@@ -171,23 +171,27 @@ def test_simOUJ_logic():
     jump_prob=0.1
     jump_stdv=0.32
 
-    df = rt.simOUJ(
-        T=T, s0=s0, mu=mu, theta=theta, dt=dt, sigma=sigma, 
-        jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv, 
-        eps=eps, elp=elp, ejp=ejp, sims=sims, c=False)
+    for c in [True, False]:
 
-    ans = np.array([
-        5.00000,2.33000,4.08449,4.03448,3.95686,3.59113,
-        4.97335,2.46342,4.27228,3.34032,4.54230,3.30157,
-        4.07815,3.51914,4.30190,3.50626,4.47704,
-    ])
-    ans = pd.DataFrame(np.c_[ans, ans])
+        df = rt.simOUJ(
+            T=T, s0=s0, mu=mu, theta=theta, dt=dt, sigma=sigma, 
+            jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv, 
+            eps=eps, elp=elp, ejp=ejp, sims=sims, c=c)
 
-    # test using dummy eps in both C and Python
-    df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
-    ans = ans.T.reset_index(drop=True).T.reset_index(drop=True)
-    
-    assert np.allclose(df, ans), "Py eps test failed"
+        ans = np.array([
+            5.00000,2.33000,4.08449,4.03448,3.95686,3.59113,
+            4.97335,2.46342,4.27228,3.34032,4.54230,3.30157,
+            4.07815,3.51914,4.30190,3.50626,4.47704,
+        ])
+        ans = pd.DataFrame(np.c_[ans, ans])
+
+        # test using dummy eps in both C and Python
+        df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
+        ans = ans.T.reset_index(drop=True).T.reset_index(drop=True)
+
+        assert np.allclose(df, ans), f"{'C' if c else 'Py'} eps test failed"
+
+
 
 
 def test_simOUJ_eps():
