@@ -215,18 +215,19 @@ def test_simOUJ_eps():
     elp = rng.lognormal(mean=np.log(jump_avgsize), sigma=jump_stdv, size=(int(T/dt), sims))
     ejp = rng.poisson(lam=jump_prob * dt, size=(int(T/dt), sims))
 
-    df1 = rt.simOUJ(
-        s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, 
-        eps=eps, elp=elp, ejp=ejp, 
-        jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv,
-        c=False
-        )
-    df2 = rt.simOUJ(
-        s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2,
-        jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv, 
-        seed=12345, c=False
-        ) 
-    assert np.allclose(df1, df2), "Py seed eps test failed"
+    for c in [True, False]:
+        df1 = rt.simOUJ(
+            s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, 
+            eps=eps, elp=elp, ejp=ejp, 
+            jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv,
+            c=c
+            )
+        df2 = rt.simOUJ(
+            s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2,
+            jump_avgsize=jump_avgsize, jump_prob=jump_prob, jump_stdv=jump_stdv, 
+            seed=12345, c=c
+            ) 
+        assert np.allclose(df1, df2), f"{'C' if c else 'Py'} seed eps test failed"
 
 def test_simOUJ_mu():
     s0 = 5
@@ -236,18 +237,17 @@ def test_simOUJ_mu():
     T = 4
     sigma = 0.32
 
-    #################################
-    # test time varying mu
-    #################################
-    mus = np.ones(int(T/dt)) * mu
-      
-    df1 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=False) 
-    df2 = rt.simOUJ(s0=s0, mu=mus, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=False) 
-    assert np.allclose(df1, df2), "Py time varying mu test failed"
+    for c in [True, False]:
 
-    # df1 = rt.simOUJ(s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
-    # df2 = rt.simOUJ(s0, mus, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True) 
-    # assert np.allclose(df1, df2), "C time varying mu test failed"
+        #################################
+        # test time varying mu
+        #################################
+        mus = np.ones(int(T/dt)) * mu
+        
+        df1 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c) 
+        df2 = rt.simOUJ(s0=s0, mu=mus, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c) 
+        assert np.allclose(df1, df2), f"{'C' if c else 'Py'} time varying mu test failed"
+
 
 def test_simOUJ_sigma():
 
@@ -263,18 +263,21 @@ def test_simOUJ_sigma():
     #################################
     sigmas = np.ones(16) * sigma
 
-    df1 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=False) 
-    df2 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigmas, T=T, dt=dt, sims=2, seed=12345, c=False) 
-    assert np.allclose(df1, df2), "Py time varying sigma test failed"
+    for c in [True, False]:
+        
+        df1 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c) 
+        df2 = rt.simOUJ(s0=s0, mu=mu, theta=theta, sigma=sigmas, T=T, dt=dt, sims=2, seed=12345, c=c) 
+        assert np.allclose(df1, df2), f"{'C' if c else 'Py'} time varying sigma test failed"
 
-    # test time varying and 2D sigma
+        # test time varying and 2D sigma
 
-    sigma = np.ones((252, 1000)) * 0.1
-    sigma[100:,:] = 0.5
+        sigma2 = np.ones((252, 1000)) * 0.1
+        sigma2[100:,:] = 0.5
 
-    df = rt.simOUJ(sigma=sigma, theta=20, T=1, dt=1/252, sims=1000, seed=12345, c=False)
+        print(2)
+        df = rt.simOUJ(sigma=sigma2, theta=20, T=1, dt=1/252, sims=1000, seed=12345, c=c)
 
-    assert df.iloc[152,:].std()/df.iloc[25,:].std() > 3, "Time varying sigma test failed"
+        assert df.iloc[152,:].std()/df.iloc[25,:].std() > 3, f"{'C' if c else 'Py'} time varying sigma test failed scale test"
 
 
 

@@ -415,6 +415,9 @@ def simOUJ(
         
     if eps is None:
         eps = rng.normal(size=(N, sims))
+    else:
+        N = eps.shape[0]
+        sims = eps.shape[1]
     if elp is None:
         elp = rng.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=(N, sims))
     if ejp is None:
@@ -424,11 +427,14 @@ def simOUJ(
     sigma = make_into_array(sigma, N)
 
     # repeats first row of eps, elp, and ejp to match the number of simulations
-    eps = make_into_array(eps, N)
-    elp = make_into_array(elp, N)
-    ejp = make_into_array(ejp, N)
+    eps = make_into_array(eps, N).astype(float)
+    elp = make_into_array(elp, N).astype(float)
+    ejp = make_into_array(ejp, N).astype(float)
 
     if c == True:
+        if len(sigma.shape) == 2:
+            sigma = sigma.T.reshape((N+1) * sims)
+
         s = _simOUJc(s0, eps, elp, ejp, theta, mu, dt, sigma, sims, N, mr_lag, jump_prob, jump_avgsize)
     else:
         # init df with zeros, rows are steps forward in time, columns are simulations
@@ -473,6 +479,8 @@ def _simOUJc(
     sigma = _np.tile(_np.array(sigma), sims)
 
     mr_lag = 0 if mr_lag is None else mr_lag
+
+    print(ejp)
 
     x = _csimOUJ(x=eps, elp=elp, ejp=ejp, theta=theta, mu=mu, dt=dt, sigma=sigma, 
         rows=sims, cols=N+1, mr_lag=mr_lag, jump_prob=jump_prob, jump_avgsize=jump_avgsize)

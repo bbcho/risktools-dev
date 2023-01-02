@@ -4,6 +4,7 @@
 import numpy as np
 cimport numpy as np
 cimport cython
+from libc.stdio cimport printf
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -67,6 +68,7 @@ def csimOUJ(
     ):
     cdef long long int i = 1
     cdef long long int j = 0
+    cdef long long int end
 
     # pre-compute to make faster
     cdef long long int ll = rows * cols
@@ -95,7 +97,7 @@ def csimOUJ(
                 + ejp[i] * elp[i]
             )
 
-            if (mr_lag > 0) & (ejp[i] > 0):
+            if (ejp[i] > 0.0):
                 # if there is a jump in this step, add it to the mean reversion
                 # level so that it doesn't drop back down to the given mean too
                 # quickly. Simulates impact of lagged market response to a jump
@@ -104,7 +106,6 @@ def csimOUJ(
                 end = min(mr_lag, cols - j - 1)
 
                 for k in range(i, i + end):
-                    mu[k] = mu[k] + ejp[k] * elp[k]
-
+                    mu[k] = mu[k] + ejp[i] * elp[i]
 
     return np.asarray(x)
