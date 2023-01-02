@@ -537,7 +537,6 @@ def _simOUJpy(
     return s    
 
 
-
 def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
     """
     Parameter estimation for the Ornstein-Uhlenbeck process
