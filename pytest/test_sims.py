@@ -280,6 +280,34 @@ def test_simOUJ_sigma():
         assert df.iloc[152,:].std()/df.iloc[25,:].std() > 3, f"{'C' if c else 'Py'} time varying sigma test failed scale test"
 
 
+def test_simOUJ_mr_lag():
+    s0=5
+    mu=4
+    theta=2
+    dt=0.25
+    sigma=0.32
+    T=4
+    sims=2
+    jump_avgsize=10
+    jump_prob=0.1
+    jump_stdv=0.32
+
+    for c in [True, False]:
+        df = rt.simOUJ(s0=5, mu=4, theta=10, T=1, dt=1/252, jump_avgsize=10.0, c=c, mr_lag=15, sims=1000, seed=54321)
+
+        assert df.max().max() > 10, f"{'C' if c else 'Py'} mr_lag test failed for any jump"
+        assert df.max().max() < 16, f"{'C' if c else 'Py'} mr_lag test failed for double jump"
+        
+        # get first path with jumps
+        path = df.loc[:, df.max(axis=0) > 10]
+        path = path.iloc[:,0]
+
+        # get index of first jump
+        idx = path[path>10].index[0]
+
+        assert path[idx + 5] > 10, f"{'C' if c else 'Py'} mr_lag test failed for lag 5 days later"
+        assert path[idx + 25] < 10, f"{'C' if c else 'Py'} mr_lag test failed for lag 25 days later"
+        
 
 if __name__ == "__main__":
     test_simOU_eps()

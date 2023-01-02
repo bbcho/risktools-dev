@@ -107,5 +107,7 @@ def csimOUJ(
 
                 for k in range(i, i + end):
                     mu[k] = mu[k] + ejp[i] * elp[i]
+                    if k > i:
+                        ejp[k] = 0.0 # stops double jumps
 
     return np.asarray(x)

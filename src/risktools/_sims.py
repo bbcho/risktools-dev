@@ -480,8 +480,6 @@ def _simOUJc(
 
     mr_lag = 0 if mr_lag is None else mr_lag
 
-    print(ejp)
-
     x = _csimOUJ(x=eps, elp=elp, ejp=ejp, theta=theta, mu=mu, dt=dt, sigma=sigma, 
         rows=sims, cols=N+1, mr_lag=mr_lag, jump_prob=jump_prob, jump_avgsize=jump_avgsize)
     
@@ -530,7 +528,9 @@ def _simOUJpy(
             # if there is a jump in this step, add it to the mean reversion
             # level so that it doesn't drop back down to the given mean too
             # quickly. Simulates impact of lagged market response to a jump
+
             mu.iloc[(i):(i + mr_lag), :] += ejp.iloc[i, :] * elp.iloc[i, :]
+            ejp.iloc[(i+1):(i + mr_lag), ejp.iloc[i,:] > 0] = 0 # stops double jumps
 
         # fmt: on
 
