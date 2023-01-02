@@ -17,7 +17,7 @@ class NoSuffixBuilder(build_ext):
 extensions = [
     Extension(
         name="extensions", 
-        sources=["src/risktools/pyx/simOU.pyx"],
+        sources=["src/risktools/pyx/sims.pyx"],
         include_dirs=[numpy.get_include()]
         # extra_compile_args=['-fPIC', '-shared']
     )

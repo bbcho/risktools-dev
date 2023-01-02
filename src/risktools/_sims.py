@@ -9,6 +9,7 @@ import time
 from numpy.random import default_rng, Generator, SFC64
 import platform
 from .extensions import csimOU as _csimOU
+from .extensions import csimOUJ as _csimOUJ
 
 
 class Result():
@@ -247,7 +248,7 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
         x = _np.c_[_np.ones(sims)*s0, x]
         x = x.reshape((N+1)*sims)
     
-    x = _csimOU(x, theta, mu, dt, sigma, sims, N+1, int(log_price))
+    x = _csimOU(x, theta, mu, dt, sigma, rows=sims, cols=N+1, log_price=int(log_price))
     
     return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
@@ -315,7 +316,8 @@ def simOUJ(
     eps=None,
     elp=None,
     ejp=None,
-    seed=None
+    seed=None,
+    c=True
 ):
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
@@ -372,6 +374,11 @@ def simOUJ(
         By default, this is None.
     seed : int
         To pass to numpy random number generator as seed. For testing only.
+    log_price : bool
+        Adds adjustment term to the mean reversion term if the prices passed are log prices. By
+        default False.
+    c : bool
+        Whether or not to run C optimized code. By default True. Otherwise use python loop.
 
     Returns
     -------
@@ -387,6 +394,18 @@ def simOUJ(
 
     # number of periods dt in T
     N = int(T / dt)
+
+    # check on random number size
+    if (N+1)*sims > 200_000_000:
+        import warnings
+        warnings.warn(
+            '''
+            Note that this simulation will generate more than
+            200M random numbers which may crash the python kernel. It may
+            be a better idea to split the simulation into a series of smaller
+            sims and then join them after.
+            '''
+            )
 
     # init df with zeros, rows are steps forward in time, columns are simulations
     s = _np.zeros((N + 1, sims))
@@ -409,22 +428,60 @@ def simOUJ(
         ejp = rng.poisson(lam=jump_prob * dt, size=(N, sims))
 
     mu = make_into_array(mu, N)
-    mu = _pd.DataFrame(_np.vstack([mu] * sims).T)
-
     sigma = make_into_array(sigma, N)
-    if len(sigma.shape) == 1:
-        sigma = _np.vstack([sigma] * sims).T
-    sigma = _pd.DataFrame(sigma)
+
     
-
     # repeats first row of eps, elp, and ejp to match the number of simulations
-    eps = _pd.DataFrame(make_into_array(eps, N))
-    elp = _pd.DataFrame(make_into_array(elp, N))
-    ejp = _pd.DataFrame(make_into_array(ejp, N))
+    eps = make_into_array(eps, N)
+    elp = make_into_array(elp, N)
+    ejp = make_into_array(ejp, N)
 
-    s = _simOUJpy(N, s, mu, theta, sigma, jump_prob, jump_avgsize, dt, mr_lag, eps, elp, ejp)
+    print(2)
+
+    if c == True:
+        s = _simOUJc(s0, eps, elp, ejp, theta, mu, dt, sigma, sims, N, mr_lag, jump_prob, jump_avgsize)
+    else:
+        s = _simOUJpy(N, s, mu, theta, sigma, jump_prob, jump_avgsize, dt, mr_lag, eps, elp, ejp)
 
     return s
+
+
+def _simOUJc(
+    s0,
+    eps,
+    elp,
+    ejp,
+    theta,
+    mu,
+    dt,
+    sigma,
+    sims,
+    N,
+    mr_lag,
+    jump_prob,
+    jump_avgsize,
+    ):
+    print(3)
+    # generate a 1D array of random numbers that is based on a 
+    # 2D array of size P x S where P is the number of time steps
+    # including s0 (so N + 1) and S is the number of sims. 1D 
+    # array will be of size P * S. This is actually the slowest
+    # part.
+    eps[0,:] = s0
+
+    # make same size as 1D array of all periods and sims
+    eps = eps.T.reshape((N+1)*sims)
+    elp = elp.T.reshape((N+1)*sims)
+    ejp = ejp.T.reshape((N+1)*sims)
+    mu = _np.tile(_np.array(mu), sims)
+    sigma = _np.tile(_np.array(sigma), sims)
+
+    mr_lag = 0 if mr_lag is None else mr_lag
+
+    x = _csimOUJ(x=eps, elp=elp, ejp=ejp, theta=theta, mu=mu, dt=dt, sigma=sigma, 
+        rows=sims, cols=N+1, mr_lag=mr_lag, jump_prob=jump_prob, jump_avgsize=jump_avgsize)
+    
+    return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
 
 def _simOUJpy(
@@ -441,6 +498,16 @@ def _simOUJpy(
     elp,
     ejp
     ):
+
+    mu = _np.vstack([mu] * s.shape[1]).T
+    if len(sigma.shape) == 1:
+        sigma = _np.vstack([sigma] * s.shape[1]).T
+
+    mu = _pd.DataFrame(mu)
+    sigma = _pd.DataFrame(sigma)
+    eps = _pd.DataFrame(eps)
+    elp = _pd.DataFrame(elp)
+    ejp = _pd.DataFrame(ejp)
 
     for i in range(1, N + 1):
         # calc step
