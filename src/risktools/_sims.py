@@ -9,7 +9,7 @@ import time
 from numpy.random import default_rng, Generator, SFC64
 import platform
 from .extensions import csimOU as _csimOU
-
+from .extensions import csimOUJ as _csimOUJ
 
 
 class Result():
@@ -18,6 +18,34 @@ class Result():
 
     def update_result(self, val):
         self.val = _pd.concat([self.val, val], axis=1) # append by columns
+
+
+def is_iterable(x):
+    try:
+        iter(x)
+        return True
+    except:
+        return False
+
+def make_into_array(x, N):
+    # make an array of same size as N+1
+    if is_iterable(x):
+        if len(x.shape) == 2:
+            # if a 2D array is passed, return it as is
+            # good for stocastic volatility matrix
+            x = _np.vstack((x[0], x))
+            return x
+
+        if x.shape[0] == N:
+            x = _np.append(x[0] , x)
+        else: 
+            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
+
+
+    else:
+        x = _np.ones(N+1)*x
+
+    return x
 
 
 def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
@@ -123,8 +151,11 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
         excluding start value)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float
-        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
+    sigma : float | array-like (1D or 2D)
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        1D arrays are support for time varying volatility which must be the same length as T/dt (i.e. the number of 
+        periods). 2D arrays are also supported for stochastic volatility where the first dimension is the number of 
+        periods and the second dimension is the number of simulations.
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
     dt : float
@@ -165,18 +196,19 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
-    # make mu an array of same size as N+1
-    try:
-        iter(mu)
-        if len(mu) == N:
-            mu = _np.append(mu[0] , mu)
-        else: 
-            raise ValueError("if mu is passed as an iterable, it must be of length int(T/dt)")
-    except:
-        mu = _np.ones(N+1)*mu
+    # make mu array
+    mu = make_into_array(mu, N)
+    sigma = make_into_array(sigma, N)
         
     # make same size as 1D array of all periods and sims
     mu = _np.tile(_np.array(mu), sims)
+
+    # Don't run if 2D array passed for sigma
+    if len(sigma.shape) == 1:
+        print('a')
+        sigma = _np.tile(_np.array(sigma), sims)
+    else:
+        sigma = sigma.flatten('F')
 
     if c == True:
         return _simOUc(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, sims=sims, eps=eps, seed=seed, log_price=log_price)
@@ -216,19 +248,24 @@ def _simOUc(s0, theta, mu, dt, sigma, T, sims=10, eps=None, seed=None, log_price
         x = _np.c_[_np.ones(sims)*s0, x]
         x = x.reshape((N+1)*sims)
     
-    x = _csimOU(x, theta, mu, dt, sigma, sims, N+1, int(log_price))
+    x = _csimOU(x, theta, mu, dt, sigma, rows=sims, cols=N+1, log_price=int(log_price))
     
     return _pd.DataFrame(x.reshape((sims, N+1)).T)
 
 
 def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_price=False):
-    mu = _pd.Series(mu)
     
     # number of periods dt in T
-    periods = int(T / dt)
+    N = int(T / dt)
+
+    mu = mu.reshape((sims, N+1)).T
+    sigma = sigma.reshape((sims, N+1)).T
+
+    mu = _pd.DataFrame(mu)
+    sigma = _pd.DataFrame(sigma)
 
     # init df with zeros, rows are steps forward in time, columns are simulations
-    out = _np.zeros((periods + 1, sims))
+    out = _np.zeros((N + 1, sims))
     out = _pd.DataFrame(data=out)
 
     # set first row as starting value of sim
@@ -238,24 +275,27 @@ def _simOUpy(s0, mu, theta, sigma, T, dt, sims=1000, eps=None, seed=None, log_pr
     if eps is None:
         # rng = default_rng(seed)
         rng = Generator(SFC64(seed))
-        eps = rng.normal(size=(periods, sims))
+        eps = rng.normal(size=(N, sims))
 
     out.iloc[1:,:] = eps
 
-    # add adjustment term if log(prices) is passed
-    ss = 0.5 * sigma * sigma if log_price else 0
-
-    for i, _ in out.iterrows():
-        if i == 0:
-            continue  # skip first row
-
-        # calc step
-
-        out.iloc[i, :] = (
-            out.iloc[i - 1, :]
-            + (theta * (mu.iloc[i] - out.iloc[i - 1, :]) - ss) * dt
-            + sigma * out.iloc[i, :] * _np.sqrt(dt)
-        )
+    if log_price:
+        ss = 0.5 * sigma * sigma
+        for i in range(1, N + 1):
+            # calc step
+            out.iloc[i, :] = (
+                out.iloc[i - 1, :]
+                + (theta * (mu.iloc[i, :] - out.iloc[i - 1, :]) - ss.iloc[i, :]) * dt
+                + sigma.iloc[i, :] * out.iloc[i, :] * _np.sqrt(dt)
+            )
+    else:
+        for i in range(1, N + 1):
+            # calc step
+            out.iloc[i, :] = (
+                out.iloc[i - 1, :]
+                + (theta * (mu.iloc[i, :] - out.iloc[i - 1, :])) * dt
+                + sigma.iloc[i, :] * out.iloc[i, :] * _np.sqrt(dt)
+            )
 
 
     return out
@@ -273,6 +313,11 @@ def simOUJ(
     dt=1 / 12,
     sims=1000,
     mr_lag=None,
+    eps=None,
+    elp=None,
+    ejp=None,
+    seed=None,
+    c=True
 ):
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
@@ -296,8 +341,11 @@ def simOUJ(
         time dependent mean. If array-like, it must be the same length as T/dt (i.e. the number of periods)
     theta : float
         Mean reversion rate, higher number means it will revert slower
-    sigma : float
-        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt)
+    sigma : float | array-like (1D or 2D)
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        1D arrays are support for time varying volatility which must be the same length as T/dt (i.e. the number of 
+        periods). 2D arrays are also supported for stochastic volatility where the first dimension is the number of 
+        periods and the second dimension is the number of simulations.
     jump_prob : float
         Probablity of jumps
     jump_avgsize : float
@@ -315,6 +363,22 @@ def simOUJ(
         Lag in mean reversion. If None, then no lag is used. If > 0, then the diffusion does not immediately
         return the mean after a jump at theta but instead with remain near the jump level for mr_lag periods.
         By default, this is None.
+    eps : numpy array
+        Array of random numbers to use for the simulation. If None, then random numbers are generated.
+        By default, this is None.
+    elp : numpy array
+        Array of random numbers to use for the log price jump. If None, then random numbers are generated.
+        By default, this is None.
+    ejp : numpy array
+        Array of random numbers to use for the jump size. If None, then random numbers are generated.
+        By default, this is None.
+    seed : int
+        To pass to numpy random number generator as seed. For testing only.
+    log_price : bool
+        Adds adjustment term to the mean reversion term if the prices passed are log prices. By
+        default False.
+    c : bool
+        Whether or not to run C optimized code. By default True. Otherwise use python loop.
 
     Returns
     -------
@@ -329,65 +393,148 @@ def simOUJ(
     bdays_in_year = 252
 
     # number of periods dt in T
-    periods = int(T / dt)
+    N = int(T / dt)
 
-    if isinstance(mu, list):
-        assert len(mu) == (
-            periods - 1
-        ), "Time dependent mu used, but the length of mu is not equal to the number of periods calculated."
-
-    # init df with zeros, rows are steps forward in time, columns are simulations
-    s = _np.zeros((periods, sims))
-    s = _pd.DataFrame(data=s)
-
-    # set first row as starting value of sim
-    s.loc[0, :] = s0
+    # check on random number size
+    if (N+1)*sims > 200_000_000:
+        import warnings
+        warnings.warn(
+            '''
+            Note that this simulation will generate more than
+            200M random numbers which may crash the python kernel. It may
+            be a better idea to split the simulation into a series of smaller
+            sims and then join them after.
+            '''
+            )
 
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
-    if isinstance(mu, list):
-        mu = _pd.Series(mu)
+    if eps is None:
+        rng = Generator(SFC64(seed))
+        
+    if eps is None:
+        eps = rng.normal(size=(N, sims))
     else:
-        # turn scalar mu into a series to iterate over
-        mu = _pd.Series(_np.ones(periods) * mu)
+        N = eps.shape[0]
+        sims = eps.shape[1]
+    if elp is None:
+        elp = rng.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=(N, sims))
+    if ejp is None:
+        ejp = rng.poisson(lam=jump_prob * dt, size=(N, sims))
 
-    # turn mu series into a dataframe to iterate over
-    mu = _pd.concat([mu] * sims, axis=1)
+    mu = make_into_array(mu, N)
+    sigma = make_into_array(sigma, N)
 
-    for i, _ in s.iterrows():
-        if i == 0:
-            continue  # skip first row
+    # repeats first row of eps, elp, and ejp to match the number of simulations
+    eps = make_into_array(eps, N).astype(float)
+    elp = make_into_array(elp, N).astype(float)
+    ejp = make_into_array(ejp, N).astype(float)
 
-        # calc gaussian and poisson vectors
-        ep = _pd.Series(_np.random.normal(size=sims))
-        elp = _pd.Series(
-            _np.random.lognormal(mean=_np.log(jump_avgsize), sigma=jump_stdv, size=sims)
-        )
-        jp = _pd.Series(_np.random.poisson(lam=jump_prob * dt, size=sims))
+    if c == True:
+        if len(sigma.shape) == 2:
+            sigma = sigma.T.reshape((N+1) * sims)
 
+        s = _simOUJc(s0, eps, elp, ejp, theta, mu, dt, sigma, sims, N, mr_lag, jump_prob, jump_avgsize)
+    else:
+        # init df with zeros, rows are steps forward in time, columns are simulations
+        s = _np.zeros((N + 1, sims))
+        s = _pd.DataFrame(data=s)
+
+        # set first row as starting value of sim
+        s.iloc[0, :] = s0
+        s = _simOUJpy(N, s, mu, theta, sigma, jump_prob, jump_avgsize, dt, mr_lag, eps, elp, ejp)
+
+    return s
+
+
+def _simOUJc(
+    s0,
+    eps,
+    elp,
+    ejp,
+    theta,
+    mu,
+    dt,
+    sigma,
+    sims,
+    N,
+    mr_lag,
+    jump_prob,
+    jump_avgsize,
+    ):
+
+    # generate a 1D array of random numbers that is based on a 
+    # 2D array of size P x S where P is the number of time steps
+    # including s0 (so N + 1) and S is the number of sims. 1D 
+    # array will be of size P * S. This is actually the slowest
+    # part.
+    eps[0,:] = s0
+
+    # make same size as 1D array of all periods and sims
+    eps = eps.T.reshape((N+1)*sims)
+    elp = elp.T.reshape((N+1)*sims)
+    ejp = ejp.T.reshape((N+1)*sims)
+    mu = _np.tile(_np.array(mu), sims)
+    sigma = _np.tile(_np.array(sigma), sims)
+
+    mr_lag = 0 if mr_lag is None else mr_lag
+
+    x = _csimOUJ(x=eps, elp=elp, ejp=ejp, theta=theta, mu=mu, dt=dt, sigma=sigma, 
+        rows=sims, cols=N+1, mr_lag=mr_lag, jump_prob=jump_prob, jump_avgsize=jump_avgsize)
+    
+    return _pd.DataFrame(x.reshape((sims, N+1)).T)
+
+
+def _simOUJpy(
+    N,   
+    s,
+    mu,
+    theta,
+    sigma,
+    jump_prob,
+    jump_avgsize,
+    dt,
+    mr_lag,
+    eps,
+    elp,
+    ejp
+    ):
+
+    mu = _np.vstack([mu] * s.shape[1]).T
+    if len(sigma.shape) == 1:
+        sigma = _np.vstack([sigma] * s.shape[1]).T
+
+    mu = _pd.DataFrame(mu)
+    sigma = _pd.DataFrame(sigma)
+    eps = _pd.DataFrame(eps)
+    elp = _pd.DataFrame(elp)
+    ejp = _pd.DataFrame(ejp)
+
+    for i in range(1, N + 1):
         # calc step
         # fmt: off
-
         s.iloc[i, :] = (
             s.iloc[i - 1, :]
             + theta
-                * (mu.iloc[i - 1, :] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
+                * (mu.iloc[i, :] - jump_prob * jump_avgsize - s.iloc[i - 1, :])
                 * s.iloc[i - 1, :]
                 * dt
-            + sigma * s.iloc[i - 1, :] * ep * _np.sqrt(dt)
-            + jp * elp
+            + sigma.iloc[i, :] * s.iloc[i - 1, :] * eps.iloc[i, :] * _np.sqrt(dt)
+            + ejp.iloc[i, :] * elp.iloc[i, :]
         )
 
         if mr_lag is not None:
             # if there is a jump in this step, add it to the mean reversion
             # level so that it doesn't drop back down to the given mean too
             # quickly. Simulates impact of lagged market response to a jump
-            mu.iloc[(i):(i + mr_lag), :] += jp * elp
+
+            mu.iloc[(i):(i + mr_lag), :] += ejp.iloc[i, :] * elp.iloc[i, :]
+            ejp.iloc[(i+1):(i + mr_lag), ejp.iloc[i,:] > 0] = 0 # stops double jumps
 
         # fmt: on
 
-    return s
+    return s    
 
 
 def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
