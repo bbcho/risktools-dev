@@ -205,7 +205,6 @@ def simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1 / 252, sims=1000, eps=None, se
 
     # Don't run if 2D array passed for sigma
     if len(sigma.shape) == 1:
-        print('a')
         sigma = _np.tile(_np.array(sigma), sims)
     else:
         sigma = sigma.flatten('F')
@@ -597,6 +596,7 @@ def _fitOU_MLE(spread):
     >>> spread = rt.simOU(mu=5, theta=0.5, signma=0.2, T=5, dt=1/250)
     >>> rt.fitOU(spread)
     """
+    spread = _np.array(spread)
     n = len(spread)
     delta = 1
 
@@ -604,9 +604,9 @@ def _fitOU_MLE(spread):
     Sy = spread[1:].sum()
     Sxx = (spread[:-1] ** 2).sum()
     Syy = (spread[1:] ** 2).sum()
-    Sxy = (spread[:-1] * spread[1:]).sum()
-
+    Sxy = (_np.multiply(spread[:-1], spread[1:])).sum()
     mu = (Sy * Sxx - Sx * Sxy) / ((n - 1) * (Sxx - Sxy) - (Sx ** 2 - Sx * Sy))
+
     theta = (
         -_np.log(
             (Sxy - mu * Sx - mu * Sy + (n - 1) * mu ** 2)

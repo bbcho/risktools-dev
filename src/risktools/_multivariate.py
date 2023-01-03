@@ -5,7 +5,7 @@ import numpy as _np
 import pandas as _pd
 import matplotlib.pyplot as _plt
 import plotly.graph_objects as _go
-from ._sims import fitOU, simOU
+from ._sims import fitOU, simOU, simOUJ
 from abc import ABC as _ABC, abstractmethod as _abstractmethod
 
 
@@ -191,7 +191,6 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     if (cor is None) & (eps is None):
         raise ValueError("correlation matrix cor required if eps not passed")
     
-
     if ~isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
     if ~isinstance(sigma, _np.ndarray):
