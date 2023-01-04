@@ -7,6 +7,7 @@ import matplotlib.pyplot as _plt
 import plotly.graph_objects as _go
 from ._sims import fitOU, simOU, simOUJ
 from abc import ABC as _ABC, abstractmethod as _abstractmethod
+from numpy.random import Generator, SFC64
 
 
 def calc_spread_MV(df, formulas):
@@ -91,7 +92,7 @@ def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
     return params
 
 
-def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
+def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
     """
     Generate epsilons from a multivariate normal distribution
     for use in multivariate stochastic simulations
@@ -100,7 +101,8 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     ----------
     cor : matrix-like[float]
         Correlation matrix of the OU processes. Must be a square matrix of 
-        size N x N and positive definite.
+        size M x M and positive definite where M is the number of stochastic
+        processes.
     T : float
         Time horizon of the simulation (in years).
     dt : float
@@ -110,6 +112,8 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     mu : array-like[float], optional
         Array of means to use for the multivariate normal for each random process. 
         If None, mu = 0 is used for all random processes. By default None.
+    seed : int
+        To pass to numpy random number generator as seed. For testing only.
 
     Returns
     -------
@@ -126,8 +130,9 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
 
     # if ~isinstance(sigma, _np.ndarray):
     #     sigma = _np.array(sigma)
-    if ~isinstance(cor, _np.matrix):
-        cor = _np.matrix(cor)
+    if ~isinstance(cor, _np.ndarray):
+        cor = _np.array(cor)
+
     if mu is not None:
         if ~isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
@@ -138,7 +143,11 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     # sd = _np.diag(sigma)
     # cov = sd @ cor @ sd
     cov = cor
-    eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
+    rng = Generator(SFC64(seed))
+
+    eps = rng.multivariate_normal(mu, cov, size=(N, sims))
+
+    # eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
 
     return eps
 
@@ -152,28 +161,30 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     ----------
     s0 : array-like
         Initial values of the stochastic processes. Must be a 1D array of length
-        N where N is the number of assets.
+        M where M is the number of assets.
     r : float
         Risk-free rate.
     sigma : array-like
         Volatility of the stochastic processes (annualized standard deviations of 
-        returns). Must be a 1D array of length N. Only used if eps is None.
+        returns). Must be a 1D array of length M where M is the number of assets. 
+        Only used if eps is None.
     T : float
         Time horizon of the simulation (in years).
     dt : float
         Time step of the simulation (in years).
     mu : array-like, optional
         Means to use for multivariate normal distribution of returns. Must be
-        a 1D array of length N. If None, mu = 0 is used for all assets. Only used
-        if eps is None.
+        a 1D array of length M where M is the number of assets. If None, mu = 0 
+        is used for all assets. Only used if eps is None.
     cor : matrix-like
         Correlation matrix of the stochastic processes. Must be a square matrix of 
-        size N x N and positive definite. Only used if eps is None.
+        size M x M and positive definite where M is the number of assets. 
+        Only used if eps is None.
     eps : array-like, optional
         Random numbers to use for the simulation. If not provided, random numbers are
         generated using a multivariate normal distribution. Must be a 3-D array of
-        size (p x sims x N) where p is the number of time steps, sims is the number of
-        simulations, and N is the number of assets. By default None.
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None.
     sims : int
         Number of simulations. By default 1000.
 
@@ -223,7 +234,7 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
 
 
 def simOU_MV(
-    s0, mu, theta, T, dt=None, sigma=None, cor=None, eps=None, sims=1000, **kwargs
+    s0, mu, theta, sigma, T, dt=None, cor=None, sims=1000, eps=None, seed=None, log_price=False, **kwargs
 ):
     """
     Simulate Ornstein-Uhlenbeck process for stochastic processes for
@@ -233,57 +244,107 @@ def simOU_MV(
     ----------
     s0 : array-like[float]
         Initial values of the stochastic processes. Must be a 1D array of length
-        N where N is the number of assets.
+        M where M is the number of assets.
     mu : array-like[float]
-        Mean of the OU processes. Must be a 1D array of length N.
+        Mean of the OU processes. Must be a 1D or 2D array.
+        
+        1D Arrays: 
+            If a 1D array is provided, each element of the array represents the mean of each asset.
+            Array must of size M where M is the number of assets.
+        2D Arrays: 
+            A 2D array can be provided to varying the mean of each asset over time. The size of the
+            array must be N x M where N is the number of time steps and M is the number of assets.
     theta : array-like[float]
-        Mean reversion parameter of the OU processes. Must be a 1D array of length N.
+        Mean reversion parameter of the OU processes. Must be a 1D array of length M
+        where M is the number of assets.
+    sigma : array-like[float]
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        Can be either a 1D, 2D, or 3D array:
+
+        1D Arrays: 
+            If a 1D array is provided, each element of the array represents the volatility of each asset, 
+            is used for all time steps, all simulations. 1D arrays must of size M where M is the number of assets.   
+        2D Arrays: 
+            A 2D array can be provided to varying the volatility of each asset over time. The size of the
+            array must be N x M where N is the number of time steps and M is the number of assets.              
+        3D Arrays: 
+            A 3D array can be provided to varying the volatility of each asset over time and over each
+            simulation (stochastic volatility). The size of the array must be N x sims x M where N is the number of time
+            steps, sims is the number of simulations, and M is the number of assets.
     T : float
         Time horizon of the simulation (in years).
     dt : float, optional
         Time step of the simulation (in years). Not used if eps is provided. By default None.
-    sigma : array-like[float], optional
-        Volatility of the OU processes (annualized standard deviations of
-        returns). Must be a 1D array of length N. Only used if eps is None.
     cor : matrix-like[float], optional
         Correlation matrix of the OU processes. Must be a square matrix of
-        size N x N and positive definite. Only used if eps is None.
+        size M x M and positive definite. Only used if eps is None.
+    sims : int, optional
+        Number of simulations. By default 1000. Not used if eps is provided.
     eps : matrix-like, optional
         Random numbers to use for the simulation. Must be a 2D array of
-        size (p x sims x N) where p is the number of time steps, sims is the number of
-        simulations, and N is the number of assets. By default None.
-    sims : int
-        Number of simulations. By default 1000. Not used if eps is provided.
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None.
+    seed : int, optional
+        To pass to numpy random number generator as seed. For testing only.
+    log_price : bool
+        Adds adjustment term to the mean reversion term if the prices passed are log prices. By
+        default False.
     **kwargs : optional
         Keyword arguments to pass to simOU function.
 
     Returns
     -------
-    Matrix of simulated values of the stochastic processes. The first dimension
-    corresponds to the time steps, the second dimension corresponds to the simulations,
-    and the third dimension corresponds to the assets.
+    Matrix of simulated values of the stochastic processes of size N x sims x M where 
+    N corresponds to the number of time steps, sims corresponds to the simulations,
+    and M corresponds to the number of assets.
 
     Example
     -------
     >>> import risktools as rt
-    >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], theta=[0.1,0.1], T=1, dt=1/252, eps=eps)
+    >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10], 
+            T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
     """
-    if sigma is None:
-        sigma = _np.ones(len(s0))
-
     if eps is None:
-        if (T is None) | (dt is None):
-            raise ValueError("Must provide T and dt if eps is not provided.")
-        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims)
+        if dt is None:
+            raise ValueError("Must provide dt if eps is not provided.")
+        if cor is None:
+            raise ValueError("Must provide cor if eps is not provided.")
+        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
     else:
         dt = T / eps.shape[0]
 
-    N = int(T / dt)
+    sigma_arr = _np.zeros(eps.shape)
+    mu_arr = _np.zeros((eps.shape[0], eps.shape[2]))
+    sigma = _np.array(sigma)
+    mu = _np.array(mu)
+
+    # broadcast sigma into 3D array
+    if len(sigma.shape) == 1:
+
+        for i in range(0, eps.shape[2]):
+            sigma_arr[:, :, i] = sigma[i]
+    elif len(sigma.shape) == 2:
+        for i in range(0, eps.shape[2]):
+            sigma_arr[:, :, i] = sigma[:, _np.newaxis, i]
+    elif len(sigma.shape) == 3:
+        sigma_arr = sigma
+
+    # broadcast mu into 2D array
+    if len(mu.shape) == 1:
+        for i in range(0, eps.shape[2]):
+            mu_arr[:, i] = mu[i]
+    else:
+        mu_arr = mu
+
+    # number of time steps
+    N = eps.shape[0]
 
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
-        s[:, :, i] = simOU(s0[i], mu[i], theta[i], sigma[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
+        s[:, :, i] = simOU(
+            s0=s0[i], mu=mu_arr[:, i], theta=theta[i], sigma=sigma_arr[:,:,i], 
+            T=T, dt=dt, eps=eps[:, :, i], log_price=log_price, **kwargs)
 
     return s
 
