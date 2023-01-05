@@ -346,11 +346,11 @@ def simOUJ(
         periods). 2D arrays are also supported for stochastic volatility where the first dimension is the number of 
         periods and the second dimension is the number of simulations.
     jump_prob : float
-        Probablity of jumps
+        Probablity of jumps for a Possion process.
     jump_avgsize : float
-        Average size of jumps
+        Average size of jumps for a log normal distribution
     jump_stdv : float
-        Standard deviation of average jump size
+        Standard deviation of average jump size for a log normal distribution
     T : float or int
         Period length in years (i.e. 0.25 for 3 months)
     dt : float
@@ -358,25 +358,25 @@ def simOUJ(
         days in a year
     sims : int
         Number of simulations to run
-    mr_lag : int
+    mr_lag : int, optional
         Lag in mean reversion. If None, then no lag is used. If > 0, then the diffusion does not immediately
         return the mean after a jump at theta but instead with remain near the jump level for mr_lag periods.
         By default, this is None.
-    eps : numpy array
+    eps : numpy array, optional
         Array of random numbers to use for the simulation. If None, then random numbers are generated.
         By default, this is None.
-    elp : numpy array
+    elp : numpy array, optional
         Array of random numbers to use for the log price jump. If None, then random numbers are generated.
         By default, this is None.
-    ejp : numpy array
+    ejp : numpy array, optional
         Array of random numbers to use for the jump size. If None, then random numbers are generated.
         By default, this is None.
-    seed : int
+    seed : int, optional
         To pass to numpy random number generator as seed. For testing only.
-    log_price : bool
+    log_price : bool, optional
         Adds adjustment term to the mean reversion term if the prices passed are log prices. By
         default False.
-    c : bool
+    c : bool, optional
         Whether or not to run C optimized code. By default True. Otherwise use python loop.
 
     Returns
@@ -409,7 +409,7 @@ def simOUJ(
     # print half-life of theta
     print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
 
-    if eps is None:
+    if (eps is None) | (elp is None) | (ejp is None):
         rng = Generator(SFC64(seed))
         
     if eps is None:

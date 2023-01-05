@@ -111,7 +111,6 @@ def test_simOU_MV_eps():
 
     assert np.allclose(df1, df2), "Seed eps test failed"
 
-
 def test_simOU_MV_mu():
     s0 = [5]*2
     mu = [4]*2
@@ -131,7 +130,6 @@ def test_simOU_MV_mu():
     df1 = rt.simOU_MV(s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=2, seed=12345)
     df2 = rt.simOU_MV(s0=s0, mu=mus, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=2, seed=12345)
     assert np.allclose(df1, df2), "Time varying mu test failed"
-
 
 def test_simOU_MV_sigma():
 
