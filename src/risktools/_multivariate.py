@@ -511,6 +511,9 @@ def simOUJ_MV(
     # number of time steps
     N = eps.shape[0]
 
+    if mr_lag is None:
+        mr_lag = [mr_lag] * eps.shape[2]
+
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
