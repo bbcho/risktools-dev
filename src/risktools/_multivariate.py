@@ -5,8 +5,9 @@ import numpy as _np
 import pandas as _pd
 import matplotlib.pyplot as _plt
 import plotly.graph_objects as _go
-from ._sims import fitOU, simOU
+from ._sims import fitOU, simOU, simOUJ
 from abc import ABC as _ABC, abstractmethod as _abstractmethod
+from numpy.random import Generator, SFC64
 
 
 def calc_spread_MV(df, formulas):
@@ -23,7 +24,7 @@ def calc_spread_MV(df, formulas):
         Dictionary of formulas to use for calculating the spreads. The key must be
         the name of the spread and the value must be a string containing the formula
         for calculating the spread. The formula must be a valid Python expression using
-        the names of the columns in df as variables. For example, to calculate the spread 
+        the names of the columns in df as variables. For example, to calculate the spread
         between asset_1 and asset_2 less 5, the formula would be 'asset_1 - asset_2 - 5'.
 
     Returns
@@ -55,7 +56,7 @@ def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
     ----------
     df : DataFrame
         DataFrame of multiple OU processes where each process is a column.  Thus
-        a matrix of size (p x N) where p is the number of time steps and N is 
+        a matrix of size (p x N) where p is the number of time steps and N is
         the number of assets.
     dt : float
         Assumed time step for the OU processes. Must be the same for all
@@ -64,7 +65,7 @@ def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
         If True, the spread is assumed to be log prices and the log of the spread is taken.
         All price series must be log_prices or all not. Default is False.
     method : ['OLS' | 'MLE'], optional
-        Method used to fit OU process. OLE for ordinary least squares and MLE for 
+        Method used to fit OU process. OLE for ordinary least squares and MLE for
         Maximum Liklihood. By default 'OLS'.
     verbose : bool
         If True, prints the estimated parameters. Only used is method is OLS.
@@ -91,7 +92,7 @@ def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
     return params
 
 
-def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
+def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
     """
     Generate epsilons from a multivariate normal distribution
     for use in multivariate stochastic simulations
@@ -99,8 +100,9 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     Parameters
     ----------
     cor : matrix-like[float]
-        Correlation matrix of the OU processes. Must be a square matrix of 
-        size N x N and positive definite.
+        Correlation matrix of the OU processes. Must be a square matrix of
+        size M x M and positive definite where M is the number of stochastic
+        processes.
     T : float
         Time horizon of the simulation (in years).
     dt : float
@@ -108,8 +110,10 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     sims : int
         Number of simulations. By default 1000.
     mu : array-like[float], optional
-        Array of means to use for the multivariate normal for each random process. 
+        Array of means to use for the multivariate normal for each random process.
         If None, mu = 0 is used for all random processes. By default None.
+    seed : int
+        To pass to numpy random number generator as seed. For testing only.
 
     Returns
     -------
@@ -126,8 +130,9 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
 
     # if ~isinstance(sigma, _np.ndarray):
     #     sigma = _np.array(sigma)
-    if ~isinstance(cor, _np.matrix):
-        cor = _np.matrix(cor)
+    if ~isinstance(cor, _np.ndarray):
+        cor = _np.array(cor)
+
     if mu is not None:
         if ~isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
@@ -138,7 +143,11 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None):
     # sd = _np.diag(sigma)
     # cov = sd @ cor @ sd
     cov = cor
-    eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
+    rng = Generator(SFC64(seed))
+
+    eps = rng.multivariate_normal(mu, cov, size=(N, sims))
+
+    # eps = _np.random.multivariate_normal(mu, cov, size=(N, sims))
 
     return eps
 
@@ -152,28 +161,30 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     ----------
     s0 : array-like
         Initial values of the stochastic processes. Must be a 1D array of length
-        N where N is the number of assets.
+        M where M is the number of assets.
     r : float
         Risk-free rate.
     sigma : array-like
-        Volatility of the stochastic processes (annualized standard deviations of 
-        returns). Must be a 1D array of length N. Only used if eps is None.
+        Volatility of the stochastic processes (annualized standard deviations of
+        returns). Must be a 1D array of length M where M is the number of assets.
+        Only used if eps is None.
     T : float
         Time horizon of the simulation (in years).
     dt : float
         Time step of the simulation (in years).
     mu : array-like, optional
         Means to use for multivariate normal distribution of returns. Must be
-        a 1D array of length N. If None, mu = 0 is used for all assets. Only used
-        if eps is None.
+        a 1D array of length M where M is the number of assets. If None, mu = 0
+        is used for all assets. Only used if eps is None.
     cor : matrix-like
-        Correlation matrix of the stochastic processes. Must be a square matrix of 
-        size N x N and positive definite. Only used if eps is None.
+        Correlation matrix of the stochastic processes. Must be a square matrix of
+        size M x M and positive definite where M is the number of assets.
+        Only used if eps is None.
     eps : array-like, optional
         Random numbers to use for the simulation. If not provided, random numbers are
         generated using a multivariate normal distribution. Must be a 3-D array of
-        size (p x sims x N) where p is the number of time steps, sims is the number of
-        simulations, and N is the number of assets. By default None.
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None.
     sims : int
         Number of simulations. By default 1000.
 
@@ -190,7 +201,6 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
     """
     if (cor is None) & (eps is None):
         raise ValueError("correlation matrix cor required if eps not passed")
-    
 
     if ~isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
@@ -224,7 +234,18 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000):
 
 
 def simOU_MV(
-    s0, mu, theta, T, dt=None, sigma=None, cor=None, eps=None, sims=1000, **kwargs
+    s0,
+    mu,
+    theta,
+    sigma,
+    T,
+    dt=None,
+    cor=None,
+    sims=1000,
+    eps=None,
+    seed=None,
+    log_price=False,
+    **kwargs
 ):
     """
     Simulate Ornstein-Uhlenbeck process for stochastic processes for
@@ -234,57 +255,288 @@ def simOU_MV(
     ----------
     s0 : array-like[float]
         Initial values of the stochastic processes. Must be a 1D array of length
-        N where N is the number of assets.
+        M where M is the number of assets.
     mu : array-like[float]
-        Mean of the OU processes. Must be a 1D array of length N.
+        Mean of the OU processes. Must be a 1D or 2D array.
+
+        1D Arrays:
+            If a 1D array is provided, each element of the array represents the mean of each asset.
+            Array must of size M where M is the number of assets.
+        2D Arrays:
+            A 2D array can be provided to varying the mean of each asset over time. The size of the
+            array must be N x M where N is the number of time steps and M is the number of assets.
     theta : array-like[float]
-        Mean reversion parameter of the OU processes. Must be a 1D array of length N.
+        Mean reversion parameter of the OU processes. Must be a 1D array of length M
+        where M is the number of assets.
+    sigma : array-like[float]
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        Can be either a 1D, 2D, or 3D array:
+
+        1D Arrays:
+            If a 1D array is provided, each element of the array represents the volatility of each asset,
+            is used for all time steps, all simulations. 1D arrays must of size M where M is the number of assets.
+        2D Arrays:
+            A 2D array can be provided to varying the volatility of each asset over time. The size of the
+            array must be N x M where N is the number of time steps and M is the number of assets.
+        3D Arrays:
+            A 3D array can be provided to varying the volatility of each asset over time and over each
+            simulation (stochastic volatility). The size of the array must be N x sims x M where N is the number of time
+            steps, sims is the number of simulations, and M is the number of assets.
     T : float
         Time horizon of the simulation (in years).
     dt : float, optional
         Time step of the simulation (in years). Not used if eps is provided. By default None.
-    sigma : array-like[float], optional
-        Volatility of the OU processes (annualized standard deviations of
-        returns). Must be a 1D array of length N. Only used if eps is None.
     cor : matrix-like[float], optional
         Correlation matrix of the OU processes. Must be a square matrix of
-        size N x N and positive definite. Only used if eps is None.
-    eps : matrix-like, optional
-        Random numbers to use for the simulation. Must be a 2D array of
-        size (p x sims x N) where p is the number of time steps, sims is the number of
-        simulations, and N is the number of assets. By default None.
-    sims : int
+        size M x M and positive definite. Only used if eps is None.
+    sims : int, optional
         Number of simulations. By default 1000. Not used if eps is provided.
+    eps : matrix-like, optional
+        Random numbers to use for the simulation. Must be a 3D array of
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None.
+    seed : int, optional
+        To pass to numpy random number generator as seed. For testing only.
+    log_price : bool
+        Adds adjustment term to the mean reversion term if the prices passed are log prices. By
+        default False.
     **kwargs : optional
         Keyword arguments to pass to simOU function.
 
     Returns
     -------
-    Matrix of simulated values of the stochastic processes. The first dimension
-    corresponds to the time steps, the second dimension corresponds to the simulations,
-    and the third dimension corresponds to the assets.
+    Matrix of simulated values of the stochastic processes of size N x sims x M where
+    N corresponds to the number of time steps, sims corresponds to the simulations,
+    and M corresponds to the number of assets.
 
     Example
     -------
     >>> import risktools as rt
-    >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], theta=[0.1,0.1], T=1, dt=1/252, eps=eps)
+    >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10],
+            T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
     """
-    if sigma is None:
-        sigma = _np.ones(len(s0))
-
     if eps is None:
-        if (T is None) | (dt is None):
-            raise ValueError("Must provide T and dt if eps is not provided.")
-        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims)
+        if dt is None:
+            raise ValueError("Must provide dt if eps is not provided.")
+        if cor is None:
+            raise ValueError("Must provide cor if eps is not provided.")
+        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
     else:
         dt = T / eps.shape[0]
 
-    N = int(T / dt)
+    sigma_arr = _np.zeros(eps.shape)
+    mu_arr = _np.zeros((eps.shape[0], eps.shape[2]))
+    sigma = _np.array(sigma)
+    mu = _np.array(mu)
+
+    # broadcast sigma into 3D array
+    if len(sigma.shape) == 1:
+
+        for i in range(0, eps.shape[2]):
+            sigma_arr[:, :, i] = sigma[i]
+    elif len(sigma.shape) == 2:
+        for i in range(0, eps.shape[2]):
+            sigma_arr[:, :, i] = sigma[:, _np.newaxis, i]
+    elif len(sigma.shape) == 3:
+        sigma_arr = sigma
+
+    # broadcast mu into 2D array
+    if len(mu.shape) == 1:
+        for i in range(0, eps.shape[2]):
+            mu_arr[:, i] = mu[i]
+    else:
+        mu_arr = mu
+
+    # number of time steps
+    N = eps.shape[0]
 
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
     for i in range(0, eps.shape[2]):
-        s[:, :, i] = simOU(s0[i], mu[i], theta[i], sigma[i], T, dt=dt, eps=eps[:, :, i], **kwargs)
+        s[:, :, i] = simOU(
+            s0=s0[i],
+            mu=mu_arr[:, i],
+            theta=theta[i],
+            sigma=sigma_arr[:, :, i],
+            T=T,
+            dt=dt,
+            eps=eps[:, :, i],
+            log_price=log_price,
+            **kwargs
+        )
+
+    return s
+
+
+def simOUJ_MV(
+    s0,
+    mu,
+    theta,
+    sigma,
+    jump_prob,
+    jump_avgsize,
+    jump_stdv,
+    T,
+    dt=None,
+    cor=None,
+    sims=1000,
+    mr_lag=None,
+    eps=None,
+    elp=None,
+    ejp=None,
+    seed=None,
+    **kwargs
+):
+    """
+    Simulate Ornstein-Uhlenbeck Jump process for stochastic processes for
+    multiple assets using a multivariate normal distribution.
+
+    Parameters
+    ----------
+    s0 : array-like[float]
+        Initial values of the stochastic processes. Must be a 1D array of length
+        M where M is the number of assets.
+    mu : array-like[float]
+        Mean of the OU processes. Must be a 1D or 2D array.
+
+        1D Arrays:
+            If a 1D array is provided, each element of the array represents the mean of each asset.
+            Array must of size M where M is the number of assets.
+        2D Arrays:
+            A 2D array can be provided to varying the mean of each asset over time. The size of the
+            array must be N x M where N is the number of time steps and M is the number of assets.
+    theta : array-like[float]
+        Mean reversion parameter of the OU processes. Must be a 1D array of length M
+        where M is the number of assets.
+    sigma : array-like[float]
+        Annualized volatility or standard deviation. To calculate, take daily volatility and multiply by sqrt(T/dt).
+        Can be either a 1D, 2D, or 3D array:
+
+        1D Arrays:
+            If a 1D array is provided, each element of the array represents the volatility of each asset,
+            is used for all time steps, all simulations. 1D arrays must of size M where M is the number of assets.
+        2D Arrays:
+            A 2D array can be provided to varying the volatility of each asset over time. The size of the
+            array must be N x M where N is the number of time steps and M is the number of assets.
+        3D Arrays:
+            A 3D array can be provided to varying the volatility of each asset over time and over each
+            simulation (stochastic volatility). The size of the array must be N x sims x M where N is the number of time
+            steps, sims is the number of simulations, and M is the number of assets.
+    jump_prob : array_like[float]
+        Probablity of jumps for a Possion process. Must be a 1D array of length M
+        where M is the number of assets.
+    jump_avgsize : array_like[float]
+        Average size of jumps for a log normal distribution. Must be a 1D array of length M
+        where M is the number of assets.
+    jump_stdv : array_like[float]
+        Standard deviation of average jump size for a log normal distribution. Must be a 1D array of length M
+        where M is the number of assets.
+    T : float
+        Time horizon of the simulation (in years).
+    dt : float, optional
+        Time step of the simulation (in years). Not used if eps is provided. By default None.
+    cor : matrix-like[float], optional
+        Correlation matrix of the OU processes. Must be a square matrix of
+        size M x M and positive definite. Only used if eps is None.
+    sims : int, optional
+        Number of simulations. By default 1000. Not used if eps is provided.
+    mr_lag : array_like[int]
+        Lag in mean reversion. If None, then no lag is used. If > 0, then the diffusion does not immediately
+        return the mean after a jump at theta but instead with remain near the jump level for mr_lag periods.
+        By default, this is None. Must be a 1D array of length M where M is the number of assets.
+    eps : matrix-like, optional
+        Random numbers to use for the simulation. Must be a 3D array of
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None. If None, then random numbers are generated.
+    elp : numpy array, optional
+        Array of random numbers to use for the log price jump.
+        Must be a 3D array of
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None. If None, then random numbers are generated.
+    ejp : numpy array, optional
+        Array of random numbers to use for the jump size.
+        Must be a 3D array of
+        size (N x sims x M) where N is the number of time steps, sims is the number of
+        simulations, and M is the number of assets. By default None. If None, then random numbers are generated.
+    seed : int, optional
+        To pass to numpy random number generator as seed. For testing only.
+    **kwargs : optional
+        Keyword arguments to pass to simOUJ function.
+
+    Returns
+    -------
+    Matrix of simulated values of the stochastic processes of size N x sims x M where
+    N corresponds to the number of time steps, sims corresponds to the simulations,
+    and M corresponds to the number of assets.
+
+    Example
+    -------
+    >>> import risktools as rt
+    >>> rt.simOUJ_MV(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10],
+            jump_prob=[0.1,0.1], jump_avgsize=[10,10], jump_stdv=[0.1,0.1],
+            T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
+    """
+    if eps is None:
+        if dt is None:
+            raise ValueError("Must provide dt if eps is not provided.")
+        if cor is None:
+            raise ValueError("Must provide cor if eps is not provided.")
+        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
+    else:
+        dt = T / eps.shape[0]
+
+    sigma_arr = _np.zeros(eps.shape)
+    mu_arr = _np.zeros((eps.shape[0], eps.shape[2]))
+    sigma = _np.array(sigma)
+    mu = _np.array(mu)
+
+    # broadcast sigma into 3D array
+    if len(sigma.shape) == 1:
+
+        for i in range(0, eps.shape[2]):
+            sigma_arr[:, :, i] = sigma[i]
+    elif len(sigma.shape) == 2:
+        for i in range(0, eps.shape[2]):
+            sigma_arr[:, :, i] = sigma[:, _np.newaxis, i]
+    elif len(sigma.shape) == 3:
+        sigma_arr = sigma
+
+    # broadcast mu into 2D array
+    if len(mu.shape) == 1:
+        for i in range(0, eps.shape[2]):
+            mu_arr[:, i] = mu[i]
+    else:
+        mu_arr = mu
+
+    # number of time steps
+    N = eps.shape[0]
+
+    if mr_lag is None:
+        mr_lag = [mr_lag] * eps.shape[2]
+
+    s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
+
+    for i in range(0, eps.shape[2]):
+        ejp_tmp = ejp[:, :, i] if ejp is not None else None
+        elp_tmp = elp[:, :, i] if elp is not None else None
+
+        s[:, :, i] = simOUJ(
+            s0=s0[i],
+            mu=mu_arr[:, i],
+            theta=theta[i],
+            sigma=sigma_arr[:, :, i],
+            jump_prob=jump_prob[i],
+            jump_avgsize=jump_avgsize[i],
+            jump_stdv=jump_stdv[i],
+            T=T,
+            dt=dt,
+            eps=eps[:, :, i],
+            elp=elp_tmp,
+            ejp=ejp_tmp,
+            seed=seed,
+            mr_lag=mr_lag[i],
+            **kwargs
+        )
 
     return s
 
@@ -331,7 +583,7 @@ def calculate_payoffs(df, strike=0, payoff_funcs=None):
         Only used if payoff_funcs is None. Strike price of the option. By default None.
     payoff_funcs : array-like[function], optional
         Array of payoff functions. Must be a 1D array of length N. Each function must take a
-        single argument (the simulated asset price) and return a single value (the payoff) along 
+        single argument (the simulated asset price) and return a single value (the payoff) along
         the time axis. By default None. If none, the payoff is the max of the asset price and strike price at
         time T.
 
@@ -495,17 +747,19 @@ def plot_efficient_frontier(df):
             text=df["text"],
             showlegend=False,
             marker_colorbar=dict(
-                title="Sharpe Ratio", titleside="right", tickmode="array",
+                title="Sharpe Ratio",
+                titleside="right",
+                tickmode="array",
             ),
         )
     )
 
     fig.update_layout(
-        title='Efficient Frontier',
-        title_x = 0.5,
-        title_xanchor = 'center',
-        xaxis_title='Risk',
-        yaxis_title='Expected Returns'
+        title="Efficient Frontier",
+        title_x=0.5,
+        title_xanchor="center",
+        xaxis_title="Risk",
+        yaxis_title="Expected Returns",
     )
 
     fig.update_traces(hovertemplate=None)
@@ -610,6 +864,7 @@ class _MVSIM(_ABC):
     Abstract base class for multivariate simulation classes for
     calculating the payoffs of a portfolio of assets.
     """
+
     _frontier = None
     _sims = None
     _prices = None
@@ -634,7 +889,7 @@ class _MVSIM(_ABC):
             Only used if payoff_funcs is None. Strike price of the option. By default 0.
         payoff_funcs : array-like[function], optional
             Array of payoff functions. Must be a 1D array of length N. Each function must take a
-            single argument (the simulated asset price) and return a single value (the payoff) along 
+            single argument (the simulated asset price) and return a single value (the payoff) along
             the time axis. By default None. If none, the payoff is the max of the asset price and strike price at
             time T.
         portfolio_sims : int
@@ -689,19 +944,23 @@ class _MVSIM(_ABC):
         """
 
         if self._frontier is None:
-            ValueError('plot_efficient_frontier method must be run prior to this method')
+            ValueError(
+                "plot_efficient_frontier method must be run prior to this method"
+            )
 
         names = self._asset_names if weight_names else None
 
-        self._frontier = plot_portfolio(self._payoffs, weights, self._frontier, names, label)
+        self._frontier = plot_portfolio(
+            self._payoffs, weights, self._frontier, names, label
+        )
 
         return self._frontier
 
     @property
     def sims(self):
         """
-        Returns a 3-D array of size (p x sims x N) where p is the number of 
-        time steps, sims is the number of simulations, and N is the number 
+        Returns a 3-D array of size (p x sims x N) where p is the number of
+        time steps, sims is the number of simulations, and N is the number
         of assets
         """
         return self._sims
@@ -716,7 +975,7 @@ class _MVSIM(_ABC):
     @property
     def parameters(self):
         params = self._params.copy()
-        params.loc['s0',:] = self._s0
+        params.loc["s0", :] = self._s0
         return params
 
     def plot_sim(self, asset_num, sims=100, **kwargs):
@@ -734,13 +993,17 @@ class _MVSIM(_ABC):
             around 100. By default 100.
         kwargs
             parameters to be passed to the pandas dataframe plot method.
-        
+
         Returns
         -------
         matplotlib figure object.
         """
 
-        return _pd.DataFrame(self._sims[:,:,asset_num]).iloc[:,:sims].plot(legend=False, **kwargs)
+        return (
+            _pd.DataFrame(self._sims[:, :, asset_num])
+            .iloc[:, :sims]
+            .plot(legend=False, **kwargs)
+        )
 
 
 class MVGBM(_MVSIM):
@@ -756,7 +1019,7 @@ class MVGBM(_MVSIM):
     dt : float
         Time step for the simulation.
     s0 : array-like[float], optional
-        Initial price of each asset in the portfolio. 
+        Initial price of each asset in the portfolio.
         Required if prices not passed.
     sigma : array-like[float], optional
         Volatility of each asset in the portfolio.
@@ -770,16 +1033,16 @@ class MVGBM(_MVSIM):
         method if s0, sigma and cor not passed.
     asset_names : list[str], optional
         List of strings to use as asset names in the output dataframe.
-    
+
     Example
     -------
     >>> import risktools as rt
     >>> mvgbm = rt.MVGBM(
-            s0=[100,100, 100], 
-            r=0.01, 
-            sigma=[0.1,0.1,0.1], 
-            T=1, 
-            dt=1/252, 
+            s0=[100,100, 100],
+            r=0.01,
+            sigma=[0.1,0.1,0.1],
+            T=1,
+            dt=1/252,
             cor=[[1,0.5,0.5],[0.5,1,0.5],[0.5,0.5,1]],
             asset_names=['A','B','C']
         )
@@ -810,7 +1073,7 @@ class MVGBM(_MVSIM):
 
     def fit(self):
         """
-        Method to fit the simulation parameters to the class. Not really needed for 
+        Method to fit the simulation parameters to the class. Not really needed for
         a GBM simulation, but included for consistency with other simulation classes.
         """
         # function not needed for this class since
@@ -862,7 +1125,7 @@ class MVOU(_MVSIM):
         method if s0, mu, theta, sigma and cor not passed.
     asset_names : list[str]
         List of strings to use as asset names in the output dataframe.
-    
+
     Example
     -------
     >>> import risktools as rt
@@ -870,9 +1133,9 @@ class MVOU(_MVSIM):
             s0=[5,5,5],
             mu=[4,4,4],
             theta=[2,2,2],
-            sigma=[0.1,0.1,0.1], 
-            T=1, 
-            dt=1/252, 
+            sigma=[0.1,0.1,0.1],
+            T=1,
+            dt=1/252,
             cor=[[1,0.5,0.5],[0.5,1,0.5],[0.5,0.5,1]],
             asset_names=['A','B','C']
         )
@@ -880,8 +1143,18 @@ class MVOU(_MVSIM):
     >>> ou.simulate()
     >>> ou.plot_efficient_frontier()
     """
+
     def __init__(
-        self, T, dt, s0=None, mu=None, theta=None, sigma=None, cor=None, prices=None, asset_names=None
+        self,
+        T,
+        dt,
+        s0=None,
+        mu=None,
+        theta=None,
+        sigma=None,
+        cor=None,
+        prices=None,
+        asset_names=None,
     ):
         self._mu = mu
         self._theta = theta
@@ -924,16 +1197,18 @@ class MVOU(_MVSIM):
         if self._prices is not None:
             prices = _pd.DataFrame(self._prices)
             returns = (_np.log(prices) - _np.log(prices.shift())).dropna()
-            
+
             self._s0 = prices.iloc[-1, :] if s0 is None else s0
 
-            self._params = fitOU_MV(prices, self._dt, log_price=log_price, method=method, verbose=verbose)
+            self._params = fitOU_MV(
+                prices, self._dt, log_price=log_price, method=method, verbose=verbose
+            )
             self._cor = returns.corr()
         else:
             self._params = _pd.DataFrame()
-            self._params['mu'] = self._mu
-            self._params['annualized_sigma'] = self._sigma
-            self._params['theta'] = self._theta
+            self._params["mu"] = self._mu
+            self._params["annualized_sigma"] = self._sigma
+            self._params["theta"] = self._theta
             self._params = self._params.T
 
         if self._asset_names is not None:
@@ -942,7 +1217,12 @@ class MVOU(_MVSIM):
     def simulate(self, sims=1000):
 
         self._sims = self._sims = simOU_MV(
-            self._s0, self._params.loc['mu',:], self._params.loc['theta',:], self._T, self._dt, self._params.loc['annualized_sigma',:], 
-            self._cor, sims=sims
+            self._s0,
+            self._params.loc["mu", :],
+            self._params.loc["theta", :],
+            self._T,
+            self._dt,
+            self._params.loc["annualized_sigma", :],
+            self._cor,
+            sims=sims,
         )
-

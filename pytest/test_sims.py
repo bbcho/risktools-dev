@@ -9,6 +9,41 @@ dir = os.path.dirname(os.path.realpath(__file__))
 
 import risktools as rt
 
+def test_fitOU():
+    mu = 4
+    s0 = 5
+    theta = 25
+    sigma = 0.32
+    T = 1
+    dt = 1/252
+
+    mm = 'OLS'
+    df = rt.simOU(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=100, seed=42, log_price=False, c=True)
+    mu_avg = 0
+    theta_avg = 0
+    sigma_avg = 0
+
+    for i in range(df.shape[1]):
+        params = rt.fitOU(df.iloc[:,i], dt=dt, method=mm)
+        mu_avg += params['mu']
+        theta_avg += params['theta']
+        sigma_avg += params['annualized_sigma']
+
+    mu_avg /= df.shape[1]
+    theta_avg /= df.shape[1]
+    sigma_avg /= df.shape[1]
+
+    assert np.allclose([theta_avg, mu_avg, sigma_avg], [theta, mu, sigma], rtol=0.1), f"{mm} OU fit failed"
+
+    # MLE is not as accurate as OLS
+    mm = 'MLE'
+
+    df = rt.simOU(s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=100, seed=42, log_price=False, c=True)
+    params = rt.fitOU(df.iloc[:,0], dt=dt, method=mm)
+    
+    assert np.allclose([*params.values()], [0.09623628502896132, 3.992238002240906, 0.02025370299719902], rtol=0.1), f"{mm} OU fit failed"
+
+
 def test_simGBM():
     eps = pd.read_csv('./pytest/data/diffusion.csv', header=None)
 
@@ -191,9 +226,6 @@ def test_simOUJ_logic():
 
         assert np.allclose(df, ans), f"{'C' if c else 'Py'} eps test failed"
 
-
-
-
 def test_simOUJ_eps():
 
     s0=5
@@ -248,7 +280,6 @@ def test_simOUJ_mu():
         df2 = rt.simOUJ(s0=s0, mu=mus, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c) 
         assert np.allclose(df1, df2), f"{'C' if c else 'Py'} time varying mu test failed"
 
-
 def test_simOUJ_sigma():
 
     s0=5
@@ -278,7 +309,6 @@ def test_simOUJ_sigma():
         df = rt.simOUJ(sigma=sigma2, theta=20, T=1, dt=1/252, sims=1000, seed=12345, c=c)
 
         assert df.iloc[152,:].std()/df.iloc[25,:].std() > 3, f"{'C' if c else 'Py'} time varying sigma test failed scale test"
-
 
 def test_simOUJ_mr_lag():
     s0=5
