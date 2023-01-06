@@ -7,6 +7,7 @@ from io import BytesIO as _BytesIO
 from zipfile import ZipFile as _ZipFile
 import warnings as _warnings
 from io import BytesIO
+from pandas.errors import ParserError
 
 
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
@@ -162,15 +163,12 @@ def _load_data(fn):
 
     try:
         df = _pd.DataFrame.from_records(dd)
+        df = _try_dates(df)
         return df
     except:
         pass
 
     for key in dd.keys():
-        try:
-            dd[key] = _np.array(dd[key])
-        except:
-            pass
 
         try:
             dd[key] = _pd.DataFrame.from_records(dd[key])
@@ -182,7 +180,25 @@ def _load_data(fn):
         except:
             pass
 
+        if isinstance(dd[key], _pd.DataFrame) == True:
+            dd[key] = _try_dates(dd[key])
+
+        # try:
+        #     dd[key] = _np.array(dd[key])
+        # except:
+        #     pass
+
     return dd
+
+
+def _try_dates(df):
+    for c in df.columns[df.dtypes == "object"]:  # don't cnvt num
+        try:
+            df[c] = _pd.to_datetime(df[c])
+        except (ParserError, ValueError):  # Can't cnvrt some
+            pass  # ...so leave whole column as-is unconverted
+
+    return df
 
 
 def _read_curves(fn):
@@ -246,7 +262,7 @@ _file_actions = {
     "eurodollar": {
         "file": "eurodollar.json",
         "date_fields": None,
-        "load_func": _pd.read_json,
+        "load_func": _load_data,
     },
     "expiry_table": {
         "file": "expiry_table.json",
@@ -266,12 +282,12 @@ _file_actions = {
     "futuresRef": {
         "file": "futuresRef.json",
         "date_fields": None,
-        "load_func": _pd.read_json,
+        "load_func": _load_data,
     },
     "fxfwd": {
         "file": "fxfwd.json",
         "date_fields": None,
-        "load_func": _pd.read_json,
+        "load_func": _load_data,
     },
     "holidaysOil": {
         "file": "holidaysOil.json",
@@ -321,7 +337,7 @@ _file_actions = {
     "stocks": {
         "file": "stocks.json",
         "date_fields": None,
-        "load_func": _pd.read_json,
+        "load_func": _load_data,
     },
     "tsQuotes": {
         "file": "tsQuotes.json",
