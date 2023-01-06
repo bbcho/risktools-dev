@@ -111,7 +111,7 @@ def open_data(nm):
         df = _file_actions[nm]["load_func"](fp)
     except:
         _warnings.warn(f"File actions for {nm} not defined. Running default behavior.")
-        df = _pd.read_json(_os.path.join(_path, f"{nm}.json"))
+        df = _load_data(_os.path.join(_path, f"{nm}.json"))
 
     if isinstance(df, _pd.DataFrame):
         # convert "." to "_" in column names
@@ -155,6 +155,36 @@ def _norm_df(fn):
     return df
 
 
+def _load_data(fn):
+
+    with open(fn) as f:
+        dd = _json.load(f)
+
+    try:
+        df = _pd.DataFrame.from_records(dd)
+        return df
+    except:
+        pass
+
+    for key in dd.keys():
+        try:
+            dd[key] = _np.array(dd[key])
+        except:
+            pass
+
+        try:
+            dd[key] = _pd.DataFrame.from_records(dd[key])
+        except:
+            pass
+
+        try:
+            dd[key] = _pd.DataFrame(dd[key])
+        except:
+            pass
+
+    return dd
+
+
 def _read_curves(fn):
     # open SwapCurve files (based on R S3 class Discount Curves) and convert to
     # dictionary with nested arrays, dictionaries and one nested dataframe
@@ -189,7 +219,7 @@ _file_actions = {
     "cushing": {
         "file": "cushing.json",
         "date_fields": None,
-        "load_func": _read_dict,
+        "load_func": _load_data,
     },
     "dflong": {
         "file": "dflong.json",
