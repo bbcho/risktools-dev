@@ -8,13 +8,14 @@ from zipfile import ZipFile as _ZipFile
 import warnings as _warnings
 from io import BytesIO
 
+
 def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
     """
     Returns a SpatialPointsDataFrame from a shapefile URL. Examples with EIA and Government of Alberta
 
     US Energy Information Agency:
     - EIA crude pipelines : https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
-    - EIA Refinery Map : https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip  
+    - EIA Refinery Map : https://www.eia.gov/maps/map_data/Petroleum_Refineries_US_EIA.zip
     - EIA Products Pipelines : https://www.eia.gov/maps/map_data/PetroleumProduct_Pipelines_US_EIA.zip
     - EIA Products Terminals : https://www.eia.gov/maps/map_data/PetroleumProduct_Terminals_US_EIA.zip
     - EIA NG Pipelines : https://www.eia.gov/maps/map_data/NaturalGas_InterIntrastate_Pipelines_US_EIA.zip
@@ -71,7 +72,7 @@ def get_names():
     Returns
     -------
     List of strings
-    
+
     Examples
     --------
     >>> import risktools as rt
@@ -88,7 +89,7 @@ def open_data(nm):
     ----------
     nm : str
         Name of dataset to return
-    
+
     Returns
     -------
     Varies by data requests
@@ -96,8 +97,7 @@ def open_data(nm):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.data.open_data('cancrudeassays')
-    
+    >>> rt.data.open_data('crudeOil')
     """
     fn = ""
     path = _os.path.dirname(__file__)
@@ -130,40 +130,27 @@ def open_data(nm):
     return df
 
 
-def _norm_df_bak(fn):
-    rf = _pd.DataFrame()  # create results df
-
-    # read json files with nested dataframes from R
-    df = _pd.read_json(fn)
-
-    for c in df.columns:
-        tmp = _pd.json_normalize(df[c])
-
-        tmp = _pd.concat([tmp.set_index(tmp.columns[0])], keys=[c], axis=1).T
-        rf = rf.append(tmp)
-
-    rf.columns.name = "specifications"
-    rf.index = rf.index.set_names(["crude", "cut"])
-    return rf.sort_index()
-
-
 def _norm_df(fn):
 
-    with open(fn, mode='r') as file:
+    with open(fn, mode="r") as file:
         tmp = _json.load(file)
 
     df = _pd.DataFrame()
     for key in tmp.keys():
-        if key == 'Liza':
-            _warnings.warn('Liza crude not working for XOM - please let RTL package developer know')
+        if key == "xomAssays":
+            _warnings.warn(
+                "Liza crude not working for XOM - please let RTL package developer know"
+            )
         else:
-            tf = _pd.DataFrame(tmp[key])
-            tf['crude'] = key
-            cols = ['Specification' , *tf.columns[1:]]
-            tf.columns = cols
-            tf = tf.set_index(['crude','Specification'])
-            df = _pd.concat([df,tf], axis=0)
-
+            try:
+                tf = _pd.DataFrame.from_records(tmp[key])
+                tf["crude"] = key
+                cols = ["Specification", *tf.columns[1:]]
+                tf.columns = cols
+                tf = tf.set_index(["crude", "Specification"])
+                df = _pd.concat([df, tf], axis=0)
+            except:
+                _warnings.warn(f"Could not load {key} into dataframe")
 
     return df
 
@@ -179,44 +166,31 @@ def _read_curves(fn):
         if isinstance(dd[key], list) == True:
             dd[key] = _np.array(dd[key])
 
-    dd["table"] = _pd.DataFrame(dd["table"])
-    dd["table"]["date"] = _pd.to_datetime(dd["table"]["date"], utc=True, unit="D")
+    dd["table"] = _pd.DataFrame.from_records(dd["table"])
+
+    dd["table"]["date"] = _pd.to_datetime(dd["table"]["date"])  # , utc=True, unit="D"
+
+    return dd
+
+
+def _read_dict(fn):
+    with open(fn) as f:
+        dd = _json.load(f)
 
     return dd
 
 
 _file_actions = {
-    "cancrudeassays": {
-        "file": "cancrudeassays.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    # "cancrudeassayssum": {
-    #     "file": "cancrudeassayssum.json",
-    #     "date_fields": ["YM"],
-    #     "load_func": _pd.read_json,
-    # },
-    "cancrudeprices": {
-        "file": "cancrudeprices.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-    },
-    "crudeassaysBP": {
-        "file": "crudeassaysBP.json",
+    "crudeOil": {
+        "file": "crudeOil.json",
         "date_fields": None,
         "load_func": _norm_df,
     },
-    "crudeassaysXOM": {
-        "file": "crudeassaysXOM.json",
+    "cushing": {
+        "file": "cushing.json",
         "date_fields": None,
-        "load_func": _norm_df,
+        "load_func": _read_dict,
     },
-    # "crudepipelines": {
-    #     "file": "crudepipelines.geojson",
-    #     "date_fields": None,
-    #     "load_func": _geopandas.read_file,
-    # },
-    "crudes": {"file": "crudes.json", "date_fields": None, "load_func": _pd.read_json},
     "dflong": {
         "file": "dflong.json",
         "date_fields": ["date"],
@@ -229,12 +203,6 @@ _file_actions = {
         "load_func": _pd.read_json,
         "index": "date",
     },
-    "df_fut": {
-        "file": "df_fut.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-        "index": ["series", "date"],
-    },
     "eiaStocks": {
         "file": "eiaStocks.json",
         "date_fields": ["date"],
@@ -243,6 +211,11 @@ _file_actions = {
     "eiaStorageCap": {
         "file": "eiaStorageCap.json",
         "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "eurodollar": {
+        "file": "eurodollar.json",
+        "date_fields": None,
         "load_func": _pd.read_json,
     },
     "expiry_table": {
@@ -260,9 +233,24 @@ _file_actions = {
         "date_fields": ["date"],
         "load_func": _pd.read_json,
     },
+    "futuresRef": {
+        "file": "futuresRef.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "fxfwd": {
+        "file": "fxfwd.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
     "holidaysOil": {
         "file": "holidaysOil.json",
         "date_fields": ["value"],
+        "load_func": _pd.read_json,
+    },
+    "ohlc": {
+        "file": "ohlc.json",
+        "date_fields": ["date"],
         "load_func": _pd.read_json,
     },
     "planets": {
@@ -270,31 +258,11 @@ _file_actions = {
         "date_fields": None,
         "load_func": _pd.read_json,
     },
-    # "productspipelines": {
-    #     "file": "productspipelines.geojson",
-    #     "date_fields": None,
-    #     "load_func": _geopandas.read_file,
-    # },
-    # "productsterminals": {
-    #     "file": "productsterminals.geojson",
-    #     "date_fields": None,
-    #     "load_func": _geopandas.read_file,
-    # },
-    "ref_opt_inputs": {
-        "file": "ref.opt.i_nputs.json",
+    "refineryLPdata": {
+        "file": "refineryLPdata.json",
         "date_fields": None,
         "load_func": _pd.read_json,
     },
-    "ref_opt_outputs": {
-        "file": "ref.opt.outputs.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    # "refineries": {
-    #     "file": "refineries.geojson",
-    #     "date_fields": None,
-    #     "load_func": _geopandas.read_file,
-    # },
     "tickers_eia": {
         "file": "tickers_eia.json",
         "date_fields": None,
@@ -305,9 +273,29 @@ _file_actions = {
         "date_fields": ["flowmonth", "trade_cycle_end"],
         "load_func": _pd.read_json,
     },
+    "tradeHubs": {
+        "file": "tradeHubs.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
     "tradeprocess": {
         "file": "tradeprocess.json",
         "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "wti_swap": {
+        "file": "wtiSwap.json",
+        "date_fields": ["date"],
+        "load_func": _pd.read_json,
+    },
+    "stocks": {
+        "file": "stocks.json",
+        "date_fields": None,
+        "load_func": _pd.read_json,
+    },
+    "tsQuotes": {
+        "file": "tsQuotes.json",
+        "date_fields": None,
         "load_func": _pd.read_json,
     },
     "usSwapCurves": {
@@ -320,73 +308,8 @@ _file_actions = {
         "date_fields": None,
         "load_func": _read_curves,
     },
-    "usSwapIR": {
-        "file": "usSwapIR.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-        "index": "date",
-    },
-    "usSwapIRdef": {
-        "file": "usSwapIRdef.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    "ref_opt_inputs": {
-        "file": "ref_opt_inputs.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    "ref_opt_outputs": {
-        "file": "ref_opt_outputs.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    "wti_swap": {
-        "file": "wtiSwap.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-    },
-    "ry": {
-        "file": "ry.json",
-        "date_fields": ["Date"],
-        "load_func": _pd.read_json,
-    },
-    "CLc1": {
-        "file": "CLc1.json",
-        "date_fields": ["Date"],
-        "load_func": _pd.read_json,
-    },
-    "CLc2": {
-        "file": "CLc2.json",
-        "date_fields": ["Date"],
-        "load_func": _pd.read_json,
-    },
-    "CLc1c2": {
-        "file": "CLc1c2.json",
-        "date_fields": ["Date"],
-        "load_func": _pd.read_json,
-    },
-    "futures_months": {
-        "file": "futuresMonths.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    "futures_specs": {
-        "file": "futuresSpecs.json",
-        "date_fields": None,
-        "load_func": _pd.read_json,
-    },
-    "ohlc": {
-        "file": "ohlc.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-    },
-    "spy": {
-        "file": "spy.json",
-        "date_fields": ["date"],
-        "load_func": _pd.read_json,
-    },
 }
+
 
 _path = _os.path.dirname(__file__)
 
