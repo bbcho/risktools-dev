@@ -7,16 +7,18 @@ import Cython.Build
 import platform
 import numpy
 
+
 class NoSuffixBuilder(build_ext):
     def get_ext_filename(self, ext_name):
         filename = super().get_ext_filename(ext_name)
-        suffix = sysconfig.get_config_var('EXT_SUFFIX')
+        suffix = sysconfig.get_config_var("EXT_SUFFIX")
         ext = os.path.splitext(filename)[1]
         return filename.replace(suffix, "") + ext
 
+
 extensions = [
     Extension(
-        name="extensions", 
+        name="extensions",
         sources=["src/risktools/pyx/sims.pyx"],
         include_dirs=[numpy.get_include()]
         # extra_compile_args=['-fPIC', '-shared']
@@ -26,7 +28,7 @@ extensions = [
 requirements = [
     "pandas",
     "numpy",
-    "numba", # requried to install arch on Windows
+    "numba",  # requried to install arch on Windows
     "matplotlib",
     "plotly",
     "quandl",
@@ -41,14 +43,14 @@ requirements = [
 preqs = ">=3.7"
 
 if platform.system() == "Windows":
-    requirements.remove('numba')
-        
+    requirements.remove("numba")
+
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="risktools",
-    version="0.2.7.1",
+    version="0.2.8",
     author="Ben Cho",
     license="gpl-3.0",  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     author_email="ben.cho@gmail.com",
@@ -85,7 +87,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=preqs,
-    ext_package='risktools',
+    ext_package="risktools",
     cmdclass={"build_ext": NoSuffixBuilder},
-    ext_modules = Cython.Build.cythonize(extensions),
+    ext_modules=Cython.Build.cythonize(extensions),
 )
