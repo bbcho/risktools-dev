@@ -49,7 +49,7 @@ Quandl==3.7.0
 requests==2.31.0
 # -e git+ssh://git@github.com/bbcho/risktools-dev.git@69ff9884dab549087a8613cc13259be6c955f4c1#egg=risktools
 scikit-learn==1.1.3
-scipy==1.9.3
+scipy==1.10.0
 seaborn==0.12.1
 six==1.16.0
 stack-data==0.6.1
