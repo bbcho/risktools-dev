@@ -136,23 +136,44 @@ def _norm_df(fn):
     with open(fn, mode="r") as file:
         tmp = _json.load(file)
 
-    df = _pd.DataFrame()
-    for key in tmp.keys():
-        if key == "xomAssays":
-            _warnings.warn(
-                "Liza crude not working for XOM - please let RTL package developer know"
-            )
-        else:
-            try:
-                tf = _pd.DataFrame.from_records(tmp[key])
-                tf["crude"] = key
-                cols = ["Specification", *tf.columns[1:]]
-                tf.columns = cols
-                tf = tf.set_index(["crude", "Specification"])
-                df = _pd.concat([df, tf], axis=0)
-            except:
-                _warnings.warn(f"Could not load {key} into dataframe")
+    # df = _pd.DataFrame()
+    # for key in tmp.keys():
+    #     if key == "xomAssays":
+    #         _warnings.warn(
+    #             "Liza crude not working for XOM - please let RTL package developer know"
+    #         )
+    #     else:
+    #         try:
+    #             tf = _pd.DataFrame.from_records(tmp[key])
+    #             tf["crude"] = key
+    #             cols = ["Specification", *tf.columns[1:]]
+    #             tf.columns = cols
+    #             tf = tf.set_index(["crude", "Specification"])
+    #             df = _pd.concat([df, tf], axis=0)
+    #         except:
+    #             _warnings.warn(f"Could not load {key} into dataframe")
 
+    # return df
+
+    df = dict()
+
+    for key in tmp.keys():
+        
+        df[key] = _pd.DataFrame.from_records(tmp[key])
+
+        try:    
+            cf = _pd.DataFrame()
+            for sec_key in tmp[key].keys():
+                tf = _pd.DataFrame.from_records(tmp[key][sec_key])
+                cols = list(tf.columns)
+                tf['assay'] = sec_key
+                tf = tf[['assay', *cols]]
+                cf = _pd.concat([cf, tf], axis=0)
+            df[key] = cf
+
+        except:
+            pass
+    
     return df
 
 

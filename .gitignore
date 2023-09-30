@@ -62,9 +62,14 @@ docs/_build/
 # virtual env
 env/
 renv/
+R/renv/
 tenv/
 
 # misc files
-.Rhistory
 
 user.json
+.Rproj.user
+.RData
+.Rhistory
+.Rprofile
+risktools-dev.Rproj

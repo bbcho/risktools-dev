@@ -11,12 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(reticulate)
-use_condaenv("risktools", required=TRUE)
+# use_condaenv("risktools", required=TRUE)
+use_virtualenv('../env', required=TRUE)
 py_config()
 ```
 
 
 ```{r}
+library(RTL)
 lsf.str("package:RTL")
 ```
 
