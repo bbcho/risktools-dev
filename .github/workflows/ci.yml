@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest cython numpy setuptools pandas sklearn
+          pip install flake8 pytest cython numpy setuptools pandas scikit-learn
           python setup.py build_ext --inplace
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Lint with flake8
