@@ -40,7 +40,7 @@ for (fn in filenames) {
   data <- eval(parse(text=paste0('RTL::',fn)))
   
   tryCatch({
-    if (fn != "tickers_eia" | fn != "steo") {
+    if ((fn != "tickers_eia") & (fn != "steo")) {
       data <- data %>% dplyr::mutate_if(is.character, ~ str_replace_all(., "[.]", "_")) # remove . from strings
       # data <- data %>% dplyr::mutate_if(is.character, ~ str_replace_all(., "[,]", "")) # remove , from strings
     }

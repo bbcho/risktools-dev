@@ -144,7 +144,7 @@ def test_bond():
 
     # second test
     bo = rt.bond(ytm=0.05, c=0.05, T=1, m=2, output="df")
-    df = _load_json("bond_2.json")
+    df = _load_json("./data/bond_2.json")
     assert df.astype(float).round(4).equals(bo.round(4)), "bond Test 2 failed"
 
     # third test
@@ -297,7 +297,7 @@ def test_roll_adjust():
 
 
 def test_garch():
-    ac = _load_json("garch.json").set_index("date").garch
+    ac = _load_json("./data/garch.json").set_index("date").garch
 
     dflong = rt.data.open_data("dflong")
     dflong = dflong["CL01"]
@@ -389,9 +389,9 @@ def test_swap_irs():
 
 
 def test_npv():
-    ac = _load_json("npv1.json")
+    ac = _load_json("./data/npv1.json")
     ir = (
-        _load_json("ir.json")
+        _load_json("./data/ir.json")
         .rename({"_row": "index"}, axis=1)
         .replace("...1", "0")
         .set_index("index")
@@ -403,7 +403,7 @@ def test_npv():
 
     assert ac.round(4).equals(ts.round(4)), "npv Test 1 using actual ir failed"
 
-    ac2 = _load_json("npv2.json")
+    ac2 = _load_json("./data/npv2.json")
     ac2.cf = ac2.cf.astype(float)
     ts2 = rt.npv(
         init_cost=-375,
@@ -420,7 +420,7 @@ def test_npv():
 
 
 def test_crr_euro():
-    ac = _load_json("crreuro.json", dataframe=False)
+    ac = _load_json("./data/crreuro.json", dataframe=False)
     ts = rt.crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call")
 
     assert np.array_equal(
