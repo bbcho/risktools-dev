@@ -140,7 +140,7 @@ def test_ir_df_us():
 def test_bond():
 
     bo = rt.bond(ytm=0.05, c=0.05, T=1, m=2, output="price")
-    assert bo == 100, "bond Test 1 failed"
+    assert round(bo,4) == 100.0, "bond Test 1 failed"
 
     # second test
     bo = rt.bond(ytm=0.05, c=0.05, T=1, m=2, output="df")
