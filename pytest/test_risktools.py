@@ -214,11 +214,7 @@ def test_returns():
         .sort_index(axis=1)
     )
     
-    assert (
-        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
-        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
-        , "returns Test 1 failed"
-        )
+    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 1 failed")
 
     # Test 2
     ac2 = _load_json("./data/returns2.json").round(4)
@@ -235,11 +231,7 @@ def test_returns():
 
     # ts2 = ts2.unstack(0).stack().swaplevel(0, 1).sort_index()
 
-    assert (
-        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
-        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
-        , "returns Test 2 failed"
-        )
+    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 2 failed")
 
     # Test 3
     ac = (
@@ -258,11 +250,7 @@ def test_returns():
         spread=True,
     ).round(4)
 
-    assert (
-        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
-        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
-        , "returns Test 3 failed"
-        )
+    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 3 failed")
 
     # Test 4
     ac = (
@@ -281,11 +269,7 @@ def test_returns():
         spread=True,
     ).round(4)
 
-    assert (
-        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
-        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
-        , "returns Test 4 failed"
-        )
+    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 4 failed")
 
 
 def test_roll_adjust():
