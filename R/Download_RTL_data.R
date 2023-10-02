@@ -34,6 +34,7 @@ save_loc = '../src/risktools/data/'
 d <- data(package='RTL')
 
 filenames = d$results[,'Item']
+filenames = c('crudeOil')
 
 for (fn in filenames) {
   # print(fn)
