@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, "3.10", "3.11"]
+        python-version: [3.7, 3.8, 3.9, "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v2
@@ -24,6 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8 pytest cython numpy setuptools pandas scikit-learn requests numba
           pip install matplotlib plotly quandl arch scipy statsmodels seaborn pandas_datareader
+          pip install yfinance
           python setup.py build_ext --inplace
           # if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Lint with flake8

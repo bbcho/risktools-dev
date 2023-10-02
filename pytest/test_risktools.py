@@ -6,6 +6,7 @@ import json
 import sys
 import plotly.graph_objects as go
 import time
+import yfinance as yf
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src/")
 
@@ -151,41 +152,42 @@ def test_bond():
 
 
 def test_trade_stats():
-    pass
+    
     # df = data.DataReader(["SPY", "AAPL"], "yahoo", "2000-01-01", "2012-01-01")
-    # df = df.pct_change()
-    # df = df.asfreq("B")
+    df = yf.download(["SPY", "AAPL"], start="2000-01-01", end="2012-01-01")
+    df = df.pct_change()
+    df = df.asfreq("B")
 
-    # ou = rt.trade_stats(df[("Adj Close", "SPY")])
-    # ts = _load_json("tradeStats.json")
+    ou = rt.trade_stats(df[("Adj Close", "SPY")])
+    ts = _load_json("./data/tradeStats.json")
 
-    # assert round(ou["cum_ret"], 4) == round(
-    #     ts["CumReturn"][0], 4
-    # ), "tradeStats Test cum_ret failed"
-    # assert round(ou["ret_ann"], 4) == round(
-    #     ts["Ret_Ann"][0], 4
-    # ), "tradeStats Test ret_ann failed"
-    # assert round(ou["sd_ann"], 4) == round(
-    #     ts["SD_Ann"][0], 4
-    # ), "tradeStats Test sd_ann failed"
-    # assert round(ou["omega"], 4) == round(
-    #     ts["Omega"][0], 4
-    # ), "tradeStats Test omega failed"
-    # assert round(ou["sharpe"], 4) == round(
-    #     ts["Sharpe"][0], 4
-    # ), "tradeStats Test sharpe failed"
-    # assert round(ou["perc_win"], 4) == round(
-    #     ts["%_Win"][0], 4
-    # ), "tradeStats Test perc_win failed"
-    # assert round(ou["perc_in_mkt"], 4) == round(
-    #     ts["%_InMrkt"][0], 4
-    # ), "tradeStats Test perc_in_mkt failed"
-    # assert round(ou["dd_length"], 4) == round(
-    #     ts["DD_Length"][0], 4
-    # ), "tradeStats Test dd_length failed"
-    # assert round(ou["dd_max"], 4) == round(
-    #     ts["DD_Max"][0], 4
-    # ), "tradeStats Test dd_max failed"
+    assert round(ou["cum_ret"], 4) == round(
+        ts["CumReturn"][0], 4
+    ), "tradeStats Test cum_ret failed"
+    assert round(ou["ret_ann"], 4) == round(
+        ts["Ret_Ann"][0], 4
+    ), "tradeStats Test ret_ann failed"
+    assert round(ou["sd_ann"], 4) == round(
+        ts["SD_Ann"][0], 4
+    ), "tradeStats Test sd_ann failed"
+    assert round(ou["omega"], 4) == round(
+        ts["Omega"][0], 4
+    ), "tradeStats Test omega failed"
+    assert round(ou["sharpe"], 4) == round(
+        ts["Sharpe"][0], 4
+    ), "tradeStats Test sharpe failed"
+    assert round(ou["perc_win"], 4) == round(
+        ts["%_Win"][0], 4
+    ), "tradeStats Test perc_win failed"
+    assert round(ou["perc_in_mkt"], 4) == round(
+        ts["%_InMrkt"][0], 4
+    ), "tradeStats Test perc_in_mkt failed"
+    assert round(ou["dd_length"], 4) == round(
+        ts["DD_Length"][0], 4
+    ), "tradeStats Test dd_length failed"
+    assert round(ou["dd_max"], 4) == round(
+        ts["DD_Max"][0], 4
+    ), "tradeStats Test dd_max failed"
 
 
 def test_returns():

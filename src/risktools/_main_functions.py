@@ -208,7 +208,7 @@ def trade_stats(R, Rf=0):
         r = _pd.DataFrame({"trade_stats": r})
         series_flag = True
 
-    for lab, con in r.iteritems():
+    for lab, con in r.items():
         rs[lab] = dict()
         y = find_drawdowns(con)
         rs[lab]["cum_ret"] = return_cumulative(con, geometric=True)
