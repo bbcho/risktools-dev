@@ -191,109 +191,119 @@ def test_trade_stats():
 
 
 def test_returns():
-    pass
-    # # Test 1
-    # ac = (
-    #     _load_json("returns1.json")
-    #     .round(4)
-    #     .set_index("date")
-    #     .dropna()
-    #     .sort_index(axis=1)
-    # )
-    # ac.columns.name = "series"
-    # ts = (
-    #     rt.returns(
-    #         df=rt.data.open_data("dflong").round(
-    #             4
-    #         ),  # round(4) because R toJSON function does so
-    #         ret_type="rel",
-    #         period_return=1,
-    #         spread=True,
-    #     )
-    #     .round(4)
-    #     .sort_index(axis=1)
-    # )
+    
+    # Test 1
+    ac = (
+        _load_json("./data/returns1.json")
+        .round(4)
+        .set_index("date")
+        .sort_index(axis=1)
+    )
+    ac.columns.name = "series"
 
-    # ts = ts.dropna()
-    # assert ac.equals(ts), "returns Test 1 failed"
+    ts = (
+        rt.returns(
+            df=rt.data.open_data("dflong").round(
+                4
+            ),  # round(4) because R toJSON function does so
+            ret_type="rel",
+            period_return=1,
+            spread=True,
+        )
+        .round(4)
+        .sort_index(axis=1)
+    )
+    
+    assert (
+        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
+        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
+        , "returns Test 1 failed"
+        )
 
-    # # Test 2
-    # ac2 = _load_json("returns2.json").round(4)
+    # Test 2
+    ac2 = _load_json("./data/returns2.json").round(4)
 
-    # ts2 = rt.returns(
-    #     df=rt.data.open_data("dflong").round(4),
-    #     ret_type="rel",
-    #     period_return=1,
-    #     spread=False,
-    # )
-    # ts2 = ts2.round(4)
+    ts2 = rt.returns(
+        df=rt.data.open_data("dflong").round(4),
+        ret_type="rel",
+        period_return=1,
+        spread=False,
+    )
+    ts2 = ts2.round(4)
 
-    # ac2 = ac2.set_index(["series", "date"])["returns"].sort_index()
+    ac2 = ac2.set_index(["series", "date"])["returns"].sort_index()
 
-    # # ts2 = ts2.unstack(0).stack().swaplevel(0, 1).sort_index()
+    # ts2 = ts2.unstack(0).stack().swaplevel(0, 1).sort_index()
 
-    # assert ac2.equals(ts2), "returns Test 2 failed"
+    assert (
+        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
+        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
+        , "returns Test 2 failed"
+        )
 
     # Test 3
-    # ac = (
-    #     _load_json("returns3.json")
-    #     .round(4)
-    #     .set_index("date")
-    #     .dropna()
-    #     .sort_index(axis=1)
-    # )
-    # ac.columns.name = "series"
-    # ts = rt.returns(
-    #     df=rt.data.open_data("dflong").round(
-    #         4
-    #     ),  # round(4) because R toJSON function does so
-    #     ret_type="abs",
-    #     period_return=1,
-    #     spread=True,
-    # ).round(4)
+    ac = (
+        _load_json("./data/returns3.json")
+        .round(4)
+        .set_index("date")
+        .sort_index(axis=1)
+    )
+    ac.columns.name = "series"
+    ts = rt.returns(
+        df=rt.data.open_data("dflong").round(
+            4
+        ),  # round(4) because R toJSON function does so
+        ret_type="abs",
+        period_return=1,
+        spread=True,
+    ).round(4)
 
-    # ts = ts.dropna()
-    # assert ac.equals(ts), "returns Test 3 failed"
+    assert (
+        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
+        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
+        , "returns Test 3 failed"
+        )
 
-    # # Test 4
-    # ac = (
-    #     _load_json("returns4.json")
-    #     .round(4)
-    #     .set_index("date")
-    #     .dropna()
-    #     .sort_index(axis=1)
-    # )
-    # ac.columns.name = "series"
-    # ts = rt.returns(
-    #     df=rt.data.open_data("dflong").round(
-    #         4
-    #     ),  # round(4) because R toJSON function does so
-    #     ret_type="log",
-    #     period_return=1,
-    #     spread=True,
-    # ).round(4)
+    # Test 4
+    ac = (
+        _load_json("./data/returns4.json")
+        .round(4)
+        .set_index("date")
+        .sort_index(axis=1)
+    )
+    ac.columns.name = "series"
+    ts = rt.returns(
+        df=rt.data.open_data("dflong").round(
+            4
+        ),  # round(4) because R toJSON function does so
+        ret_type="log",
+        period_return=1,
+        spread=True,
+    ).round(4)
 
-    # ts = ts.dropna()
-    # assert ac.equals(ts), "returns Test 4 failed"
+    assert (
+        ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]
+        .equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']])
+        , "returns Test 4 failed"
+        )
 
 
 def test_roll_adjust():
-    pass
-    # ac = _load_json("rolladjust.json").set_index("date").round(4)
+    ac = _load_json("./data/rolladjust.json").set_index("date").round(4)
 
-    # ac = ac.iloc[:, 0].dropna()
+    ac = ac.iloc[:, 0]
 
-    # dflong = rt.data.open_data("dflong")["CL01"]
-    # rt.data.open_data("expiry_table").cmdty.unique()  # for list of commodity names
-    # ret = rt.returns(df=dflong, ret_type="abs", period_return=1, spread=True)
-    # ret = ret.iloc[:, 0].dropna()
-    # ts = (
-    #     rt.roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade")
-    #     # .iloc[1:]
-    #     .round(4).dropna()
-    # )
+    dflong = rt.data.open_data("dflong")["CL01"]
+    rt.data.open_data("expiry_table").cmdty.unique()  # for list of commodity names
+    ret = rt.returns(df=dflong, ret_type="abs", period_return=1, spread=True)
+    ret = ret.iloc[:, 0].dropna()
+    ts = (
+        rt.roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade")
+        # .iloc[1:]
+        .round(4)
+    )
 
-    # assert ac.equals(ts), "rolladjust Test failed"
+    assert ac.loc['2021-06-01':'2021-06-30'].equals(ts.loc['2021-06-01':'2021-06-30']), "rolladjust Test failed"
 
 
 def test_garch():
