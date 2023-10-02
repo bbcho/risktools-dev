@@ -144,6 +144,7 @@ def _norm_df(fn):
         # if structure of dict is {key : DataFrame}
         try: 
             df[key] = _pd.DataFrame.from_records(tmp[key])
+            # df[key] = _try_dates(df[key])
         except:
             pass
 
@@ -159,6 +160,7 @@ def _norm_df(fn):
                 tf = tf[['assay', *cols]]
                 cf = _pd.concat([cf, tf], axis=0)
             df[key] = cf
+            # df[key] = _try_dates(df[key])
 
         except:
             pass
@@ -221,6 +223,15 @@ def _read_curves(fn):
     for key in dd.keys():
         if isinstance(dd[key], list) == True:
             dd[key] = _np.array(dd[key])
+
+        if isinstance(dd[key], dict) == True:
+            print(dd[key])
+            for k in dd[key].keys():
+                dd[key][k] = _np.array(dd[key][k])
+
+                if len(dd[key][k]) == 1:
+                    dd[key][k] = dd[key][k][0]
+
 
     dd["table"] = _pd.DataFrame.from_records(dd["table"])
 
@@ -292,7 +303,7 @@ _file_actions = {
     "futuresRef": {
         "file": "futuresRef.json",
         "date_fields": None,
-        "load_func": _load_data,
+        "load_func": _norm_df,
     },
     "fxfwd": {
         "file": "fxfwd.json",
