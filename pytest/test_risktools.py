@@ -29,7 +29,7 @@ except:
     pass
 
 # Github Actions CI Env Vars
-up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": ""}
+up = {"m*": {"user": "", "pass": ""}, "eia": "", "quandl": None}
 
 up["eia"] = os.getenv("EIA", upf['eia'])
 up["quandl"] = os.getenv("QUANDL", upf["quandl"])
@@ -108,33 +108,31 @@ def test_get_prices():
 
 
 def test_ir_df_us():
-    pass
-    # df = _load_json("ir_df_us.json")
-    # df = df[
-    #     [
-    #         "yield",
-    #         "maturity",
-    #         "discountfactor",
-    #         "discountfactor_plus",
-    #         "discountfactor_minus",
-    #     ]
-    # ]
-    # ir = rt.ir_df_us(quandl_key=up["quandl"], date=test_date)
-    # ir = ir[
-    #     [
-    #         "yield",
-    #         "maturity",
-    #         "discountfactor",
-    #         "discountfactor_plus",
-    #         "discountfactor_minus",
-    #     ]
-    # ].reset_index(drop=True)
+    
+    df = _load_json("./data/ir_df_us.json")
+    df = df[
+        [
+            "yield",
+            "maturity",
+            "discountfactor",
+            "discountfactor_plus",
+            "discountfactor_minus",
+        ]
+    ]
+    ir = rt.ir_df_us(quandl_key=up["quandl"], date='2021-12-18')
+    ir = ir[
+        [
+            "yield",
+            "maturity",
+            "discountfactor",
+            "discountfactor_plus",
+            "discountfactor_minus",
+        ]
+    ].reset_index(drop=True)
 
-    # print(df)
-
-    # assert df.round(4).equals(
-    #     ir.round(4)
-    # ), "ir_df_us test failed, returned dataframe does not equal RTL results"
+    assert df.round(4).equals(
+        ir.round(4)
+    ), "ir_df_us test failed, returned dataframe does not equal RTL results"
 
 
 def test_bond():

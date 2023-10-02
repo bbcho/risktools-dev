@@ -79,10 +79,10 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     x.columns = ["maturity", "yield"]
     x["index"] = x["maturity"]
     x["yield"] /= 100
-    x["maturity"] = x.maturity.str.extract("(\d+)").astype("int")
+    x["maturity"] = x.maturity.str.extract("(\d+)").astype("float")
 
     # change maturity numbers to year fraction for first four rows
-    x.iloc[1:4, x.columns.get_loc("maturity")] /= 12
+    x.iloc[1:4, x.columns.get_loc("maturity")] /= 12.0
     x.iloc[0, x.columns.get_loc("maturity")] = 1 / 365
     # x.maturity[1:4] /= 12
     # x.maturity[0] = 1/365
