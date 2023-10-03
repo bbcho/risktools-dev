@@ -195,7 +195,9 @@ x <- x %>%
   dplyr::group_by(series)
 x <- RTL::returns(df = x, retType = "abs", period.return = 1, spread = TRUE)
 x <- RTL::rolladjust(x = x, commodityname = c("cmewti"), rolltype = c("Last.Trade"))
-x <- x %>% dplyr::filter(!grepl("2020-04-20|2020-04-21", date))
+x <- x %>% 
+  dplyr::filter(!grepl("2020-04-20|2020-04-21", date)) %>% 
+  filter((date>='2010-01-04') & (date <= '2022-12-30'))
 ou <- promptBeta(x = x, period = "all", betatype = "all", output = "betas")
 write(jsonlite::toJSON(ou), "promptBeta.json")
 

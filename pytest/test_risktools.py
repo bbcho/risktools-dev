@@ -314,21 +314,23 @@ def test_garch():
 
 def test_prompt_beta():
     
-    ac = _load_json("./data/promptBeta.json").round(2).drop("contract", axis=1)
+    ac = _load_json("../pytest/data/promptBeta.json").round(4).drop("contract", axis=1)
 
     dfwide = rt.data.open_data("dflong").unstack(0)
     col_mask = dfwide.columns[dfwide.columns.str.contains("CL")]
     dfwide = dfwide[col_mask]
-    dfwide = dfwide[~dfwide.index.isin(["2020-04-20", "2020-04-21"])]
+    dfwide = dfwide.dropna(thresh=10, axis=0)
+
     x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
     x = rt.roll_adjust(df=x, commodity_name="cmewti", roll_type="Last_Trade")
+    x = x[~x.index.isin(["2020-04-20", "2020-04-21"])]
+    x = x.loc['2010-01-04':'2022-12-30',:]
 
     ts = (
         rt.prompt_beta(df=x, period="all", beta_type="all", output="betas")
         .round(4)
         .reset_index(drop=True)
     )
-
     # for some reason the betas are slightly different using the Python sklearn
     # LinearRegression model. Make sure that the max of the three columns
     # are less than 0.03. Differences are on the order of 0.001 on any individual
