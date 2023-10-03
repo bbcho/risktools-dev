@@ -214,7 +214,7 @@ def test_returns():
         .sort_index(axis=1)
     )
     
-    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 1 failed")
+    assert ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 1 failed"
 
     # Test 2
     ac2 = _load_json("./data/returns2.json").round(4)
@@ -231,7 +231,7 @@ def test_returns():
 
     # ts2 = ts2.unstack(0).stack().swaplevel(0, 1).sort_index()
 
-    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 2 failed")
+    assert ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 2 failed"
 
     # Test 3
     ac = (
@@ -250,7 +250,7 @@ def test_returns():
         spread=True,
     ).round(4)
 
-    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 3 failed")
+    assert ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 3 failed"
 
     # Test 4
     ac = (
@@ -269,7 +269,7 @@ def test_returns():
         spread=True,
     ).round(4)
 
-    assert (ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 4 failed")
+    assert ac.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']].equals(ts.loc['2021-06-01':'2021-06-30', ['BRN01','BRN02']]), "returns Test 4 failed"
 
 
 def test_roll_adjust():
@@ -313,31 +313,31 @@ def test_garch():
 
 
 def test_prompt_beta():
-    pass
-    # ac = _load_json("promptBeta.json").round(2).drop("contract", axis=1)
+    
+    ac = _load_json("./data/promptBeta.json").round(2).drop("contract", axis=1)
 
-    # dfwide = rt.data.open_data("dflong").unstack(0)
-    # col_mask = dfwide.columns[dfwide.columns.str.contains("CL")]
-    # dfwide = dfwide[col_mask]
-    # dfwide = dfwide[~dfwide.index.isin(["2020-04-20", "2020-04-21"])]
-    # x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
-    # x = rt.roll_adjust(df=x, commodity_name="cmewti", roll_type="Last_Trade")
+    dfwide = rt.data.open_data("dflong").unstack(0)
+    col_mask = dfwide.columns[dfwide.columns.str.contains("CL")]
+    dfwide = dfwide[col_mask]
+    dfwide = dfwide[~dfwide.index.isin(["2020-04-20", "2020-04-21"])]
+    x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
+    x = rt.roll_adjust(df=x, commodity_name="cmewti", roll_type="Last_Trade")
 
-    # ts = (
-    #     rt.prompt_beta(df=x, period="all", beta_type="all", output="betas")
-    #     .round(4)
-    #     .reset_index(drop=True)
-    # )
+    ts = (
+        rt.prompt_beta(df=x, period="all", beta_type="all", output="betas")
+        .round(4)
+        .reset_index(drop=True)
+    )
 
-    # # for some reason the betas are slightly different using the Python sklearn
-    # # LinearRegression model. Make sure that the max of the three columns
-    # # are less than 0.03. Differences are on the order of 0.001 on any individual
-    # # beta
-    # assert (
-    #     ac - ts
-    # ).abs().max().sum() < 0.03, (
-    #     "prompt_beta Test failed, sum of total differences > 0.03"
-    # )
+    # for some reason the betas are slightly different using the Python sklearn
+    # LinearRegression model. Make sure that the max of the three columns
+    # are less than 0.03. Differences are on the order of 0.001 on any individual
+    # beta
+    assert (
+        ac - ts
+    ).abs().max().sum() < 0.03, (
+        "prompt_beta Test failed, sum of total differences > 0.03"
+    )
 
 
 def test_swap_irs():
