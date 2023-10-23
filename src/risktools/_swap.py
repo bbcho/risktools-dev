@@ -142,7 +142,7 @@ def swap_irs(
             / 365,  # calc days to maturity from trade_date
         }
     )
-    print(df)
+
     disc = _interpolate.splrep(disc_curve["times"], disc_curve["discounts"])
     df["disc"] = _interpolate.splev(df.times, disc)
 

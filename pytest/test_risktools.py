@@ -347,7 +347,7 @@ def test_swap_irs():
     # a = 85085.84
     # b = round(1.015174, 4)
 
-    # ac = _load_json("swapIRS.json")
+    # ac = _load_json("./data/swapIRS.json")
     # ac.dates = pd.to_datetime(ac.dates)
 
     # usSwapCurves = rt.data.open_data("usSwapCurves")
@@ -443,46 +443,17 @@ def test_stl_decomposition():
 
 
 def test_get_eia_df():
-    pass
-    # ac = _load_json("eia2tidy1.json")
-    # ac = ac[["date", "value"]].set_index("date").sort_index().value
-    # ts = rt.get_eia_df("PET.MCRFPTX2.M", key=up["eia"])
-    # ts = ts[["date", "value"]].set_index("date").sort_index().value
-    # ts = ts[ac.index.min() : ac.index.max()]
+    ts = rt.get_eia_df("PET.MCRFPTX2.M", key=up["eia"])
 
-    # # assert ac.equals(ts), "get_eia_df Test 1 failed"
-    # pd.testing.assert_series_equal(ac, ts)
+    assert ts.shape[0] > 0, "get_eia_df Test 1 failed"
 
-    # ac = _load_json("eia2tidy2.json")
-    # ac = ac.set_index(["series", "date"]).sort_index().value
-    # ts = rt.get_eia_df(
-    #     ["PET.W_EPC0_SAX_YCUOK_MBBL.W", "NG.NW2_EPG0_SWO_R48_BCF.W"], key=up["eia"]
-    # )
-    # ts.date = pd.to_datetime(ts.date)
-    # ts.table_name = ts.table_name.map(
-    #     {
-    #         "Cushing, OK Ending Stocks excluding SPR of Crude Oil, Weekly": "CrudeCushing",
-    #         "Weekly Lower 48 States Natural Gas Working Underground Storage, Weekly": "NGLower48",
-    #     }
-    # )
+    ts = rt.get_eia_df(
+        ["PET.W_EPC0_SAX_YCUOK_MBBL.W", "NG.NW2_EPG0_SWO_R48_BCF.W"], key=up["eia"]
+    )
 
-    # ts = (
-    #     ts.rename({"table_name": "series"}, axis=1)
-    #     .set_index(["series", "date"])
-    #     .sort_index()
-    #     .value
-    # )
+    assert ts.shape[0] > 0, "get_eia_df Test 2 failed"
 
-    # cmin = ac["CrudeCushing"].index.min()
-    # cmax = ac["CrudeCushing"].index.max()
-
-    # nmin = ac["NGLower48"].index.min()
-    # nmax = ac["NGLower48"].index.max()
-
-    # ts = ts.loc[("CrudeCushing", slice(cmin, cmax))].append(
-    #     ts.loc[("NGLower48", slice(nmin, nmax))]
-    # )
-    # pd.testing.assert_series_equal(ac, ts)
+    assert ts.shape[1] == 4, "get_eia_df Test 3 failed"
 
 
 def test_chart_spreads():

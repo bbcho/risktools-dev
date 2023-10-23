@@ -685,7 +685,7 @@ def _fitOU_MLE(spread):
         - 2 * mu * (1 - a) * (Sy - a * Sx)
         + (n - 1) * mu**2 * (1 - a) ** 2
     ) / (n - 1)
-    print((sigmah2) * 2 * theta / (1 - a**2))
+    # print((sigmah2) * 2 * theta / (1 - a**2))
     sigma = _np.sqrt((sigmah2) * 2 * theta / (1 - a**2))
     theta = {"theta": theta, "mu": mu, "annualized_sigma": sigma}
 

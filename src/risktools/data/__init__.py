@@ -155,6 +155,7 @@ def _norm_df(fn):
             cf = _pd.DataFrame()
             for sec_key in tmp[key].keys():
                 tf = _pd.DataFrame.from_records(tmp[key][sec_key])
+                tf.columns = tf.columns.str.replace("\.+", "_", regex=True)
                 cols = list(tf.columns)
                 tf['assay'] = sec_key
                 tf = tf[['assay', *cols]]
@@ -176,6 +177,7 @@ def _load_data(fn):
     try:
         df = _pd.DataFrame.from_records(dd)
         df = _try_dates(df)
+        df.columns = df.columns.str.replace("\.+", "_", regex=True)
         return df
     except:
         pass
@@ -184,11 +186,13 @@ def _load_data(fn):
 
         try:
             dd[key] = _pd.DataFrame.from_records(dd[key])
+            dd[key].columns = dd[key].columns.str.replace("\.+", "_", regex=True)
         except:
             pass
 
         try:
             dd[key] = _pd.DataFrame(dd[key])
+            dd[key].columns = dd[key].columns.str.replace("\.+", "_", regex=True)
         except:
             pass
 
@@ -199,7 +203,7 @@ def _load_data(fn):
         #     dd[key] = _np.array(dd[key])
         # except:
         #     pass
-
+    # dd.columns = dd.columns.str.replace("\.+", "_", regex=True)
     return dd
 
 
@@ -225,7 +229,7 @@ def _read_curves(fn):
             dd[key] = _np.array(dd[key])
 
         if isinstance(dd[key], dict) == True:
-            print(dd[key])
+            # print(dd[key])
             for k in dd[key].keys():
                 dd[key][k] = _np.array(dd[key][k])
 

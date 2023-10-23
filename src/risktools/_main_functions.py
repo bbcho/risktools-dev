@@ -63,7 +63,6 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
         sdt = edt - _pd.DateOffset(days=30)
 
     fedsfund = _quandl.get("FED/RIFSPFF_N_D", start_date=sdt, end_date=edt).dropna()
-    # print(fedsfund)
     fedsfund["FedsFunds0"] = _np.log((1 + fedsfund.Value / 360) ** 365)
     fedsfund.drop("Value", axis=1, inplace=True)
 
@@ -634,7 +633,6 @@ def npv(
         )
 
     if break_even == True:
-        print("test")
         disc_factors["yield"] = be_yield
         disc_factors["discountfactor"] = _np.exp(
             -disc_factors["yield"] * disc_factors.maturity
