@@ -155,7 +155,7 @@ def _norm_df(fn):
             cf = _pd.DataFrame()
             for sec_key in tmp[key].keys():
                 tf = _pd.DataFrame.from_records(tmp[key][sec_key])
-                tf.columns = tf.columns.str.replace("\.+", "_", regex=True)
+                tf.columns = tf.columns.str.replace(r"\.+", "_", regex=True)
                 cols = list(tf.columns)
                 tf['assay'] = sec_key
                 tf = tf[['assay', *cols]]
@@ -177,7 +177,7 @@ def _load_data(fn):
     try:
         df = _pd.DataFrame.from_records(dd)
         df = _try_dates(df)
-        df.columns = df.columns.str.replace("\.+", "_", regex=True)
+        df.columns = df.columns.str.replace(r"\.+", "_", regex=True)
         return df
     except:
         pass
@@ -186,13 +186,13 @@ def _load_data(fn):
 
         try:
             dd[key] = _pd.DataFrame.from_records(dd[key])
-            dd[key].columns = dd[key].columns.str.replace("\.+", "_", regex=True)
+            dd[key].columns = dd[key].columns.str.replace(r"\.+", "_", regex=True)
         except:
             pass
 
         try:
             dd[key] = _pd.DataFrame(dd[key])
-            dd[key].columns = dd[key].columns.str.replace("\.+", "_", regex=True)
+            dd[key].columns = dd[key].columns.str.replace(r"\.+", "_", regex=True)
         except:
             pass
 
