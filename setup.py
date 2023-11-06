@@ -42,7 +42,7 @@ requirements = [
 
 preqs = ">=3.7"
 
-if platform.system() == "Windows":
+if platform.system() != "Windows":
     requirements.remove("numba")
 
 with open("README.md", "r") as fh:
