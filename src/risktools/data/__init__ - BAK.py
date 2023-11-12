@@ -81,7 +81,7 @@ for fp in files:
 
         if isinstance(df, pd.DataFrame):
             # convert "." to "_" in column names
-            df.columns = df.columns.str.replace('.','_')
+            df.columns = df.columns.str.replace('.','_', regex=False)
 
         # convert datetime fields
         if file_actions[fn]['date_fields'] is not None:

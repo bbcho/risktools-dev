@@ -102,14 +102,14 @@ def get_prices(
         elif feed in ["CME_STLCPC_Futures"]:
             p_dict["product"] = code
         elif feed in ["CFTC_CommitmentsOfTradersCombined"]:
-            fcode = _re.sub("[^\w]", " ", code).split()  # get rid of any punctuation
+            fcode = _re.sub(r"[^\w]", " ", code).split()  # get rid of any punctuation
             p_dict["cftc_subgroup_code"] = fcode[0]
             p_dict["cftc_contract_market_code"] = fcode[1]
             p_dict["cftc_market_code"] = fcode[2]
             p_dict["cftc_region_code"] = fcode[3]
             p_dict["cols"] = fcode[4]
         elif feed in ["Morningstar_FX_Forwards"]:
-            fcode = _re.sub("[^\w]", " ", code).split()  # get rid of any punctuation
+            fcode = _re.sub(r"[^\w]", " ", code).split()  # get rid of any punctuation
             p_dict["cross_currencies"] = fcode[0]
             p_dict["period"] = fcode[1]
         elif feed in ["ERCOT_LmpsByResourceNodeAndElectricalBus"]:
@@ -132,7 +132,7 @@ def get_prices(
         tf = _pd.read_csv(_io.StringIO(r.content.decode("utf-8"))).set_index("Date")
         tf.index = _pd.to_datetime(tf.index)
         tf.columns = tf.columns.str.replace(
-            "\(([^)]*)\)", "", regex=True
+            r"\(([^)]*)\)", "", regex=True
         )  # clean up columns by removing ticker/code names
         tf = _pd.concat([tf], keys=[code])
 

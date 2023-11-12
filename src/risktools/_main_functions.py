@@ -517,7 +517,7 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     df = df.copy()
     # this assumes that the numeric component of the column name represents
     # an order to the asset contract
-    term = df.columns.str.replace("[^0-9]", "", regex=True).astype(int)
+    term = df.columns.str.replace(r"[^0-9]", "", regex=True).astype(int)
 
     if isinstance(period, (int, float)):
         df = df.sort_index()

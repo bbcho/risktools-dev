@@ -548,7 +548,7 @@ def chart_forward_curves(
         pandas series to plot with modified datetime index
         """
         df = df.copy()
-        df.columns = df.columns.str.replace("[^0-9]", "", regex=True).astype(int)
+        df.columns = df.columns.str.replace(r"[^0-9]", "", regex=True).astype(int)
         se = df.loc[date, :]
 
         n = len(se)
