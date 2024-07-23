@@ -31,14 +31,16 @@ def is_iterable(x):
 def make_into_array(x, N):
     # make an array of same size as N+1
     if is_iterable(x):
+        # if isinstance(x, _pd.DataFrame) == False:
+        #     x = _pd.DataFrame(x)
         if len(x.shape) == 2:
             # if a 2D array is passed, return it as is
             # good for stocastic volatility matrix
-            x = _np.vstack((x[0], x))
+            x = _np.vstack((x.iloc[0], x))
             return x
 
         if x.shape[0] == N:
-            x = _np.append(x[0], x)
+            x = _np.append(x.iloc[0], x)
         else:
             raise ValueError(
                 "if mu is passed as an iterable, it must be of length int(T/dt)"
@@ -612,7 +614,7 @@ def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
         where 252 is the number of business days in a year. Default is 1/252.
         Only used if method is "OLS".
     log_price : bool
-        If True, the spread is assumed to be log prices and the log of the spread is taken.
+        If True, the log of the spread is taken.
         Default is False.
     method : ['OLS', 'MLE']
         Method to use for parameter estimation. Default is 'OLS'.
