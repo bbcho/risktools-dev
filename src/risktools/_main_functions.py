@@ -15,6 +15,7 @@ from pandas.plotting import (
     register_matplotlib_converters as _register_matplotlib_converters,
 )
 import seaborn as _sns
+import time
 
 from ._pa import *
 
@@ -284,14 +285,18 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
     if ret_type == "abs":
         df = df.groupby(level=0, group_keys=False).apply(lambda x: x.diff())
     elif ret_type == "rel":
-        df = df.groupby(level=0, group_keys=False).apply(lambda x: x / x.shift(period_return) - 1)
+        df = df.groupby(level=0, group_keys=False).apply(
+            lambda x: x / x.shift(period_return) - 1
+        )
     elif ret_type == "log":
         if df[df < 0].count().sum() > 0:
             warnings.warn(
                 "Negative values passed to log returns. You will likely get NaN values using log returns",
                 RuntimeWarning,
             )
-        df = df.groupby(level=0, group_keys=False).apply(lambda x: _np.log(x / x.shift(period_return)))
+        df = df.groupby(level=0, group_keys=False).apply(
+            lambda x: _np.log(x / x.shift(period_return))
+        )
     else:
         raise ValueError("ret_type is not valid")
 
@@ -704,7 +709,7 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
 
     for i in range(0, n + 1):
         for j in range(0, i + 1):
-            asset[i, j] = s * (u ** j) * (d ** (i - j))
+            asset[i, j] = s * (u**j) * (d ** (i - j))
 
     # create matrix of the same dims as asset price tree
     option = _np.zeros([n + 1, n + 1])
@@ -809,7 +814,7 @@ def stl_decomposition(
         return res
 
 
-def get_eia_df(tables, key, version=2):
+def get_eia_df(tables, key, version=2, sleep=1):
     """
     Function for download data from the US Government EIA and return it as a pandas dataframe/series
 
@@ -824,7 +829,7 @@ def get_eia_df(tables, key, version=2):
         EIA key.
     version : 1 | 2
         API version to use, can be either 1 or 2. By default 2. As of Nov 2022, EIA is no
-        longer support v1 of the API. 
+        longer support v1 of the API.
 
     Returns
     -------
@@ -839,7 +844,7 @@ def get_eia_df(tables, key, version=2):
     if int(version) == 1:
         return _get_eia_df_v1(tables, key)
     else:
-        return _get_eia_df_v2(tables, key)
+        return _get_eia_df_v2(tables, key, sleep=sleep)
 
 
 def _get_eia_df_v1(tables, key):
@@ -878,7 +883,8 @@ def _get_eia_df_v1(tables, key):
         url = r"http://api.eia.gov/series/?api_key={}&series_id={}&out=json".format(
             key, tbl
         )
-        tmp = json.loads(requests.get(url).text)
+        r = requests.get(url)
+        tmp = json.loads(r.text)
 
         tf = _pd.DataFrame(tmp["series"][0]["data"], columns=["date", "value"])
         tf["table_name"] = tmp["series"][0]["name"]
@@ -892,7 +898,7 @@ def _get_eia_df_v1(tables, key):
     return eia
 
 
-def _get_eia_df_v2(tables, key):
+def _get_eia_df_v2(tables, key, sleep):
     """
     Function for download data from the US Government EIA and return it as a pandas dataframe/series.
     API version 2.
@@ -926,17 +932,27 @@ def _get_eia_df_v2(tables, key):
 
     for tbl in tables:
         url = f"http://api.eia.gov/v2/seriesid/{tbl}?api_key={key}"
-        tmp = json.loads(requests.get(url).text)
 
-        tf = _pd.DataFrame(tmp['response']['data'], columns=["period","series-description", "value"])
+        try:
+            r = requests.get(url)
+            tmp = json.loads(r.text)
+            tf = _pd.DataFrame(
+                tmp["response"]["data"],
+                columns=["period", "series-description", "value"],
+            )
+        except:
+            print(f"Error in table {tbl}")
+            print(r.text)
+            continue
         tf["series_id"] = tbl
         eia = _pd.concat([eia, tf], axis=0)
+        time.sleep(sleep)
         # eia = eia.append(tf)
-    
-    eia = eia.rename(columns={'period':'date','series-description':'table_name'})
+
+    eia = eia.rename(columns={"period": "date", "series-description": "table_name"})
     eia.loc[eia.date.str.len() < 7, "date"] += "01"
     eia.date = _pd.to_datetime(eia.date)
-    return eia[['date','value','table_name','series_id']]
+    return eia[["date", "value", "table_name", "series_id"]]
 
 
 def _check_df(df):
@@ -949,7 +965,7 @@ def _check_df(df):
 
 def infer_freq(x, multiplier=False):
     """
-    Function to infer the frequency of a time series. Improvement over 
+    Function to infer the frequency of a time series. Improvement over
     pandas.infer_freq as it can handle missing days/holidays. Note that
     for business days it will return 'D' vs 'B'
 
@@ -991,4 +1007,3 @@ def infer_freq(x, multiplier=False):
             return 4
         elif freq[0] == "A":
             return 1
-
