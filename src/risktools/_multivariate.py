@@ -138,7 +138,7 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
             mu = _np.array(mu)
     else:
         mu = _np.zeros(cor.shape[0])
-
+    
     # unneeded since we multiple by sigma in simOU/GBM
     # sd = _np.diag(sigma)
     # cov = sd @ cor @ sd
@@ -352,6 +352,16 @@ def simOU_MV(
 
     s = _np.zeros((N + 1, eps.shape[1], eps.shape[2]))
 
+    try:
+        s0 = s0.to_numpy()
+    except:
+        pass
+
+    try:
+        theta = theta.to_numpy()
+    except:
+        pass
+
     for i in range(0, eps.shape[2]):
         s[:, :, i] = simOU(
             s0=s0[i],
@@ -364,6 +374,8 @@ def simOU_MV(
             log_price=log_price,
             **kwargs
         )
+
+
 
     return s
 
@@ -1196,9 +1208,14 @@ class MVOU(_MVSIM):
         # Only relevent if prices not passed to constructor
         if self._prices is not None:
             prices = _pd.DataFrame(self._prices)
-            returns = (_np.log(prices) - _np.log(prices.shift())).dropna()
+
+            # try:
+                # returns = (_np.log(prices) - _np.log(prices.shift())).dropna()
+            # except:
+            returns = prices.diff().dropna()
 
             self._s0 = prices.iloc[-1, :] if s0 is None else s0
+            self._s0 = _np.array(self._s0)
 
             self._params = fitOU_MV(
                 prices, self._dt, log_price=log_price, method=method, verbose=verbose
@@ -1216,13 +1233,65 @@ class MVOU(_MVSIM):
 
     def simulate(self, sims=1000):
 
-        self._sims = self._sims = simOU_MV(
-            self._s0,
-            self._params.loc["mu", :],
-            self._params.loc["theta", :],
-            self._T,
-            self._dt,
-            self._params.loc["annualized_sigma", :],
-            self._cor,
+        self._sims = simOU_MV(
+            s0=self._s0,
+            mu=self._params.loc["mu", :],
+            theta=self._params.loc["theta", :],
+            T=self._T,
+            dt=self._dt,
+            sigma=self._params.loc["annualized_sigma", :],
+            cor=self._cor,
             sims=sims,
+            log_price=False
         )
+
+
+    def output(self, start_date=None, freq='B', names=None):
+        """
+        Method for outputing the results of the simulations. It will return a 
+        dictionary of dataframes where the names are the column names of the original
+        pricing dataframe passed to the object if it exists.
+
+        Parameters
+        ----------
+        start_date : str or datetime, optional
+            Start date of the simulation. By default None.
+        freq : str, optional
+            Frequency of the simulation. By default 'B'.
+        names : list[str], optional
+            List of strings to use as asset names in the output dictionary. Should be of length N
+            where N is the number of assets in the portfolio. By default None.
+
+        Returns
+        -------
+        Dictionary of dataframes where the keys are the column names of the original
+        pricing dataframe passed to the object if it exists.
+        """
+
+        df = self._sims.copy()
+
+        if (names is None) & (self._prices is not None):
+            names = self._prices.columns
+        else:
+            names = [f"Asset {str(i)}" for i in range(0, df.shape[2])]
+        
+        if start_date is None:
+            start_date = _pd.Timestamp.now().floor('D') + _pd.Timedelta(days=1)
+        
+        dates = _pd.date_range(start=start_date, periods=df.shape[0], freq=freq)
+
+        out = _pd.DataFrame()
+        for i, nm in enumerate(names):
+            tf = _pd.DataFrame(df[:, :, i], index=dates)
+            tf['asset'] = nm
+            tf.index.name = 'date'
+            tf.columns.name = 'sims'
+            tf = tf.reset_index().set_index(['asset','date'])
+
+            out = _pd.concat([out, tf], axis=0)
+
+        return out
+            
+
+
+

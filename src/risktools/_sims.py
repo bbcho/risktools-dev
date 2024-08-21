@@ -31,15 +31,17 @@ def is_iterable(x):
 def make_into_array(x, N):
     # make an array of same size as N+1
     if is_iterable(x):
-        # if isinstance(x, _pd.DataFrame) == False:
-        #     x = _pd.DataFrame(x)
-        if len(x.shape) == 2:
+        if isinstance(x, _pd.DataFrame) == False:
+            x = _pd.DataFrame(x)
+        if x.shape[1] >= 2:
             # if a 2D array is passed, return it as is
             # good for stocastic volatility matrix
+            # but stack first row
             x = _np.vstack((x.iloc[0], x))
             return x
 
         if x.shape[0] == N:
+            # stack first row
             x = _np.append(x.iloc[0], x)
         else:
             raise ValueError(
@@ -48,6 +50,7 @@ def make_into_array(x, N):
 
     else:
         x = _np.ones(N + 1) * x
+    
 
     return x
 
@@ -223,6 +226,7 @@ def simOU(
         mu = _np.tile(_np.array(mu), sims)
     else:
         mu = mu.flatten("F")
+    
 
     # Don't run if 2D array passed for sigma
     if len(sigma.shape) == 1:
