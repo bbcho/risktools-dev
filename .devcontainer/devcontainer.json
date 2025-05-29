@@ -4,7 +4,7 @@
   "name": "Python 3",
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
   // "image": "mcr.microsoft.com/devcontainers/python:1-3.10-bookworm",
-  "image": "bbcho/base:0.0.2",
+  "image": "bbcho/base:0.0.3",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -24,7 +24,7 @@
               "python.linting.enabled": true
         }
     }
-  }
+  },
   //"features": {
   // "ghcr.io/rocker-org/devcontainer-features/r-apt:latest": {},
   // "ghcr.io/rocker-org/devcontainer-features/quarto-cli:1": {}
@@ -44,5 +44,8 @@
 
   // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
   // "remoteUser": "root"
+  "containerEnv": {
+    "EIA": "${localEnv:EIA}"
+  }
 }
 
