@@ -23,15 +23,16 @@ __all__ = [
 _FREQ_SCALE = {
     "D": 252, "B": 252,
     "W": 52,
-    "M": 12, "MS": 12,
-    "Q": 4, "QS": 4,
-    "Y": 1, "YS": 1, "A": 1, "AS": 1,
+    "M": 12, "ME": 12, "MS": 12,
+    "Q": 4, "QE": 4, "QS": 4,
+    "Y": 1, "YE": 1, "YS": 1, "A": 1, "AS": 1,
 }
 
 
 def _resolve_scale(freq, name="x"):
     """Resolve pandas frequency to annualization scale factor."""
-    freq_str = str(freq)
+    # Try .freqstr or .name first (pandas freq objects), then fall back to str()
+    freq_str = getattr(freq, "freqstr", None) or getattr(freq, "name", None) or str(freq)
     if freq_str in _FREQ_SCALE:
         return _FREQ_SCALE[freq_str]
     # Try prefix match for weekly frequencies like 'W-FRI'

@@ -29,6 +29,7 @@ def refineryLP(crude_inputs, product_outputs, return_all=False):
 
     crudes = crude_inputs.copy()
     products = product_outputs.copy()
+    crudes["info"] = crudes["info"].str.replace(".", "_", regex=False)
     crudes = crudes.set_index("info")
 
     gpw = _pd.DataFrame(

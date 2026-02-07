@@ -611,5 +611,72 @@ def test_simOUJ_mr_lag():
         ), f"{'C' if c else 'Py'} mr_lag test failed for lag 25 days later"
 
 
+def test_simGBM_shape():
+    """Output shape should be (periods+1, sims)."""
+    result = rt.simGBM(s0=10, T=1, dt=1/252, sims=100)
+    assert result.shape == (253, 100)
+
+
+def test_simGBM_initial_value():
+    """First row should equal s0."""
+    result = rt.simGBM(s0=42, T=1, dt=1/252, sims=50)
+    assert np.allclose(result.iloc[0, :], 42.0)
+
+
+def test_simGBM_deterministic_zero_eps():
+    """With eps=0 and r=0, each step = exp(-σ²/2 * dt)."""
+    T, dt, sims = 1, 1/252, 5
+    periods = int(T / dt)
+    eps = np.zeros((periods, sims))
+    result = rt.simGBM(s0=100, mu=0, sigma=0.2, r=0, T=T, dt=dt, sims=sims, eps=eps)
+    step_factor = np.exp(-0.2**2 / 2 * dt)
+    expected_final = 100 * step_factor ** periods
+    assert np.allclose(result.iloc[-1, :], expected_final, rtol=1e-6)
+
+
+def test_simGBM_mean_convergence():
+    """With many sims, mean final value ≈ s0 * exp(r*T)."""
+    np.random.seed(123)
+    result = rt.simGBM(s0=100, mu=0, sigma=0.2, r=0.05, T=1, dt=1/252, sims=10000)
+    mean_final = result.iloc[-1, :].mean()
+    expected = 100 * np.exp(0.05)
+    assert abs(mean_final - expected) / expected < 0.03
+
+
+def test_simOU_shape():
+    result = rt.simOU(s0=5, T=1, dt=1/252, sims=100, seed=42)
+    assert result.shape == (253, 100)
+
+
+def test_simOU_initial_value():
+    result = rt.simOU(s0=42, T=1, dt=1/252, sims=50, seed=42)
+    assert np.allclose(result.iloc[0, :], 42.0)
+
+
+def test_simOU_mean_reversion():
+    """With many sims and long T, mean of final values ≈ mu."""
+    result = rt.simOU(s0=10, mu=5, theta=2, sigma=0.5, T=5, dt=1/252, sims=5000, seed=42)
+    mean_final = result.iloc[-1, :].mean()
+    assert abs(mean_final - 5.0) < 0.5, f"Mean reversion failed: {mean_final} vs 5.0"
+
+
+def test_simOUJ_shape():
+    result = rt.simOUJ(s0=5, T=1, dt=1/12, sims=100, seed=42)
+    assert result.shape == (13, 100)
+
+
+def test_simOUJ_initial_value():
+    result = rt.simOUJ(s0=42, T=1, dt=1/12, sims=50, seed=42)
+    assert np.allclose(result.iloc[0, :], 42.0)
+
+
+def test_fitOU_raises_on_dataframe():
+    """fitOU should reject DataFrames (OLS method)."""
+    df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
+    import pytest
+    with pytest.raises(ValueError):
+        rt.fitOU(df, method="OLS")
+
+
 if __name__ == "__main__":
     test_simOU_eps()

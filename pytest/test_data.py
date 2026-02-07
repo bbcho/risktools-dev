@@ -1,19 +1,16 @@
-from numpy.linalg.linalg import eigvals
+from numpy.linalg import eigvals
 import pandas as pd
 import numpy as np
 import os
 import json
 import sys
-import plotly.graph_objects as go
-import time
-import yfinance as yf
+import pytest
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src/")
 
 import risktools as rt
-from pandas_datareader import data
 
-# Test data
+# Test data — smoke tests for all bundled datasets
 
 def test_crudeOil():
 
@@ -221,3 +218,92 @@ def test_usSwapCurvesPar():
     assert isinstance(df['params'], dict), "usSwapCurvesPar-params Data not loaded"
 
     assert df['table'].shape[0] > 1, "usSwapCurvesPar-table Data not loaded"
+
+
+# ======================================================================
+# Schema validation tests — verify structure, dtypes, column names
+# ======================================================================
+
+class TestDataSchemas:
+    """Verify that bundled datasets have expected columns and types."""
+
+    def test_dfwide_has_datetime_index(self):
+        df = rt.data.open_data('dfwide')
+        assert isinstance(df.index, pd.DatetimeIndex), "dfwide should have DatetimeIndex"
+
+    def test_dflong_is_series_or_df(self):
+        df = rt.data.open_data('dflong')
+        # dflong is a stacked Series with MultiIndex or a DataFrame
+        assert isinstance(df, (pd.Series, pd.DataFrame))
+
+    def test_dfwide_columns_are_contracts(self):
+        df = rt.data.open_data('dfwide')
+        # Should have columns like CL01, CL02, ..., NG01, HO01 etc.
+        assert any("CL" in str(c) for c in df.columns), "dfwide should contain CL contracts"
+
+    def test_expiry_table_columns(self):
+        df = rt.data.open_data('expiry_table')
+        assert 'Last_Trade' in df.columns, "expiry_table missing Last_Trade column"
+        assert 'cmdty' in df.columns, "expiry_table missing cmdty column"
+
+    def test_expiry_table_has_cmewti(self):
+        df = rt.data.open_data('expiry_table')
+        assert 'cmewti' in df.cmdty.unique(), "expiry_table should contain cmewti"
+
+    def test_eiaStocks_columns(self):
+        df = rt.data.open_data('eiaStocks')
+        for col in ['date', 'value', 'series']:
+            assert col in df.columns, f"eiaStocks missing {col} column"
+
+    def test_holidaysOil_columns(self):
+        df = rt.data.open_data('holidaysOil')
+        assert 'key' in df.columns, "holidaysOil missing key column"
+        assert 'value' in df.columns, "holidaysOil missing value column"
+
+    def test_tickers_eia_columns(self):
+        df = rt.data.open_data('tickers_eia')
+        assert 'tick_eia' in df.columns, "tickers_eia missing tick_eia column"
+        assert 'sd_category' in df.columns, "tickers_eia missing sd_category column"
+
+    def test_usSwapCurves_structure(self):
+        dc = rt.data.open_data('usSwapCurves')
+        assert isinstance(dc, dict), "usSwapCurves should be a dict"
+        expected_keys = {'times', 'discounts', 'forwards', 'zerorates', 'flatQuotes', 'params', 'table'}
+        assert expected_keys.issubset(set(dc.keys())), f"Missing keys: {expected_keys - set(dc.keys())}"
+
+    def test_usSwapCurves_times_monotonic(self):
+        dc = rt.data.open_data('usSwapCurves')
+        times = np.array(dc['times'])
+        diffs = np.diff(times)
+        assert (diffs > 0).all(), "usSwapCurves times should be monotonically increasing"
+
+    def test_usSwapCurves_discounts_decreasing(self):
+        dc = rt.data.open_data('usSwapCurves')
+        discounts = np.array(dc['discounts'])
+        # Discount factors should generally decrease over time (first is 1)
+        assert discounts[0] >= discounts[-1], "Discounts should decrease over time"
+
+    def test_refineryLPdata_structure(self):
+        dc = rt.data.open_data('refineryLPdata')
+        assert 'inputs' in dc
+        assert 'outputs' in dc
+        assert 'info' in dc['inputs'].columns
+        assert 'product' in dc['outputs'].columns
+
+    def test_crudeOil_structure(self):
+        dc = rt.data.open_data('crudeOil')
+        expected_keys = {'crudes', 'CanadianAssays', 'bpAssays', 'xomAssays', 'CanadaPrices'}
+        assert expected_keys.issubset(set(dc.keys()))
+
+    def test_stocks_structure(self):
+        dc = rt.data.open_data('stocks')
+        assert isinstance(dc, dict)
+        for key in ['spy', 'uso', 'ry']:
+            assert key in dc, f"stocks missing {key}"
+            assert isinstance(dc[key], pd.DataFrame)
+
+    def test_ohlc_columns(self):
+        df = rt.data.open_data('ohlc')
+        # OHLC data should have standard columns
+        lower_cols = [c.lower() for c in df.columns]
+        assert any('open' in c for c in lower_cols) or df.shape[1] >= 4
