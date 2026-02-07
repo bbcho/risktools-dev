@@ -4,6 +4,43 @@ import pandas as _pd
 import numpy as _np
 from sklearn.linear_model import LinearRegression as _LinearRegression
 
+__all__ = [
+    "return_cumulative",
+    "return_annualized",
+    "return_excess",
+    "sd_annualized",
+    "omega_sharpe_ratio",
+    "upside_risk",
+    "downside_deviation",
+    "sharpe_ratio_annualized",
+    "drawdowns",
+    "find_drawdowns",
+    "CAPM_beta",
+    "timing_ratio",
+]
+
+# Mapping from pandas frequency strings to annualization factors
+_FREQ_SCALE = {
+    "D": 252, "B": 252,
+    "W": 52,
+    "M": 12, "MS": 12,
+    "Q": 4, "QS": 4,
+    "Y": 1, "YS": 1, "A": 1, "AS": 1,
+}
+
+
+def _resolve_scale(freq, name="x"):
+    """Resolve pandas frequency to annualization scale factor."""
+    freq_str = str(freq)
+    if freq_str in _FREQ_SCALE:
+        return _FREQ_SCALE[freq_str]
+    # Try prefix match for weekly frequencies like 'W-FRI'
+    if freq_str and freq_str[0] in _FREQ_SCALE:
+        return _FREQ_SCALE[freq_str[0]]
+    raise ValueError(
+        f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"
+    )
+
 
 def return_cumulative(r, geometric=True):
     """
@@ -232,25 +269,12 @@ def sd_annualized(x, scale=None, *args):
     >>> rt.sd_annualized(x=df[('Adj Close','SPY')])
     >>> rt.sd_annualized(x=df['Adj Close'])
     """
-    if (~isinstance(x, _pd.DataFrame) & ~isinstance(x, _pd.Series)) == True:
+    if not isinstance(x, (_pd.DataFrame, _pd.Series)):
         raise ValueError("x must be a pandas Series or DataFrame")
 
     if isinstance(x.index, _pd.DatetimeIndex):
         if scale is None:
-            if (x.index.freq == "D") | (x.index.freq == "B"):
-                scale = 252
-            elif x.index.freq == "W":
-                scale = 52
-            elif (x.index.freq == "M") | (x.index.freq == "MS"):
-                scale = 12
-            elif (x.index.freq == "Q") | (x.index.freq == "QS"):
-                scale = 4
-            elif (x.index.freq == "Y") | (x.index.freq == "YS"):
-                scale = 1
-            else:
-                raise ValueError(
-                    "parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'"
-                )
+            scale = _resolve_scale(x.index.freq, name="x")
     else:
         raise ValueError(
             "parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'"
@@ -298,14 +322,14 @@ def omega_sharpe_ratio(R, MAR, *args):
     >>> print(omega_sharpe_ratio(portfolio_bacon, MAR))
     """
     if isinstance(R, (_pd.Series, _pd.DataFrame)):
-        if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -400,14 +424,14 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     # .. math:: UpsidePotential(R, MAR) = \sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]} {n}}
 
     if isinstance(R, (_pd.Series, _pd.DataFrame)):
-        if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -486,14 +510,14 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     """
 
     if isinstance(R, (_pd.Series, _pd.DataFrame)):
-        if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -959,25 +983,12 @@ def _check_ts(R, scale, name="R"):
     -------
     tuple with R as Series or Dataframe and scale as int
     """
-    if (~isinstance(R, _pd.DataFrame) & ~isinstance(R, _pd.Series)) == True:
+    if not isinstance(R, (_pd.DataFrame, _pd.Series)):
         raise ValueError(f"{name} must be a pandas Series or DataFrame")
 
     if isinstance(R.index, _pd.DatetimeIndex):
         if scale is None:
-            if (R.index.freq == "D") | (R.index.freq == "B"):
-                scale = 252
-            elif R.index.freq == "W":
-                scale = 52
-            elif (R.index.freq == "M") | (R.index.freq == "MS"):
-                scale = 12
-            elif (R.index.freq == "Q") | (R.index.freq == "QS"):
-                scale = 4
-            elif (R.index.freq == "Y") | (R.index.freq == "YS"):
-                scale = 1
-            else:
-                raise ValueError(
-                    f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"
-                )
+            scale = _resolve_scale(R.index.freq, name=name)
     else:
         raise ValueError(
             f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"

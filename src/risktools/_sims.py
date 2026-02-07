@@ -1,15 +1,19 @@
+import logging as _logging
 import pandas as _pd
 import numpy as _np
 import statsmodels.formula.api as _smf
-import ctypes
-from numpy.ctypeslib import ndpointer
-import os
-import multiprocessing as mp
-import time
-from numpy.random import default_rng, Generator, SFC64
-import platform
+from numpy.random import Generator, SFC64
 from .extensions import csimOU as _csimOU
 from .extensions import csimOUJ as _csimOUJ
+
+_logger = _logging.getLogger(__name__)
+
+__all__ = [
+    "simGBM",
+    "simOU",
+    "simOUJ",
+    "fitOU",
+]
 
 
 class Result:
@@ -24,7 +28,7 @@ def is_iterable(x):
     try:
         iter(x)
         return True
-    except:
+    except TypeError:
         return False
 
 
@@ -215,7 +219,7 @@ def simOU(
     N = int(T / dt)
 
     # print half-life of theta
-    print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
+    _logger.info("Half-life of theta in days = %s", _np.log(2) / theta * bdays_in_year)
 
     # make mu array
     mu = make_into_array(mu, N)
@@ -459,7 +463,7 @@ def simOUJ(
         )
 
     # print half-life of theta
-    print("Half-life of theta in days = ", _np.log(2) / theta * bdays_in_year)
+    _logger.info("Half-life of theta in days = %s", _np.log(2) / theta * bdays_in_year)
 
     if (eps is None) | (elp is None) | (ejp is None):
         rng = Generator(SFC64(seed))
@@ -844,7 +848,7 @@ def stochastic_mu(mu, jump_prob, jump_size, dt, lag, N, sims, seed=None):
     ejp = rng.poisson(lam=jump_prob * dt, size=(N, sims))
 
     ejp = _np.where(ejp == 0, _np.nan, ejp)
-    ejp = _pd.DataFrame(ejp).fillna(method="ffill", axis=0, limit=lag).fillna(0).values
+    ejp = _pd.DataFrame(ejp).ffill(axis=0, limit=lag).fillna(0).values
 
     mu_jump = mu * _np.ones((N, sims))
     mu_jump = mu_jump + elp * ejp

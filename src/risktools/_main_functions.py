@@ -4,6 +4,21 @@ import numpy as _np
 import quandl as _quandl
 from . import data
 import arch as _arch
+
+__all__ = [
+    "ir_df_us",
+    "bond",
+    "trade_stats",
+    "returns",
+    "roll_adjust",
+    "garch",
+    "prompt_beta",
+    "npv",
+    "crr_euro",
+    "stl_decomposition",
+    "get_eia_df",
+    "infer_freq",
+]
 from scipy.optimize import least_squares as _least_squares
 from scipy import interpolate as _interpolate
 import plotly.express as _px
@@ -417,25 +432,10 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
 
     df = df - df.mean()
 
-    # find a more robust way to do this, rolladjust may break it
-    freq = _pd.infer_freq(df.index[-10:])
-
     if scale is None:
-        if freq is None:
-            raise ValueError(
-                "Could not infer frequency of timeseries, please provide scale parameter instead"
-            )
-        elif (freq == "B") or (freq == "D"):
-            scale = 252
-        elif freq[0] == "W":
-            scale = 52
-        elif (freq == "M") or (freq == "MS"):
-            scale = 12
-        elif (freq == "Q") or (freq == "QS"):
-            scale = 4
-        elif (freq == "Y") or (freq == "YS"):
-            scale = 1
-        else:
+        try:
+            scale = infer_freq(df, multiplier=True)
+        except (ValueError, IndexError):
             raise ValueError(
                 "Could not infer frequency of timeseries, please provide scale parameter instead"
             )
@@ -576,7 +576,7 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
             _go.Scatter(x=out.index, y=out["bear"], mode="lines", name="bear")
         )
         fig.add_trace(
-            _go.Scatter(x=out.index, y=out["bull"], mode="lines", name="bear")
+            _go.Scatter(x=out.index, y=out["bull"], mode="lines", name="bull")
         )
         fig.update_xaxes(range=[out.index.min() - 1, out.index.max() + 1])
         fig.update_layout(
@@ -630,12 +630,12 @@ def npv(
     >>> ir = rt.ir_df_us(ir_sens=0.01)
     >>> rt.npv(init_cost=-375, C=50, cf_freq=0.5, F=250, T=2, disc_factors=ir, break_even=True, be_yield=.0399)
     """
-    disc_factors = disc_factors.copy()
-
     if disc_factors is None:
         raise ValueError(
             "Please input a discount factor dataframe into disc_factors (use ir_df_us to get dataframe)"
         )
+
+    disc_factors = disc_factors.copy()
 
     if break_even == True:
         disc_factors["yield"] = be_yield
@@ -880,7 +880,7 @@ def _get_eia_df_v1(tables, key):
     eia = _pd.DataFrame()
 
     for tbl in tables:
-        url = r"http://api.eia.gov/series/?api_key={}&series_id={}&out=json".format(
+        url = r"https://api.eia.gov/series/?api_key={}&series_id={}&out=json".format(
             key, tbl
         )
         r = requests.get(url)
@@ -931,7 +931,7 @@ def _get_eia_df_v2(tables, key, sleep):
     eia = _pd.DataFrame()
 
     for tbl in tables:
-        url = f"http://api.eia.gov/v2/seriesid/{tbl}?api_key={key}"
+        url = f"https://api.eia.gov/v2/seriesid/{tbl}?api_key={key}"
 
         try:
             r = requests.get(url)
@@ -940,9 +940,8 @@ def _get_eia_df_v2(tables, key, sleep):
                 tmp["response"]["data"],
                 columns=["period", "series-description", "value"],
             )
-        except:
-            print(f"Error in table {tbl}")
-            print(r.text)
+        except (KeyError, ValueError, Exception) as e:
+            warnings.warn(f"Error in table {tbl}: {e}")
             continue
         tf["series_id"] = tbl
         eia = _pd.concat([eia, tf], axis=0)

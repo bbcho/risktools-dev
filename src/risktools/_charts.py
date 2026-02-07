@@ -1,4 +1,3 @@
-from .__init__ import *
 from . import data
 import pandas as pd
 import numpy as np
@@ -6,9 +5,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots as _make_subplots
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 from math import ceil as _ceil
-from ._morningstar import *
+from ._morningstar import get_prices
 from statsmodels.tsa.seasonal import STL as _STL
-from ._pa import *
+from ._pa import drawdowns
 
 from ._main_functions import get_eia_df, infer_freq
 from ._cullenfrey import describe_distribution as _desc_dist
@@ -16,6 +15,18 @@ import matplotlib.pyplot as _plt
 import seaborn as _sns
 import arch as _arch
 from matplotlib.pyplot import cm as _cm
+
+__all__ = [
+    "chart_zscore",
+    "chart_eia_sd",
+    "chart_five_year_plot",
+    "chart_eia_steo",
+    "chart_perf_summary",
+    "chart_forward_curves",
+    "chart_pairs",
+    "chart_spreads",
+    "dist_desc_plot",
+]
 
 
 def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
@@ -219,7 +230,7 @@ def chart_eia_sd(market, key, start_dt="2010-01-01", output="chart", **kwargs):
             fig["layout"][f"xaxis{i+1}"]["tickformat"] = figs[i]["layout"]["xaxis"][
                 "tickformat"
             ]
-        except:
+        except KeyError:
             pass
 
         if b == m:
@@ -806,7 +817,7 @@ def dist_desc_plot(x, figsize=(10, 10)):
     try:
         ann = np.sqrt(infer_freq(x, multiplier=True))
         text = "Annualized "
-    except:
+    except (ValueError, IndexError):
         ann = 1
         text = ""
     ax4.fill_between(res.index, res * ann, 0, color=next(color))

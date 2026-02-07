@@ -38,6 +38,7 @@ requirements = [
     "statsmodels",
     "seaborn",
     "pandas_datareader",
+    "requests",
 ]
 
 preqs = ">=3.7"

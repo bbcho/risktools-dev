@@ -8,7 +8,22 @@ from ._morningstar import *
 import pandas_datareader as _pdr
 import plotly.express as _px
 
-us_swap = data.open_data("usSwapCurves")
+__all__ = [
+    "swap_irs",
+    "swap_com",
+    "get_ir_swap_curve",
+    "swap_info",
+    "swap_fut_weight",
+]
+
+_us_swap = None
+
+
+def _get_us_swap():
+    global _us_swap
+    if _us_swap is None:
+        _us_swap = data.open_data("usSwapCurves")
+    return _us_swap
 
 
 def custom_date_range(start, end, freq):
@@ -115,15 +130,15 @@ def swap_irs(
     if mat_date is None:
         mat_date = eff_date + _pd.DateOffset(years=2)
     if float_curve is None:
-        float_curve = us_swap
+        float_curve = _get_us_swap()
     if disc_curve is None:
-        disc_curve = us_swap
+        disc_curve = _get_us_swap()
 
     dates = custom_date_range(eff_date, mat_date, freq=reset_freq)
 
     # in case mat_date does not fall evenly on freq, take last date before
     dates = dates[dates <= mat_date]
-    dates = _pd.Index([_pd.to_datetime(trade_date)]).append(dates)
+    dates = _pd.Index([_pd.to_datetime(trade_date)]).union(dates).sort_values()
 
     if (days_in_year in [360, 365]) == False:
         raise ValueError("days_in_year must be either 360 or 365")
@@ -135,9 +150,7 @@ def swap_irs(
     df = _pd.DataFrame(
         {
             "dates": dates,
-            "day2next": (dates[1:] - dates[:-1]).days.append(
-                _pd.Index([0])
-            ),  # calc days to next period, short one element at end so add zero
+            "day2next": _pd.Index((dates[1:] - dates[:-1]).days.tolist() + [0]),  # calc days to next period, short one element at end so add zero
             "times": (dates - dates[0]).days
             / 365,  # calc days to maturity from trade_date
         }

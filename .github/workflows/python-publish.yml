@@ -11,8 +11,27 @@ on:
     types: [published] #created, 
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools cython numpy
+          pip install -e .
+          pip install pytest yfinance
+      - name: Run tests
+        run: |
+          pytest pytest/ -v --ignore=pytest/archive -k "not test_get_eia_df and not test_chart_eia_sd and not test_chart_eia_steo and not test_trade_stats"
+
   # https://github.com/marketplace/actions/python-wheels-manylinux-build
   Linux-build:
+    needs: test
     runs-on: ubuntu-latest
     env:
       TWINE_USERNAME: __token__
@@ -35,6 +54,7 @@ jobs:
           twine upload dist/*-manylinux*.whl
 
   Matrix-build:
+    needs: test
     runs-on: ${{ matrix.os }}
     env:
       TWINE_USERNAME: __token__
@@ -61,6 +81,7 @@ jobs:
         # continue-on-error: true 
   
   deploy:
+    needs: test
     name: Upload Source
     runs-on: ubuntu-latest
 

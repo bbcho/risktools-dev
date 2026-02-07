@@ -1,6 +1,5 @@
 # multivariate simulations
 
-from ast import arguments
 import numpy as _np
 import pandas as _pd
 import matplotlib.pyplot as _plt
@@ -8,6 +7,23 @@ import plotly.graph_objects as _go
 from ._sims import fitOU, simOU, simOUJ
 from abc import ABC as _ABC, abstractmethod as _abstractmethod
 from numpy.random import Generator, SFC64
+
+__all__ = [
+    "calc_spread_MV",
+    "fitOU_MV",
+    "generate_eps_MV",
+    "simGBM_MV",
+    "simOU_MV",
+    "simOUJ_MV",
+    "generate_random_portfolio_weights",
+    "calculate_payoffs",
+    "simulate_efficient_frontier",
+    "make_efficient_frontier_table",
+    "plot_efficient_frontier",
+    "plot_portfolio",
+    "MVGBM",
+    "MVOU",
+]
 
 
 def calc_spread_MV(df, formulas):
@@ -130,11 +146,11 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
 
     # if ~isinstance(sigma, _np.ndarray):
     #     sigma = _np.array(sigma)
-    if ~isinstance(cor, _np.ndarray):
+    if not isinstance(cor, _np.ndarray):
         cor = _np.array(cor)
 
     if mu is not None:
-        if ~isinstance(mu, _np.ndarray):
+        if not isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
     else:
         mu = _np.zeros(cor.shape[0])
@@ -204,17 +220,17 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=
     if (cor is None) & (eps is None):
         raise ValueError("correlation matrix cor required if eps not passed")
 
-    if ~isinstance(s0, _np.ndarray):
+    if not isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
-    if ~isinstance(sigma, _np.ndarray):
+    if not isinstance(sigma, _np.ndarray):
         sigma = _np.array(sigma)
-    if ~isinstance(r, _np.ndarray):
+    if not isinstance(r, _np.ndarray):
         r = _np.array(r)
-    if ~isinstance(cor, _np.matrix):
+    if not isinstance(cor, _np.matrix):
         cor = _np.matrix(cor)
 
     if mu is not None:
-        if ~isinstance(mu, _np.ndarray):
+        if not isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
     else:
         mu = _np.zeros(len(s0))
@@ -356,12 +372,12 @@ def simOU_MV(
 
     try:
         s0 = s0.to_numpy()
-    except:
+    except AttributeError:
         pass
 
     try:
         theta = theta.to_numpy()
-    except:
+    except AttributeError:
         pass
 
     for i in range(0, eps.shape[2]):
@@ -956,7 +972,7 @@ class _MVSIM(_ABC):
         """
 
         if self._frontier is None:
-            ValueError(
+            raise ValueError(
                 "plot_efficient_frontier method must be run prior to this method"
             )
 

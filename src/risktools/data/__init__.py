@@ -44,12 +44,12 @@ def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
 
     try:
         import geopandas as _geopandas
-    except:
+    except ImportError:
         raise ImportError("Geopandas not installed. Please install before running")
 
     try:
         from fiona.io import ZipMemoryFile as _ZMF
-    except:
+    except ImportError:
         raise ImportError("Fiona not installed. Please install before running")
 
     fn = _requests.get(url)
@@ -111,8 +111,8 @@ def open_data(nm):
 
     try:
         df = _file_actions[nm]["load_func"](fp)
-    except:
-        _warnings.warn(f"File actions for {nm} not defined. Running default behavior.")
+    except (KeyError, FileNotFoundError, ValueError) as e:
+        _warnings.warn(f"File actions for {nm} not defined. Running default behavior. Error: {e}")
         df = _load_data(_os.path.join(_path, f"{nm}.json"))
 
     if isinstance(df, _pd.DataFrame):
@@ -142,16 +142,16 @@ def _norm_df(fn):
     for key in tmp.keys():
         
         # if structure of dict is {key : DataFrame}
-        try: 
+        try:
             df[key] = _pd.DataFrame.from_records(tmp[key])
             # df[key] = _try_dates(df[key])
-        except:
+        except (TypeError, ValueError, KeyError):
             pass
 
         # if structure of dict is {first_key : {second_key : DataFrame}}
         # return {first_key : DataFrame} where second_key is a column
         # of the DataFrame
-        try:    
+        try:
             cf = _pd.DataFrame()
             for sec_key in tmp[key].keys():
                 tf = _pd.DataFrame.from_records(tmp[key][sec_key])
@@ -163,7 +163,7 @@ def _norm_df(fn):
             df[key] = cf
             # df[key] = _try_dates(df[key])
 
-        except:
+        except (TypeError, ValueError, KeyError, AttributeError):
             pass
     
     return df
@@ -179,7 +179,7 @@ def _load_data(fn):
         df = _try_dates(df)
         df.columns = df.columns.str.replace(r"\.+", "_", regex=True)
         return df
-    except:
+    except (TypeError, ValueError, KeyError):
         pass
 
     for key in dd.keys():
@@ -187,16 +187,16 @@ def _load_data(fn):
         try:
             dd[key] = _pd.DataFrame.from_records(dd[key])
             dd[key].columns = dd[key].columns.str.replace(r"\.+", "_", regex=True)
-        except:
+        except (TypeError, ValueError, KeyError):
             pass
 
         try:
             dd[key] = _pd.DataFrame(dd[key])
             dd[key].columns = dd[key].columns.str.replace(r"\.+", "_", regex=True)
-        except:
+        except (TypeError, ValueError):
             pass
 
-        if isinstance(dd[key], _pd.DataFrame) == True:
+        if isinstance(dd[key], _pd.DataFrame):
             dd[key] = _try_dates(dd[key])
 
         # try:

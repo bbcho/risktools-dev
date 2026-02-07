@@ -7,6 +7,7 @@ import sys
 import plotly.graph_objects as go
 import time
 import yfinance as yf
+import pytest
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src/")
 
@@ -53,8 +54,8 @@ def _load_json(fn, dataframe=True):
     return df
 
 
+@pytest.mark.skip(reason="Requires Morningstar API credentials")
 def test_get_prices():
-    pass
     # ac_all = _load_json("get_price.json", dataframe=False)
 
     # i = 0
@@ -342,8 +343,8 @@ def test_prompt_beta():
     )
 
 
+@pytest.mark.skip(reason="Requires Morningstar API credentials")
 def test_swap_irs():
-    pass
     # a = 85085.84
     # b = round(1.015174, 4)
 
@@ -429,6 +430,7 @@ def test_crr_euro():
     assert ac["note"][0] == ts["note"], "crr_euro Test failed on price"
 
 
+@pytest.mark.skip(reason="Test data (stl_decomp.json) not available")
 def test_stl_decomposition():
     # ac = _load_json("stl_decomp.json")
 
@@ -456,8 +458,8 @@ def test_get_eia_df():
     assert ts.shape[1] == 4, "get_eia_df Test 3 failed"
 
 
+@pytest.mark.skip(reason="Requires Morningstar API credentials")
 def test_chart_spreads():
-    pass
     # # ac = _load_json("chart_spreads.json")
     # ts = rt.chart_spreads(
     #     up["m*"]["user"],
@@ -499,8 +501,8 @@ def test_chart_eia_steo():
     assert isinstance(fig, go.Figure), "chart_eia_steo Test failed"
 
 
+@pytest.mark.skip(reason="Requires Morningstar API credentials")
 def test_swap_com():
-    pass
     # ac = _load_json("swapCOM.json")
 
     # df = rt.get_prices(

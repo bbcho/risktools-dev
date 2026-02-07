@@ -1,6 +1,10 @@
 import pandas as _pd
 from scipy.optimize import linprog as _linprog
 
+__all__ = [
+    "refineryLP",
+]
+
 
 def refineryLP(crude_inputs, product_outputs, return_all=False):
     """

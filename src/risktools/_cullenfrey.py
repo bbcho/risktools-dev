@@ -2,6 +2,10 @@ import numpy as _np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import AutoMinorLocator as _AML
 
+__all__ = [
+    "describe_distribution",
+]
+
 
 def _moment(x, k):
     m1 = x.mean()
