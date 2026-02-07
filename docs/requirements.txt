@@ -1,4 +1,6 @@
-# Sphinx documentation build dependencies
-sphinx>=7.0
-numpydoc>=1.6
-alabaster>=0.7.13
+# MkDocs documentation build dependencies
+mkdocs>=1.5
+mkdocs-material>=9.0
+mkdocstrings>=0.24
+mkdocstrings-python>=1.0
+pymdown-extensions>=10.0

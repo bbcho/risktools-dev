@@ -8,8 +8,8 @@ build:
   tools:
     python: "3.11"
 
-sphinx:
-  configuration: docs/source/conf.py
+mkdocs:
+  configuration: mkdocs.yml
 
 python:
   install:

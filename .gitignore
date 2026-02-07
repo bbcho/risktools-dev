@@ -60,6 +60,9 @@ coverage.xml
 docs/_build/
 docs/build/
 
+# MkDocs build output
+site/
+
 # virtual env
 env/
 renv/
