@@ -1,75 +1,86 @@
 # Configuration file for the Sphinx documentation builder.
 #
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
+# Full documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-# -- Path setup --------------------------------------------------------------
-
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
 
-
 # -- Project information -----------------------------------------------------
 
 project = "risktools"
-copyright = "2022, Ben Cho"
+copyright = "2022-2026, Ben Cho"
 author = "Ben Cho"
-
-# The full version, including alpha/beta/rc tags
-release = "0.2.0"
-
+release = "0.2.8.7"
 
 # -- General configuration ---------------------------------------------------
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
-    # "rinoh.frontend.sphinx",
     "sphinx.ext.autodoc",
-    "numpydoc",
-    "sphinx.ext.intersphinx",
-    "sphinx.ext.coverage",
-    "sphinx.ext.doctest",
     "sphinx.ext.autosummary",
-    "sphinx.ext.graphviz",
-    "sphinx.ext.ifconfig",
-    "matplotlib.sphinxext.plot_directive",
-    # "IPython.sphinxext.ipython_console_highlighting",
-    # "IPython.sphinxext.ipython_directive",
-    # "sphinx.ext.mathjax",
-    # "sphinx_panels",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.coverage",
+    "numpydoc",
 ]
 
-# Add any paths that contain templates here, relative to this directory.
+# Autosummary settings
+autosummary_generate = True
+
+# Autodoc settings
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": False,
+    "show-inheritance": True,
+}
+autodoc_member_order = "bysource"
+
+# Numpydoc settings
+numpydoc_show_class_members = False
+numpydoc_class_members_toctree = False
+
+# Add any paths that contain templates here
 templates_path = ["_templates"]
 
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
+# List of patterns to ignore
 exclude_patterns = []
-
 
 # -- Options for HTML output -------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
 html_theme = "alabaster"
 
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_theme_options = {
+    "description": "Commodity trading analytics and risk tools for Python",
+    "github_user": "bbcho",
+    "github_repo": "risktools-dev",
+    "github_banner": True,
+    "fixed_sidebar": True,
+    "sidebar_collapse": True,
+    "show_powered_by": False,
+    "page_width": "1040px",
+    "sidebar_width": "260px",
+}
 
-# needed to use custom css file for adding a line and whitespace
-# between functions. See also _static/css/functions.css and
-# _templates/layout.html
+html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
+
+html_sidebars = {
+    "**": [
+        "about.html",
+        "navigation.html",
+        "relations.html",
+        "searchbox.html",
+    ]
+}
+
+# -- Intersphinx configuration -----------------------------------------------
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+}
