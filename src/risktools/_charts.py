@@ -74,7 +74,8 @@ def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
 
     # either resample or figure out frequency of the series
     if freq is not None:
-        df = df.resample(freq).mean()
+        _freq_map = {"M": "ME", "Q": "QE", "Y": "YE"}
+        df = df.resample(_freq_map.get(freq, freq)).mean()
     elif df.index.freq is None:
         df.index.freq = pd.infer_freq(df.index[0:10])
 
@@ -92,7 +93,8 @@ def chart_zscore(df, freq=None, output="zscore", chart="seasons", **kwargs):
     elif output == "seasonal":
         df = pd.concat([df], keys=["value"], axis=1)
         df["year"] = df.index.year
-        df.index = df.index + pd.DateOffset(year=df.year.max())
+        _target_year = df["year"].max()
+        df.index = df.index.map(lambda x: x.replace(year=_target_year))
         df = df.set_index("year", append=True).sort_index()
         df = df.unstack(level=-1).droplevel(0, 1)
 
@@ -287,7 +289,7 @@ def chart_five_year_plot(df, resample_freq=None, **kwargs):
     df = df.sort_index().loc[start_dt:, :]
     fy = df.index.year.min()
 
-    df.index = df.index + pd.DateOffset(year=cy)
+    df.index = df.index.map(lambda x: x.replace(year=cy))
     df = df.set_index("year", append=True).sort_index().unstack().droplevel(0, 1)
     df = df.resample(freq).mean()
 

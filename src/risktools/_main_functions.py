@@ -849,7 +849,8 @@ def stl_decomposition(
     _sns.set_style("darkgrid")
 
     if resample_freq is not None:
-        df = df.resample(resample_freq).mean()
+        _freq_map = {"M": "ME", "Q": "QE", "Y": "YE"}
+        df = df.resample(_freq_map.get(resample_freq, resample_freq)).mean()
 
     stl = _STL(
         df,

@@ -247,3 +247,64 @@ class TestCustomDateRange:
         from risktools._swap import _custom_date_range
         with pytest.raises(ValueError):
             _custom_date_range("2020-01-01", "2021-01-01", freq="X")
+
+
+# ======================================================================
+# swap_info — requires Morningstar API credentials
+# ======================================================================
+
+class TestSwapInfo:
+    def test_requires_credentials(self):
+        """swap_info requires username and password as positional arguments."""
+        with pytest.raises(TypeError):
+            rt.swap_info()
+
+    def test_is_callable(self):
+        """swap_info should be a callable function exposed in the public API."""
+        assert callable(rt.swap_info)
+
+    @pytest.mark.skip(reason="Requires Morningstar API credentials")
+    def test_returns_dict_all_output(self):
+        """swap_info with output='all' should return a dict with chart and dataframe."""
+        result = rt.swap_info(
+            username="user", password="pass",
+            date="2020-05-06", output="all",
+        )
+        assert isinstance(result, dict)
+        assert "chart" in result
+        assert "dataframe" in result
+        assert isinstance(result["dataframe"], pd.DataFrame)
+
+    @pytest.mark.skip(reason="Requires Morningstar API credentials")
+    def test_returns_dataframe_output(self):
+        """swap_info with output='dataframe' should return a DataFrame."""
+        result = rt.swap_info(
+            username="user", password="pass",
+            date="2020-05-06", output="dataframe",
+        )
+        assert isinstance(result, pd.DataFrame)
+
+
+# ======================================================================
+# get_ir_swap_curve — requires Morningstar + FRED API access
+# ======================================================================
+
+class TestGetIrSwapCurve:
+    def test_requires_credentials(self):
+        """get_ir_swap_curve requires username and password as positional arguments."""
+        with pytest.raises(TypeError):
+            rt.get_ir_swap_curve()
+
+    def test_is_callable(self):
+        """get_ir_swap_curve should be a callable function exposed in the public API."""
+        assert callable(rt.get_ir_swap_curve)
+
+    @pytest.mark.skip(reason="Requires Morningstar API credentials and FRED access")
+    def test_returns_dataframe(self):
+        """get_ir_swap_curve should return a DataFrame with expected tick columns."""
+        df = rt.get_ir_swap_curve(username="user", password="pass")
+        assert isinstance(df, pd.DataFrame)
+        # Check for some expected column name patterns
+        expected_cols = ["d1d", "d1w", "d1m", "d3m", "d6m", "d1y", "s2y", "s3y"]
+        for col in expected_cols:
+            assert col in df.columns, f"Missing column: {col}"

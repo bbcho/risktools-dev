@@ -101,7 +101,7 @@ def _subset_mar(R, r, MAR):
 
 
 def return_cumulative(r: Union[_pd.Series, _pd.DataFrame], geometric: bool = True) -> Union[float, _pd.Series]:
-    """
+    r"""
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
 
@@ -147,7 +147,7 @@ def return_cumulative(r: Union[_pd.Series, _pd.DataFrame], geometric: bool = Tru
 
 
 def return_annualized(r: Union[_pd.Series, _pd.DataFrame], scale: Union[int, None] = None, geometric: bool = True) -> Union[float, _pd.Series]:
-    """
+    r"""
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
 
@@ -218,7 +218,7 @@ def return_annualized(r: Union[_pd.Series, _pd.DataFrame], scale: Union[int, Non
 
 
 def return_excess(R: Union[_pd.Series, _pd.DataFrame], Rf: Union[float, _pd.Series, _pd.DataFrame] = 0) -> Union[_pd.Series, _pd.DataFrame]:
-    """
+    r"""
     Calculates the returns of an asset in excess of the given risk free rate
 
     Calculates the returns of an asset in excess of the given "risk free rate"
@@ -271,7 +271,7 @@ def return_excess(R: Union[_pd.Series, _pd.DataFrame], Rf: Union[float, _pd.Seri
 
 
 def sd_annualized(x: Union[_pd.Series, _pd.DataFrame], scale: Union[int, None] = None, *args) -> Union[float, _pd.Series]:
-    """
+    r"""
     calculate a multiperiod or annualized Standard Deviation
 
     Standard Deviation of a set of observations :math:`R_{a}` is given by:
@@ -335,7 +335,7 @@ def sd_annualized(x: Union[_pd.Series, _pd.DataFrame], scale: Union[int, None] =
 
 
 def omega_sharpe_ratio(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Series, _pd.DataFrame], *args) -> float:
-    """
+    r"""
     Omega-Sharpe ratio of the return distribution
 
     The Omega-Sharpe ratio is a conversion of the omega ratio to a ranking statistic
@@ -373,15 +373,18 @@ def omega_sharpe_ratio(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _p
     r = R[R.gt(MAR)]
     MAR = _subset_mar(R, r, MAR)
 
+    dd = downside_deviation(R, MAR, potential=True)
+    if dd == 0:
+        return _np.inf
     result = (
         upside_risk(R, MAR, stat="potential")
-        - downside_deviation(R, MAR, potential=True)
-    ) / downside_deviation(R, MAR, potential=True)
+        - dd
+    ) / dd
     return result
 
 
 def upside_risk(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Series, _pd.DataFrame] = 0, method: str = "full", stat: str = "risk") -> float:
-    """
+    r"""
     upside risk, variance and potential of the return distribution
 
     Upside Risk is the similar of semideviation taking the return above the
@@ -464,7 +467,7 @@ def upside_risk(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Serie
 
 
 def downside_deviation(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Series, _pd.DataFrame] = 0, method: str = "full", potential: bool = False) -> float:
-    """
+    r"""
     Downside deviation, similar to semi deviation, eliminates positive returns
     when calculating risk.  To calculate it, we take the returns that are less
     than the target (or Minimum Acceptable Returns (MAR)) returns and take the
@@ -520,7 +523,7 @@ def downside_deviation(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _p
 
 
 def sharpe_ratio_annualized(R: Union[_pd.Series, _pd.DataFrame], Rf: float = 0, scale: Union[int, None] = None, geometric: bool = True) -> Union[float, _pd.Series]:
-    """
+    r"""
     calculate annualized Sharpe Ratio
 
     The Sharpe Ratio is a risk-adjusted measure of return that uses standard
@@ -581,7 +584,7 @@ def sharpe_ratio_annualized(R: Union[_pd.Series, _pd.DataFrame], Rf: float = 0, 
 
 
 def drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True) -> Union[_pd.Series, _pd.DataFrame]:
-    """
+    r"""
     Function to calculate drawdown levels in a timeseries
 
     Parameters
@@ -604,7 +607,7 @@ def drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True) -> Un
 
 
 def find_drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True, *args) -> dict:
-    """
+    r"""
     Find the drawdowns and drawdown levels in a timeseries.
 
     find_drawdowns() will find the starting period, the ending period, and
@@ -672,7 +675,7 @@ def find_drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True, 
     for lab, con in dd.items():
         rs[lab] = {"return": [], "from": [], "to": [], "trough": []}
 
-        if con[0] >= 0:
+        if con.iloc[0] >= 0:
             prior_sign = 1
         else:
             prior_sign = 0
@@ -680,7 +683,7 @@ def find_drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True, 
         frm = 0
         to = 0
         dmin = 0
-        sofar = con[0]
+        sofar = con.iloc[0]
 
         for i, r in enumerate(con):  # .iteritems():
             if r < 0:
@@ -781,7 +784,7 @@ def _beta(y, x, subset=None):
 
 
 def capm_beta(Ra: Union[_pd.Series, _pd.DataFrame], Rb: _pd.Series, Rf: Union[float, _pd.Series] = 0, kind: str = "all") -> Union[float, _pd.Series]:
-    """
+    r"""
     calculate single factor model (CAPM) beta
 
     The single factor model or CAPM Beta is the beta of an asset to the variance
@@ -879,7 +882,7 @@ def capm_beta(Ra: Union[_pd.Series, _pd.DataFrame], Rb: _pd.Series, Rf: Union[fl
 
 
 def timing_ratio(Ra: Union[_pd.Series, _pd.DataFrame], Rb: _pd.Series, Rf: Union[float, _pd.Series] = 0) -> Union[float, _pd.Series]:
-    """
+    r"""
     The function ``timing_ratio`` may help assess whether the manager is a good timer
     of asset allocation decisions.  The ratio is best when greater than one in a
     rising market and less than one in a falling market.

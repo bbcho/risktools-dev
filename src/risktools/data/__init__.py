@@ -211,7 +211,7 @@ def _load_data(fn):
 def _try_dates(df):
     for c in df.columns[df.dtypes == "object"]:  # don't cnvt num
         try:
-            df[c] = _pd.to_datetime(df[c])
+            df[c] = _pd.to_datetime(df[c], format="mixed")
         except (ParserError, ValueError):  # Can't cnvrt some
             pass  # ...so leave whole column as-is unconverted
 

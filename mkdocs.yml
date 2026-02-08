@@ -76,4 +76,5 @@ nav:
     - Fixed Income & Derivatives: api/fixed_income.md
     - Charting: api/charting.md
     - Refinery Optimization: api/refinery.md
+    - Morningstar API: api/morningstar.md
     - Data: api/data.md
