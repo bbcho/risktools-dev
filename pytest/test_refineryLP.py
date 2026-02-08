@@ -23,7 +23,7 @@ class TestRefineryLP:
     def test_basic_run(self, refinery_data):
         """refineryLP should return a dict with 'profit' and 'slate'."""
         crudes, products = refinery_data
-        result = rt.refineryLP(crudes, products)
+        result = rt.refinery_lp(crudes, products)
         assert isinstance(result, dict)
         assert "profit" in result
         assert "slate" in result
@@ -31,19 +31,19 @@ class TestRefineryLP:
     def test_profit_positive(self, refinery_data):
         """A valid refinery should have positive profit."""
         crudes, products = refinery_data
-        result = rt.refineryLP(crudes, products)
+        result = rt.refinery_lp(crudes, products)
         assert result["profit"] > 0, "Refinery profit should be positive"
 
     def test_slate_nonnegative(self, refinery_data):
         """Crude slate (barrels processed) should be non-negative."""
         crudes, products = refinery_data
-        result = rt.refineryLP(crudes, products)
+        result = rt.refinery_lp(crudes, products)
         assert all(x >= -1e-10 for x in result["slate"]), "Slate values should be non-negative"
 
     def test_return_all(self, refinery_data):
         """return_all=True should return the full scipy OptimizeResult."""
         crudes, products = refinery_data
-        result = rt.refineryLP(crudes, products, return_all=True)
+        result = rt.refinery_lp(crudes, products, return_all=True)
         # scipy.optimize.OptimizeResult has .fun, .x, .success attributes
         assert hasattr(result, "fun")
         assert hasattr(result, "x")
@@ -52,7 +52,7 @@ class TestRefineryLP:
     def test_product_constraints_satisfied(self, refinery_data):
         """Product output should not exceed max_prod constraints."""
         crudes, products = refinery_data
-        result = rt.refineryLP(crudes, products)
+        result = rt.refinery_lp(crudes, products)
         slate = result["slate"]
         # Check: A_ub @ x <= b_ub
         yields = products[["LightSweet_yield", "HeavySour_yield"]].values
@@ -64,7 +64,7 @@ class TestRefineryLP:
     def test_two_crudes(self, refinery_data):
         """Slate should have exactly 2 elements (LightSweet, HeavySour)."""
         crudes, products = refinery_data
-        result = rt.refineryLP(crudes, products)
+        result = rt.refinery_lp(crudes, products)
         assert len(result["slate"]) == 2
 
 
@@ -83,5 +83,5 @@ class TestRefineryLPEdgeCases:
             "HeavySour_yield": [0.3, 0.4, 0.3],
             "max_prod": [1000, 1000, 1000],
         })
-        result = rt.refineryLP(crudes, products)
+        result = rt.refinery_lp(crudes, products)
         assert result["profit"] <= 1e-6, "Profit should be non-positive with zero product prices and negative costs"

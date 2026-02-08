@@ -393,17 +393,17 @@ class TestCAPMBeta:
 
     def test_beta_all(self, perfect_beta2):
         Ra, Rb = perfect_beta2
-        beta = rt.CAPM_beta(Ra, Rb, Rf=0, kind="all")
+        beta = rt.capm_beta(Ra, Rb, Rf=0, kind="all")
         assert abs(beta - 2.0) < 1e-6
 
     def test_beta_bull(self, perfect_beta2):
         Ra, Rb = perfect_beta2
-        beta = rt.CAPM_beta(Ra, Rb, Rf=0, kind="bull")
+        beta = rt.capm_beta(Ra, Rb, Rf=0, kind="bull")
         assert abs(beta - 2.0) < 1e-6
 
     def test_beta_bear(self, perfect_beta2):
         Ra, Rb = perfect_beta2
-        beta = rt.CAPM_beta(Ra, Rb, Rf=0, kind="bear")
+        beta = rt.capm_beta(Ra, Rb, Rf=0, kind="bear")
         assert abs(beta - 2.0) < 1e-6
 
     def test_beta_one_identity(self):
@@ -411,7 +411,7 @@ class TestCAPMBeta:
         np.random.seed(42)
         idx = pd.bdate_range("2020-01-02", periods=100, freq="B")
         R = pd.Series(np.random.normal(0, 0.01, 100), index=idx)
-        beta = rt.CAPM_beta(R, R, Rf=0)
+        beta = rt.capm_beta(R, R, Rf=0)
         assert abs(beta - 1.0) < 1e-6
 
     def test_dataframe_input(self):
@@ -419,7 +419,7 @@ class TestCAPMBeta:
         idx = pd.bdate_range("2020-01-02", periods=100, freq="B")
         Rb = pd.Series(np.random.normal(0, 0.01, 100), index=idx, name="bench")
         Ra = pd.DataFrame({"X": 1.5 * Rb, "Y": 0.5 * Rb}, index=idx)
-        result = rt.CAPM_beta(Ra, Rb, Rf=0)
+        result = rt.capm_beta(Ra, Rb, Rf=0)
         assert isinstance(result, pd.Series)
         assert abs(result["X"] - 1.5) < 1e-5
         assert abs(result["Y"] - 0.5) < 1e-5

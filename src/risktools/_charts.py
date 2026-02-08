@@ -437,10 +437,10 @@ def chart_perf_summary(df, geometric=True, title=None):
     >>> df = rt.data.open_data('dfwide')
     >>> df = df[['CL01', 'CL12', 'CL36']]
     >>> df = rt.returns(df, period_return=1)
-    >>> rt.chart_perf_summary(df, geometric=False, title="Cummulative Returns and Drawdowns")
+    >>> rt.chart_perf_summary(df, geometric=False, title="Cumulative Returns and Drawdowns")
     """
     df = df.copy()
-    if geometric == True:
+    if geometric:
         ret = df.add(1).cumprod()
     else:
         ret = df.cumsum()
@@ -450,7 +450,7 @@ def chart_perf_summary(df, geometric=True, title=None):
     cols = DEFAULT_PLOTLY_COLORS
 
     fig = _make_subplots(
-        rows=2, cols=1, subplot_titles=("Cummulative Returns", "Drawdowns")
+        rows=2, cols=1, subplot_titles=("Cumulative Returns", "Drawdowns")
     )
     for i, c in enumerate(ret.columns):
         fig.add_trace(
@@ -823,9 +823,9 @@ def dist_desc_plot(x, figsize=(10, 10)):
     ax4.fill_between(res.index, res * ann, 0, color=next(color))
     ax4.set_title(f"Garch (1,0,1) {text}Volatility")
 
-    # Cummulative Returns
+    # Cumulative Returns
     ax5.fill_between(x.index, x.cumsum(), 0, color=next(color))
-    ax5.set_title("Cummulative Returns")
+    ax5.set_title("Cumulative Returns")
 
     # Drawdowns
     dd = drawdowns(x)

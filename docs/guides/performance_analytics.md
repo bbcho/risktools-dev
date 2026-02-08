@@ -697,7 +697,7 @@ captures more of the upside than the downside.
 
 ### Code Example
 
-`risktools.CAPM_beta()` performs the regression using scikit-learn's
+`risktools.capm_beta()` performs the regression using scikit-learn's
 `LinearRegression`:
 
 ```python
@@ -714,9 +714,9 @@ asset = 1.2 * market + pd.Series(
     np.random.normal(0.0001, 0.005, 756), index=dates
 )
 
-beta_all = rt.CAPM_beta(asset, market, Rf=0, kind="all")
-beta_bull = rt.CAPM_beta(asset, market, Rf=0, kind="bull")
-beta_bear = rt.CAPM_beta(asset, market, Rf=0, kind="bear")
+beta_all = rt.capm_beta(asset, market, Rf=0, kind="all")
+beta_bull = rt.capm_beta(asset, market, Rf=0, kind="bull")
+beta_bear = rt.capm_beta(asset, market, Rf=0, kind="bear")
 
 print(f"Overall beta: {beta_all:.4f}")
 print(f"Bull beta:    {beta_bull:.4f}")
@@ -819,7 +819,7 @@ corresponding `risktools` functions:
 | Upside risk / potential | `upside_risk()` | 7 |
 | Drawdown levels | `drawdowns()` | 8 |
 | Drawdown episodes | `find_drawdowns()` | 8 |
-| CAPM beta | `CAPM_beta()` | 9 |
+| CAPM beta | `capm_beta()` | 9 |
 | Timing ratio | `timing_ratio()` | 10 |
 
 ---

@@ -1,5 +1,7 @@
 # Performance Analytics Functions
 
+from typing import Union
+
 import pandas as _pd
 import numpy as _np
 from sklearn.linear_model import LinearRegression as _LinearRegression
@@ -15,7 +17,7 @@ __all__ = [
     "sharpe_ratio_annualized",
     "drawdowns",
     "find_drawdowns",
-    "CAPM_beta",
+    "capm_beta",
     "timing_ratio",
 ]
 
@@ -43,7 +45,62 @@ def _resolve_scale(freq, name="x"):
     )
 
 
-def return_cumulative(r, geometric=True):
+def _check_ts(R, scale, name="R"):
+    """
+    Function to check frequency of R, a time series Series or Dataframe
+
+    Parameters
+    ----------
+    R : Series or DataFrame
+        A time series of asset returns
+    scale : int (optional)
+        number of periods in a year (daily scale = 252, monthly scale =
+        12, quarterly scale = 4). By default None. Note that if scale is None,
+        the function will calculate a scale based on the index frequency. If however
+        you wish to override this (because maybe there is no index freq),
+        specify your own scale to use.
+
+    Returns
+    -------
+    tuple with R as Series or Dataframe and scale as int
+    """
+    if not isinstance(R, (_pd.DataFrame, _pd.Series)):
+        raise ValueError(f"{name} must be a pandas Series or DataFrame")
+
+    if isinstance(R.index, _pd.DatetimeIndex):
+        if scale is None:
+            scale = _resolve_scale(R.index.freq, name=name)
+    else:
+        raise ValueError(
+            f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"
+        )
+
+    return R, scale
+
+
+def _validate_and_align_mar(R, MAR):
+    """Validate and align R and MAR index types, then subset MAR to match R."""
+    if isinstance(R, (_pd.Series, _pd.DataFrame)):
+        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(MAR, (_pd.Series, _pd.DataFrame)):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
+                raise ValueError("MAR index must be a datetime index if MAR and R are a DataFrame or Series with a datetime index")
+        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(MAR, (_pd.Series, _pd.DataFrame)):
+            if isinstance(MAR.index, _pd.DatetimeIndex):
+                raise ValueError("R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same")
+    R = R.dropna()
+    return R, MAR
+
+
+def _subset_mar(R, r, MAR):
+    """Subset MAR to match filtered returns r."""
+    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) and isinstance(R, (_pd.Series, _pd.DataFrame)):
+        MAR = MAR[r.index]
+    else:
+        MAR = _np.mean(MAR)
+    return MAR
+
+
+def return_cumulative(r: Union[_pd.Series, _pd.DataFrame], geometric: bool = True) -> Union[float, _pd.Series]:
     """
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
@@ -61,7 +118,7 @@ def return_cumulative(r, geometric=True):
     ----------
     r : Series or DataFrame
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
 
@@ -89,7 +146,7 @@ def return_cumulative(r, geometric=True):
     return r
 
 
-def return_annualized(r, scale=None, geometric=True):
+def return_annualized(r: Union[_pd.Series, _pd.DataFrame], scale: Union[int, None] = None, geometric: bool = True) -> Union[float, _pd.Series]:
     """
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
@@ -103,7 +160,7 @@ def return_annualized(r, scale=None, geometric=True):
     scale your observations to an annual scale by raising the compound return to
     the number of periods in a year, and taking the root to the number of total
     observations:
-    
+
     .. math:: prod(1+R_{a})^{\\frac{scale}{n}}-1=\sqrt[n]{prod(1+R_{a})^{scale}}-1
 
     where scale is the number of periods in a year, and n is the total number of
@@ -121,7 +178,7 @@ def return_annualized(r, scale=None, geometric=True):
         number of periods in a year (daily scale = 252, monthly scale =
         12, quarterly scale = 4). By default None. Note that if scale is None,
         the function will calculate a scale based on the index frequency. If however
-        you wish to override this (becuase maybe there is no index freq),
+        you wish to override this (because maybe there is no index freq),
         specify your own scale to use.
     geometric : bool
         utilize geometric chaining (True) or simple/arithmetic chaining (False) to aggregate returns,
@@ -160,7 +217,7 @@ def return_annualized(r, scale=None, geometric=True):
     return res
 
 
-def return_excess(R, Rf=0):
+def return_excess(R: Union[_pd.Series, _pd.DataFrame], Rf: Union[float, _pd.Series, _pd.DataFrame] = 0) -> Union[_pd.Series, _pd.DataFrame]:
     """
     Calculates the returns of an asset in excess of the given risk free rate
 
@@ -190,36 +247,36 @@ def return_excess(R, Rf=0):
     ----------
     R : Series or DataFrame
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     Rf : float
         risk free rate, in same period as your returns, or as a single
         digit average
 
     References
     ----------
-    Bacon, Carl. \emph{Practical Portfolio Performance Measurement
-    and Attribution}. Wiley. 2004. p. 47-52
+    Bacon, Carl. *Practical Portfolio Performance Measurement
+    and Attribution*. Wiley. 2004. p. 47-52
 
     Examples
     --------
-    >>> data(managers)
-    >>> head(Return.excess(managers[,1,drop=FALSE], managers[,10,drop=FALSE]))
-    >>> head(Return.excess(managers[,1,drop=FALSE], .04/12))
-    >>> head(Return.excess(managers[,1:6], managers[,10,drop=FALSE]))
-    >>> head(Return.excess(managers[,1,drop=FALSE], managers[,8,drop=FALSE]))
+    >>> import risktools as rt
+    >>> import pandas as pd
+    >>> R = pd.Series([0.05, -0.02, 0.03, 0.01], index=pd.date_range("2020-01-01", periods=4, freq="ME"))
+    >>> rt.return_excess(R, Rf=0.001)
+    >>> rt.return_excess(R, Rf=0)
     """
 
     res = R - Rf
     return res
 
 
-def sd_annualized(x, scale=None, *args):
+def sd_annualized(x: Union[_pd.Series, _pd.DataFrame], scale: Union[int, None] = None, *args) -> Union[float, _pd.Series]:
     """
     calculate a multiperiod or annualized Standard Deviation
 
-    Standard Deviation of a set of observations \eqn{R_{a}} is given by:
+    Standard Deviation of a set of observations :math:`R_{a}` is given by:
 
-    \deqn{\sigma = variance(R_{a}) , std=\sqrt{\sigma} }{std = sqrt(var(R))}
+    .. math:: \sigma = variance(R_{a}), \quad std = \sqrt{\sigma}
 
     It should follow that the variance is not a linear function of the number of
     observations.  To determine possible variance over multiple periods, it
@@ -235,7 +292,7 @@ def sd_annualized(x, scale=None, *args):
     wish to calculate over. To annualize standard deviation, we multiply by the
     square root of the number of periods per year.
 
-    \deqn{\sqrt{\sigma}\cdot\sqrt{periods}}
+    .. math:: \sqrt{\sigma} \cdot \sqrt{periods}
 
     Note that any multiperiod or annualized number should be viewed with
     suspicion if the number of observations is small.
@@ -245,12 +302,12 @@ def sd_annualized(x, scale=None, *args):
 
     x : Series or DataFrame
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     scale : int (optional)
         number of periods in a year (daily scale = 252, monthly scale =
         12, quarterly scale = 4). By default None. Note that if scale is None,
         the function will calculate a scale based on the index frequency. If however
-        you wish to override this (becuase maybe there is no index freq),
+        you wish to override this (because maybe there is no index freq),
         specify your own scale to use.
     *args
         any other passthru parameters
@@ -270,24 +327,14 @@ def sd_annualized(x, scale=None, *args):
     >>> rt.sd_annualized(x=df[('Adj Close','SPY')])
     >>> rt.sd_annualized(x=df['Adj Close'])
     """
-    if not isinstance(x, (_pd.DataFrame, _pd.Series)):
-        raise ValueError("x must be a pandas Series or DataFrame")
-
-    if isinstance(x.index, _pd.DatetimeIndex):
-        if scale is None:
-            scale = _resolve_scale(x.index.freq, name="x")
-    else:
-        raise ValueError(
-            "parameter x's index must be a datetime index with freq 'D','W','M','Q' or 'Y'"
-        )
-
+    x, scale = _check_ts(x, scale, name="x")
     x = x.dropna()
     res = x.std() * _np.sqrt(scale)
 
     return res
 
 
-def omega_sharpe_ratio(R, MAR, *args):
+def omega_sharpe_ratio(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Series, _pd.DataFrame], *args) -> float:
     """
     Omega-Sharpe ratio of the return distribution
 
@@ -306,7 +353,7 @@ def omega_sharpe_ratio(R, MAR, *args):
     ----------
     R : {Series, DataFrame}
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     MAR : {float, array_like[float]}
         Minimum Acceptable Return, in the same periodicity as your
         returns
@@ -322,36 +369,9 @@ def omega_sharpe_ratio(R, MAR, *args):
     >>> mar = 0.005
     >>> print(omega_sharpe_ratio(portfolio_bacon, MAR))
     """
-    if isinstance(R, (_pd.Series, _pd.DataFrame)):
-        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(
-            MAR, (_pd.Series, _pd.DataFrame)
-        ):
-            if not isinstance(MAR.index, _pd.DatetimeIndex):
-                raise ValueError(
-                    "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
-                )
-        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(
-            MAR, (_pd.Series, _pd.DataFrame)
-        ):
-            if isinstance(MAR.index, _pd.DatetimeIndex):
-                raise ValueError(
-                    "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
-                )
-
-    R = R.dropna()
+    R, MAR = _validate_and_align_mar(R, MAR)
     r = R[R.gt(MAR)]
-
-    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) & isinstance(
-        R, (_pd.Series, _pd.DataFrame)
-    ):
-        # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
-        # indices are of the same type
-        MAR = MAR[r.index]
-    else:
-        # works for any array_like MAR. Scalars will just return itself
-        # if MAR is array_like, we have to assume that R and MAR both
-        # cover the same time period
-        MAR = _np.mean(MAR)
+    MAR = _subset_mar(R, r, MAR)
 
     result = (
         upside_risk(R, MAR, stat="potential")
@@ -360,7 +380,7 @@ def omega_sharpe_ratio(R, MAR, *args):
     return result
 
 
-def upside_risk(R, MAR=0, method="full", stat="risk"):
+def upside_risk(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Series, _pd.DataFrame] = 0, method: str = "full", stat: str = "risk") -> float:
     """
     upside risk, variance and potential of the return distribution
 
@@ -376,7 +396,7 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     ----------
     R : {Series, DataFrame}
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
         returns
@@ -397,10 +417,10 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     -----
     Equations:
 
-    .. math:: 
-        
-        UpsideRisk(R, MAR) = \sqrt{\sum_{n}^{t=1} \\frac{max[(R_{t} - MAR), 0]^2}{n}}\f
-        UpsideVariance(R, MAR) = \sum^{n}_{t=1} \\frac{max[(R_{t} - MAR), 0]^2}{n}\f
+    .. math::
+
+        UpsideRisk(R, MAR) = \sqrt{\sum_{n}^{t=1} \\frac{max[(R_{t} - MAR), 0]^2}{n}}
+        UpsideVariance(R, MAR) = \sum^{n}_{t=1} \\frac{max[(R_{t} - MAR), 0]^2}{n}
         UpsidePotential(R, MAR) = \sum^{n}_{t=1} \\frac{max[(R_{t} - MAR), 0]} {n}
 
     where `n` is either the number of observations of the entire series or
@@ -424,36 +444,9 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     # .. math:: UpsideVariance(R, MAR) = \sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]^2} {n}}
     # .. math:: UpsidePotential(R, MAR) = \sum^{n}_{t=1} \frac{max[(R_{t} - MAR), 0]} {n}}
 
-    if isinstance(R, (_pd.Series, _pd.DataFrame)):
-        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(
-            MAR, (_pd.Series, _pd.DataFrame)
-        ):
-            if not isinstance(MAR.index, _pd.DatetimeIndex):
-                raise ValueError(
-                    "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
-                )
-        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(
-            MAR, (_pd.Series, _pd.DataFrame)
-        ):
-            if isinstance(MAR.index, _pd.DatetimeIndex):
-                raise ValueError(
-                    "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
-                )
-
-    R = R.dropna()
+    R, MAR = _validate_and_align_mar(R, MAR)
     r = R[R.gt(MAR)]
-
-    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) & isinstance(
-        R, (_pd.Series, _pd.DataFrame)
-    ):
-        # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
-        # indices are of the same type
-        MAR = MAR[r.index]
-    else:
-        # works for any array_like MAR. Scalars will just return itself
-        # if MAR is array_like, we have to assume that R and MAR both
-        # cover the same time period
-        MAR = _np.mean(MAR)
+    MAR = _subset_mar(R, r, MAR)
 
     if method == "full":
         length = len(R)
@@ -470,7 +463,7 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
     return result
 
 
-def downside_deviation(R, MAR=0, method="full", potential=False):
+def downside_deviation(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _pd.Series, _pd.DataFrame] = 0, method: str = "full", potential: bool = False) -> float:
     """
     Downside deviation, similar to semi deviation, eliminates positive returns
     when calculating risk.  To calculate it, we take the returns that are less
@@ -485,7 +478,7 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     ----------
     R : Series or DataFrame
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     MAR : int
         Minimum Acceptable Return, in the same periodicity as your
         returns
@@ -510,36 +503,9 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     >>> print(rt.downside_deviation(df['Adj Close'], MAR=0))
     """
 
-    if isinstance(R, (_pd.Series, _pd.DataFrame)):
-        if isinstance(R.index, _pd.DatetimeIndex) and isinstance(
-            MAR, (_pd.Series, _pd.DataFrame)
-        ):
-            if not isinstance(MAR.index, _pd.DatetimeIndex):
-                raise ValueError(
-                    "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
-                )
-        elif not isinstance(R.index, _pd.DatetimeIndex) and isinstance(
-            MAR, (_pd.Series, _pd.DataFrame)
-        ):
-            if isinstance(MAR.index, _pd.DatetimeIndex):
-                raise ValueError(
-                    "R does not have a datetime index but MAR does. If both DataFrames or Series, index types must be the same"
-                )
-
-    R = R.dropna()
+    R, MAR = _validate_and_align_mar(R, MAR)
     r = R[R.lt(MAR)]
-
-    if isinstance(MAR, (_pd.Series, _pd.DataFrame)) & isinstance(
-        R, (_pd.Series, _pd.DataFrame)
-    ):
-        # subset to the same dates as the R data. Already checked that if both are series or dataframes, that
-        # indices are of the same type
-        MAR = MAR[r.index]
-    else:
-        # works for any array_like MAR. Scalars will just return itself
-        # if MAR is array_like, we have to assume that R and MAR both
-        # cover the same time period
-        MAR = _np.mean(MAR)
+    MAR = _subset_mar(R, r, MAR)
 
     if method == "full":
         length = len(R)
@@ -555,7 +521,7 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
     return result
 
 
-def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
+def sharpe_ratio_annualized(R: Union[_pd.Series, _pd.DataFrame], Rf: float = 0, scale: Union[int, None] = None, geometric: bool = True) -> Union[float, _pd.Series]:
     """
     calculate annualized Sharpe Ratio
 
@@ -592,14 +558,10 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
         utilize geometric chaining (True) or simple/arithmetic chaining (False) to aggregate returns,
         default True
 
-    see also \code{\link{SharpeRatio}} \cr \code{\link{InformationRatio}} \cr
-    \code{\link{TrackingError}} \cr \code{\link{ActivePremium}} \cr
-    \code{\link{SortinoRatio}}
-
     References
     ----------
-    Sharpe, W.F. The Sharpe Ratio,\emph{Journal of Portfolio
-    Management},Fall 1994, 49-58.
+    Sharpe, W.F. The Sharpe Ratio, *Journal of Portfolio
+    Management*, Fall 1994, 49-58.
 
     Examples
     --------
@@ -620,7 +582,7 @@ def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
     return res
 
 
-def drawdowns(R, geometric=True):
+def drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True) -> Union[_pd.Series, _pd.DataFrame]:
     """
     Function to calculate drawdown levels in a timeseries
 
@@ -628,7 +590,7 @@ def drawdowns(R, geometric=True):
     ----------
     R : {Series, DataFrame}
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
     """
@@ -643,7 +605,7 @@ def drawdowns(R, geometric=True):
     return res
 
 
-def find_drawdowns(R, geometric=True, *args):
+def find_drawdowns(R: Union[_pd.Series, _pd.DataFrame], geometric: bool = True, *args) -> dict:
     """
     Find the drawdowns and drawdown levels in a timeseries.
 
@@ -653,13 +615,13 @@ def find_drawdowns(R, geometric=True, *args):
     Often used with sort_drawdowns() to get the largest drawdowns.
 
     drawdowns() will calculate the drawdown levels as percentages, for use
-    in \code{\link{chart.Drawdown}}.
+    in ``chart.Drawdown``.
 
     Parameters
     ----------
     R : Series or DataFrame
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     geometric : bool
         utilize geometric chaining (TRUE) or simple/arithmetic chaining (FALSE) to aggregate returns, by default True
 
@@ -670,11 +632,11 @@ def find_drawdowns(R, geometric=True, *args):
 
     'return'- numpy array of minimum of returns below the risk free rate of return (Rf) for each
         trough. If returns are positive, array has 0 value
-    'from' - array index positiion of beginning of each trough or recovery period corresponding to each
+    'from' - array index position of beginning of each trough or recovery period corresponding to each
         element of 'return'
     'trough' - array index position of peak trough period corresponding to each
         element of 'return'. Returns beginning of recovery periods
-    'to' - array index positiion of end of each trough or recovery period corresponding to each
+    'to' - array index position of end of each trough or recovery period corresponding to each
         element of 'return'
     'length' - length of each trough period corresponding to each element of 'return' as given by
         the difference in to and from index positions
@@ -710,12 +672,7 @@ def find_drawdowns(R, geometric=True, *args):
         series_flag = True
 
     for lab, con in dd.items():
-        rs[lab] = dict()
-        rs[lab]["return"] = _np.array([]).astype(float)
-        rs[lab]["from"] = _np.array([]).astype(int)
-        rs[lab]["to"] = _np.array([]).astype(int)
-        rs[lab]["length"] = _np.array([]).astype(int)
-        rs[lab]["trough"] = _np.array([]).astype(int)
+        rs[lab] = {"return": [], "from": [], "to": [], "trough": []}
 
         if con[0] >= 0:
             prior_sign = 1
@@ -739,10 +696,10 @@ def find_drawdowns(R, geometric=True, *args):
                     dmin = i
                 to = i + 1
             else:
-                rs[lab]["return"] = _np.append(rs[lab]["return"], sofar)
-                rs[lab]["from"] = _np.append(rs[lab]["from"], frm)
-                rs[lab]["trough"] = _np.append(rs[lab]["trough"], dmin)
-                rs[lab]["to"] = _np.append(rs[lab]["to"], to)
+                rs[lab]["return"].append(sofar)
+                rs[lab]["from"].append(frm)
+                rs[lab]["trough"].append(dmin)
+                rs[lab]["to"].append(to)
 
                 frm = i
                 sofar = r
@@ -750,10 +707,13 @@ def find_drawdowns(R, geometric=True, *args):
                 dmin = i
                 prior_sign = this_sign
 
-        rs[lab]["return"] = _np.append(rs[lab]["return"], sofar)
-        rs[lab]["from"] = _np.append(rs[lab]["from"], frm)
-        rs[lab]["trough"] = _np.append(rs[lab]["trough"], dmin)
-        rs[lab]["to"] = _np.append(rs[lab]["to"], to)
+        rs[lab]["return"].append(sofar)
+        rs[lab]["from"].append(frm)
+        rs[lab]["trough"].append(dmin)
+        rs[lab]["to"].append(to)
+
+        for key in ["return", "from", "to", "trough"]:
+            rs[lab][key] = _np.array(rs[lab][key])
 
         rs[lab]["length"] = rs[lab]["to"] - rs[lab]["from"] + 1
         rs[lab]["peaktotrough"] = rs[lab]["trough"] - rs[lab]["from"] + 1
@@ -761,7 +721,7 @@ def find_drawdowns(R, geometric=True, *args):
 
         # if original parameter was a series, remove top layer of
         # results dictionary
-        if series_flag == True:
+        if series_flag:
             rs = rs["drawdown"]
 
     return rs
@@ -798,9 +758,9 @@ def _beta(y, x, subset=None):
         subset = subset.dropna().astype(bool)
 
     if (
-        (isinstance(x, (_np.ndarray, _pd.Series)) == False)
-        & (isinstance(y, (_np.ndarray, _pd.Series)) == False)
-        & (isinstance(subset, (_np.ndarray, _pd.Series)) == False)
+        not isinstance(x, (_np.ndarray, _pd.Series))
+        and not isinstance(y, (_np.ndarray, _pd.Series))
+        and not isinstance(subset, (_np.ndarray, _pd.Series))
     ):
         raise ValueError(
             "all arguements of _beta must be pandas Series or numpy arrays"
@@ -822,7 +782,7 @@ def _beta(y, x, subset=None):
     return beta[0]
 
 
-def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
+def capm_beta(Ra: Union[_pd.Series, _pd.DataFrame], Rb: _pd.Series, Rf: Union[float, _pd.Series] = 0, kind: str = "all") -> Union[float, _pd.Series]:
     """
     calculate single factor model (CAPM) beta
 
@@ -830,7 +790,7 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     and covariance of an initial portfolio.  Used to determine diversification potential.
 
     This function uses a linear intercept model to achieve the same results as
-    the symbolic model used by \code{\link{BetaCoVariance}}
+    the symbolic model used by ``BetaCoVariance``
 
     .. math:: \\beta_{a,b}=\\frac{CoV_{a,b}}{\sigma_{b}}=\\frac{\sum((R_{a}-\\bar{R_{a}})(R_{b}-\\bar{R_{b}}))}{\sum(R_{b}-\\bar{R_{b}})^{2}}
 
@@ -846,11 +806,11 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     Alternatively, kind='bear' provides the calculation on negative
     market returns.
 
-    The function `timing_ratio` may help assess whether the manager is a good timer
+    The function ``timing_ratio`` may help assess whether the manager is a good timer
     of asset allocation decisions.  The ratio, which is calculated as
-    
+
     :math:`TimingRatio =\\frac{\\beta^{+}}{\\beta^{-}}`
-    
+
     is best when greater than one in a rising market and less than one in a
     falling market.
 
@@ -880,8 +840,8 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
 
     References
     ----------
-    Sharpe, W.F. Capital Asset Prices: A theory of market equilibrium under conditions of risk. *Journal of finance*, vol 19, 1964, 425-442.\f
-    Ruppert, David. *Statistics and Finance, an Introduction*. Springer. 2004.\f
+    Sharpe, W.F. Capital Asset Prices: A theory of market equilibrium under conditions of risk. *Journal of finance*, vol 19, 1964, 425-442.
+    Ruppert, David. *Statistics and Finance, an Introduction*. Springer. 2004.
     Bacon, Carl. *Practical portfolio performance measurement and attribution*. Wiley. 2004.
 
     Examples
@@ -892,9 +852,9 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     >>> df = data.DataReader(["XOM","AAPL","SPY"],  "yahoo", datetime(2010,1,1), datetime(2017,12,31))
     >>> df = df.pct_change()['Adj Close']
     >>> df = df.asfreq('B')
-    >>> print(rt.CAPM_beta(df[['XOM','AAPL']], df['SPY'], Rf=0, kind='bear'))
-    >>> print(rt.CAPM_beta(df[['XOM','AAPL']], df['SPY'], Rf=0, kind='bull'))
-    >>> print(rt.CAPM_beta(df[['XOM','AAPL']], df['SPY'], Rf=0))
+    >>> print(rt.capm_beta(df[['XOM','AAPL']], df['SPY'], Rf=0, kind='bear'))
+    >>> print(rt.capm_beta(df[['XOM','AAPL']], df['SPY'], Rf=0, kind='bull'))
+    >>> print(rt.capm_beta(df[['XOM','AAPL']], df['SPY'], Rf=0))
     """
 
     xRa = return_excess(Ra, Rf)
@@ -920,10 +880,10 @@ def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
     return rs
 
 
-def timing_ratio(Ra, Rb, Rf=0):
+def timing_ratio(Ra: Union[_pd.Series, _pd.DataFrame], Rb: _pd.Series, Rf: Union[float, _pd.Series] = 0) -> Union[float, _pd.Series]:
     """
-    The function `timing_ratio` may help assess whether the manager is a good timer
-    of asset allocation decisions.  The ratio is best when greater than one in a 
+    The function ``timing_ratio`` may help assess whether the manager is a good timer
+    of asset allocation decisions.  The ratio is best when greater than one in a
     rising market and less than one in a falling market.
 
     Parameters
@@ -957,42 +917,16 @@ def timing_ratio(Ra, Rb, Rf=0):
     >>> rt.timing_ratio(df[['XOM','AAPL']], df['SPY'], Rf=0)
     """
 
-    beta_bull = CAPM_beta(Ra, Rb, Rf=Rf, kind="bull")
-    beta_bear = CAPM_beta(Ra, Rb, Rf=Rf, kind="bear")
+    beta_bull = capm_beta(Ra, Rb, Rf=Rf, kind="bull")
+    beta_bear = capm_beta(Ra, Rb, Rf=Rf, kind="bear")
 
     result = beta_bull / beta_bear
 
     return result
 
 
-def _check_ts(R, scale, name="R"):
-    """
-    Function to check frequency of R, a time series Series or Dataframe
-
-    Parameters
-    ----------
-    R : Series or DataFrame
-        A time series of asset returns
-    scale : int (optional)
-        number of periods in a year (daily scale = 252, monthly scale =
-        12, quarterly scale = 4). By default None. Note that if scale is None,
-        the function will calculate a scale based on the index frequency. If however
-        you wish to override this (becuase maybe there is no index freq),
-        specify your own scale to use.
-
-    Returns
-    -------
-    tuple with R as Series or Dataframe and scale as int
-    """
-    if not isinstance(R, (_pd.DataFrame, _pd.Series)):
-        raise ValueError(f"{name} must be a pandas Series or DataFrame")
-
-    if isinstance(R.index, _pd.DatetimeIndex):
-        if scale is None:
-            scale = _resolve_scale(R.index.freq, name=name)
-    else:
-        raise ValueError(
-            f"parameter {name}'s index must be a datetime index with freq 'D','B','W','M','Q' or 'Y'"
-        )
-
-    return R, scale
+def CAPM_beta(*args, **kwargs):
+    """Deprecated: Use capm_beta() instead."""
+    import warnings
+    warnings.warn("CAPM_beta is deprecated, use capm_beta instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return capm_beta(*args, **kwargs)

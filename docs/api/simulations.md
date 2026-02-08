@@ -8,58 +8,58 @@ mathematical theory behind these models.
 
 ## Univariate Simulations
 
-::: risktools.simGBM
+::: risktools.sim_gbm
     options:
       show_root_heading: true
       heading_level: 3
 
-::: risktools.simOU
+::: risktools.sim_ou
     options:
       show_root_heading: true
       heading_level: 3
 
-::: risktools.simOUJ
+::: risktools.sim_ouj
     options:
       show_root_heading: true
       heading_level: 3
 
 ## Model Fitting
 
-::: risktools.fitOU
+::: risktools.fit_ou
     options:
       show_root_heading: true
       heading_level: 3
 
 ## Multivariate Simulations
 
-::: risktools.simGBM_MV
+::: risktools.sim_gbm_mv
     options:
       show_root_heading: true
       heading_level: 3
 
-::: risktools.simOU_MV
+::: risktools.sim_ou_mv
     options:
       show_root_heading: true
       heading_level: 3
 
-::: risktools.simOUJ_MV
+::: risktools.sim_ouj_mv
     options:
       show_root_heading: true
       heading_level: 3
 
 ## Multivariate Utilities
 
-::: risktools.fitOU_MV
+::: risktools.fit_ou_mv
     options:
       show_root_heading: true
       heading_level: 3
 
-::: risktools.generate_eps_MV
+::: risktools.generate_eps_mv
     options:
       show_root_heading: true
       heading_level: 3
 
-::: risktools.calc_spread_MV
+::: risktools.calc_spread_mv
     options:
       show_root_heading: true
       heading_level: 3
@@ -92,6 +92,18 @@ mathematical theory behind these models.
       heading_level: 3
 
 ::: risktools.plot_portfolio
+    options:
+      show_root_heading: true
+      heading_level: 3
+
+## Simulation Classes
+
+::: risktools.MvGbm
+    options:
+      show_root_heading: true
+      heading_level: 3
+
+::: risktools.MvOu
     options:
       show_root_heading: true
       heading_level: 3

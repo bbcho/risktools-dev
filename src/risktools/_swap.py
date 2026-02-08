@@ -1,9 +1,12 @@
 from . import data
 
+import copy as _copy
+import functools as _functools
 import pandas as _pd
 import numpy as _np
+from typing import Union, Optional
 from scipy import interpolate as _interpolate
-from ._morningstar import *
+from ._morningstar import get_prices, get_curves
 
 import pandas_datareader as _pdr
 import plotly.express as _px
@@ -16,17 +19,17 @@ __all__ = [
     "swap_fut_weight",
 ]
 
-_us_swap = None
+
+@_functools.lru_cache(maxsize=1)
+def _get_us_swap_cached():
+    return data.open_data("usSwapCurves")
 
 
 def _get_us_swap():
-    global _us_swap
-    if _us_swap is None:
-        _us_swap = data.open_data("usSwapCurves")
-    return _us_swap
+    return _copy.deepcopy(_get_us_swap_cached())
 
 
-def custom_date_range(start, end, freq):
+def _custom_date_range(start, end, freq):
     if freq == "M":
         mul = 1
     elif freq == "Q":
@@ -49,20 +52,20 @@ def custom_date_range(start, end, freq):
 
 
 def swap_irs(
-    trade_date=None,
-    eff_date=None,
-    mat_date=None,
-    notional=1000000,
-    pay_rec="rec",
-    fixed_rate=0.05,
-    float_curve=None,
-    reset_freq="Q",
-    disc_curve=None,
-    days_in_year=360,
-    convention="act",
-    bus_calendar="NY",  # not implemented
-    output="price",
-):
+    trade_date: Optional[Union[str, _pd.Timestamp]] = None,
+    eff_date: Optional[Union[str, _pd.Timestamp]] = None,
+    mat_date: Optional[Union[str, _pd.Timestamp]] = None,
+    notional: int = 1000000,
+    pay_rec: str = "rec",
+    fixed_rate: float = 0.05,
+    float_curve: Optional[dict] = None,
+    reset_freq: str = "Q",
+    disc_curve: Optional[dict] = None,
+    days_in_year: int = 360,
+    convention: str = "act",
+    bus_calendar: str = "NY",  # not implemented
+    output: str = "price",
+) -> Union[float, dict]:
     """
     Commodity swap pricing from exchange settlement
 
@@ -77,7 +80,7 @@ def swap_irs(
     notional : long int
         Numeric value of notional. Defaults to 1,000,000.
     pay_rec : str
-        "pay" for pyement (positive pv) or "rec" for receivables (negative pv).
+        "pay" for payment (positive pv) or "rec" for receivables (negative pv).
     fixed_rate : float
         fixed interest rate. Defaults to 0.05.
     float_curve : DataFrame | Dict
@@ -108,23 +111,23 @@ def swap_irs(
     >>> import risktools as rt
     >>> usSwapCurves = rt.data.open_data('usSwapCurves')
     >>> rt.swap_irs(
-            trade_date="2020-01-04", 
-            eff_date="2020-01-06", 
-            mat_date="2022-01-06", 
-            notional=1000000, 
-            pay_rec = "rec", 
-            fixed_rate=0.05, 
-            float_curve=usSwapCurves, 
-            reset_freq='Q', 
-            disc_curve=usSwapCurves, 
-            days_in_year=360, 
-            convention="act", 
-            bus_calendar="NY", 
+            trade_date="2020-01-04",
+            eff_date="2020-01-06",
+            mat_date="2022-01-06",
+            notional=1000000,
+            pay_rec = "rec",
+            fixed_rate=0.05,
+            float_curve=usSwapCurves,
+            reset_freq='Q',
+            disc_curve=usSwapCurves,
+            days_in_year=360,
+            convention="act",
+            bus_calendar="NY",
             output = "all"
         )
     """
     if trade_date is None:
-        trade_date = (_pd.Timestamp.now().floor("D"),)
+        trade_date = _pd.Timestamp.now().floor("D")
     if eff_date is None:
         eff_date = trade_date + _pd.DateOffset(days=2)
     if mat_date is None:
@@ -134,13 +137,13 @@ def swap_irs(
     if disc_curve is None:
         disc_curve = _get_us_swap()
 
-    dates = custom_date_range(eff_date, mat_date, freq=reset_freq)
+    dates = _custom_date_range(eff_date, mat_date, freq=reset_freq)
 
     # in case mat_date does not fall evenly on freq, take last date before
     dates = dates[dates <= mat_date]
     dates = _pd.Index([_pd.to_datetime(trade_date)]).union(dates).sort_values()
 
-    if (days_in_year in [360, 365]) == False:
+    if days_in_year not in [360, 365]:
         raise ValueError("days_in_year must be either 360 or 365")
 
     # placeholder
@@ -186,7 +189,14 @@ def swap_irs(
         return {"pv": pv, "df": df, "duration": duration}
 
 
-def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
+def swap_com(
+    df: _pd.DataFrame,
+    futures_names: list,
+    start_dt: Union[str, _pd.Timestamp],
+    end_dt: Union[str, _pd.Timestamp],
+    cmdty: str,
+    exchange: str,
+) -> _pd.DataFrame:
     """
     Function to calculate commodity swap pricing from futures contract exchange settlements of two contracts.
     Mostly used when the contract expires mid-month to work out the calendar month average
@@ -196,7 +206,7 @@ def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
     df : DataFrame
         Wide dataframe of futures prices
     futures_names : List[Tuple[str]]
-        2 element List or tuple of futures contract names in order of expiry (i.e. [first expirying contract, second expirying contract])
+        2 element List or tuple of futures contract names in order of expiry (i.e. [first expiring contract, second expiring contract])
     start_dt : str | datetime
         A string in the format of 'YYYY-mm-dd' or a datetime object
     end_dt : str | datetime
@@ -245,8 +255,12 @@ def swap_com(df, futures_names, start_dt, end_dt, cmdty, exchange):
 
 
 def get_ir_swap_curve(
-    username, password, currency="USD", start_dt="2019-01-01", end_dt=None
-):
+    username: str,
+    password: str,
+    currency: str = "USD",
+    start_dt: Union[str, _pd.Timestamp] = "2019-01-01",
+    end_dt: Optional[Union[str, _pd.Timestamp]] = None,
+) -> _pd.DataFrame:
     """
     Extract historical interest rate swap data for Quantlib DiscountsCurve function
     using Morningstar and FRED data
@@ -259,11 +273,11 @@ def get_ir_swap_curve(
     password : str
         Morningstar API password
     currency : str
-        Not used - future enchancement
+        Not used - future enhancement
     start_dt : str | datetime, optional
         earliest date to return data from, by default "2019-01-01"
     end_dt : str | datetime, optional
-        lastest date to return data from, by default None. If None, the function return everything from start_dt forward
+        latest date to return data from, by default None. If None, the function return everything from start_dt forward
 
     Examples
     --------
@@ -331,18 +345,15 @@ def get_ir_swap_curve(
 
 
 def swap_info(
-    username,
-    password,
-    date=None,
-    tickers=["CL", "CL_001_Month"],
-    feeds=[
-        "Crb_Futures_Price_Volume_And_Open_Interest",
-        "CME_NymexFutures_EOD_continuous",
-    ],
-    exchange="nymex",
-    contract="cmewti",
-    output="all",
-):
+    username: str,
+    password: str,
+    date: Optional[Union[str, _pd.Timestamp]] = None,
+    tickers: Optional[list] = None,
+    feeds: Optional[list] = None,
+    exchange: str = "nymex",
+    contract: str = "cmewti",
+    output: str = "all",
+) -> Union[_pd.DataFrame, dict]:
     """
     Returns dataframe required to price a WTI averaging instrument based on first line settlements.
 
@@ -357,7 +368,7 @@ def swap_info(
     tickers : str | iterable[str]
         Morningstar tickers for get_curve() and get_prices() functions
     feeds : str | iterable[str]
-        Feeds for Morningstar get_curve() and get_prices() functions. Must be in same 
+        Feeds for Morningstar get_curve() and get_prices() functions. Must be in same
         order as tickers parameter
     exchange : str
         Exchange code in holidaysOil from risktools.data.open_data function. Defaults to "nymex".
@@ -380,6 +391,14 @@ def swap_info(
     >>> rt.swap_info(username, password, date="2020-05-06", tickers=tickers, feeds=feeds, contract="cmewti", exchange="nymex",
             output = "all")
     """
+    if tickers is None:
+        tickers = ["CL", "CL_001_Month"]
+    if feeds is None:
+        feeds = [
+            "Crb_Futures_Price_Volume_And_Open_Interest",
+            "CME_NymexFutures_EOD_continuous",
+        ]
+
     # get today's futures curve prices by expiration date
     wti = get_curves(
         username=username,
@@ -428,17 +447,12 @@ def swap_info(
     df = df.rename({"code": "futures_contract", "Close": "price"}, axis=1)[
         ["futures_contract", "price"]
     ]
-    # df = (
-    #     hist.loc[:(date), :]
-    #     .append(df.loc[(date + _pd.DateOffset(days=1)) :, :])
-    #     .dropna()
-    # )
 
     df = (
         _pd.concat([
-            hist.loc[:(date), :], 
+            hist.loc[:(date), :],
             df.loc[(date + _pd.DateOffset(days=1)) :, :]
-        ], 
+        ],
         axis=0)
         .dropna()
     )
@@ -466,14 +480,17 @@ def swap_info(
 
 
 def swap_fut_weight(
-    month, contract="cmewti", exchange="nymex", output="first_fut_weight"
-):
+    month: Union[str, _pd.Timestamp],
+    contract: str = "cmewti",
+    exchange: str = "nymex",
+    output: str = "first_fut_weight",
+) -> Union[float, int]:
     """
-    Function used to calculate the calendar month average price of a futures curve. Some 
+    Function used to calculate the calendar month average price of a futures curve. Some
     futures curves such as NYMEX WTI expires mid-month (i.e. 2020-09-22) but some products
-    are priced as differentials to the calendar month average (CMA) price of the contracts. 
-    To calculate the CMA, up need the contract that's active for the first part of the month, 
-    the contract that's active for the later half as well as the weighting to apply to both. 
+    are priced as differentials to the calendar month average (CMA) price of the contracts.
+    To calculate the CMA, up need the contract that's active for the first part of the month,
+    the contract that's active for the later half as well as the weighting to apply to both.
     This function is designed to return the weights for contracts 1 and 2 as well as the weights
 
     Parameters
@@ -493,7 +510,7 @@ def swap_fut_weight(
     Returns
     -------
     If first_fut_weight as dataframe, if not then an integer
-    
+
     Examples
     --------
     >>> import risktools as rt
@@ -532,4 +549,3 @@ def swap_fut_weight(
         out = first_fut_weight
 
     return out
-

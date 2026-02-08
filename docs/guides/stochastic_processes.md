@@ -133,7 +133,7 @@ $$
 S_{t+\Delta t} = S_t \cdot \exp\!\left[\left(\mu - \tfrac{\sigma^2}{2}\right)\Delta t + \sigma\,\sqrt{\Delta t}\;\varepsilon_t\right]
 $$
 
-This is precisely the scheme implemented in `simGBM()`. By
+This is precisely the scheme implemented in `sim_gbm()`. By
 working with log returns and using `cumprod`, the implementation avoids a
 slow Python loop and computes all time steps in a vectorized fashion.
 
@@ -161,15 +161,15 @@ slow Python loop and computes all time steps in a vectorized fashion.
 Despite these limitations, GBM is a useful benchmark and appropriate for
 short-horizon simulations where mean reversion has little time to act.
 
-### Simulation with `simGBM`
+### Simulation with `sim_gbm`
 
-The function `simGBM()` simulates GBM paths using the
+The function `sim_gbm()` simulates GBM paths using the
 Euler--Maruyama discretization described above.
 
 **Function signature:**
 
 ```python
-simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1/252, sims=1000, eps=None)
+sim_gbm(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1/252, sims=1000, eps=None)
 ```
 
 **Parameters:**
@@ -192,7 +192,7 @@ import risktools as rt
 import matplotlib.pyplot as plt
 
 # Simulate 5 paths of GBM
-paths = rt.simGBM(s0=100, mu=0, sigma=0.3, r=0.05, T=1, dt=1/252, sims=5)
+paths = rt.sim_gbm(s0=100, mu=0, sigma=0.3, r=0.05, T=1, dt=1/252, sims=5)
 
 # Plot
 fig, ax = plt.subplots(figsize=(10, 5))
@@ -215,7 +215,7 @@ We can verify this with a large simulation:
 import numpy as np
 
 # Simulate 10,000 paths
-paths = rt.simGBM(s0=100, mu=0, sigma=0.3, r=0.05, T=1, dt=1/252, sims=10000)
+paths = rt.sim_gbm(s0=100, mu=0, sigma=0.3, r=0.05, T=1, dt=1/252, sims=10000)
 terminal_prices = paths.iloc[-1, :]
 
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -299,7 +299,7 @@ $$
 
 where \(\varepsilon_t \sim \mathcal{N}(0, 1)\). This is the standard
 Euler--Maruyama scheme, and it is the update rule used in the inner loop of
-`simOU()`.
+`sim_ou()`.
 
 ### Half-Life of Mean Reversion
 
@@ -342,15 +342,15 @@ This result has two important implications:
 2. **The process is ergodic**: time averages converge to ensemble averages,
    which justifies estimating \(\mu\) from a single long time series.
 
-### Simulation with `simOU`
+### Simulation with `sim_ou`
 
-The function `simOU()` simulates OU paths with support for
+The function `sim_ou()` simulates OU paths with support for
 time-varying and stochastic mean and volatility parameters.
 
 **Function signature:**
 
 ```python
-simOU(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252, sims=1000,
+sim_ou(s0=5, mu=4, theta=2, sigma=1, T=1, dt=1/252, sims=1000,
       eps=None, seed=None, log_price=False, c=True)
 ```
 
@@ -376,7 +376,7 @@ import risktools as rt
 import matplotlib.pyplot as plt
 
 # Simulate OU process starting far from the mean
-paths = rt.simOU(s0=8, mu=5, theta=2, sigma=0.5, T=2, dt=1/252, sims=5, seed=42)
+paths = rt.sim_ou(s0=8, mu=5, theta=2, sigma=0.5, T=2, dt=1/252, sims=5, seed=42)
 
 fig, ax = plt.subplots(figsize=(10, 5))
 paths.plot(ax=ax, legend=False, alpha=0.8)
@@ -402,7 +402,7 @@ from scipy import stats
 mu, theta, sigma = 5, 2, 0.5
 
 # Simulate many paths for a long horizon
-paths = rt.simOU(s0=5, mu=mu, theta=theta, sigma=sigma,
+paths = rt.sim_ou(s0=5, mu=mu, theta=theta, sigma=sigma,
                   T=5, dt=1/252, sims=10000, seed=123)
 
 terminal_values = paths.iloc[-1, :]
@@ -508,14 +508,14 @@ After the lag period, the effective mean reverts to \(\mu\), and the
 process begins pulling back toward the original equilibrium. This mechanism
 produces realistic **plateau-then-revert** dynamics following a jump event.
 
-### Simulation with `simOUJ`
+### Simulation with `sim_ouj`
 
-The function `simOUJ()` simulates OU jump-diffusion paths.
+The function `sim_ouj()` simulates OU jump-diffusion paths.
 
 **Function signature:**
 
 ```python
-simOUJ(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05,
+sim_ouj(s0=5, mu=5, theta=0.5, sigma=0.2, jump_prob=0.05,
        jump_avgsize=3, jump_stdv=0.05, T=1, dt=1/12, sims=1000,
        mr_lag=None, eps=None, elp=None, ejp=None, seed=None, c=True)
 ```
@@ -543,7 +543,7 @@ import risktools as rt
 import matplotlib.pyplot as plt
 
 # OU with jumps: monthly time steps over 3 years
-paths = rt.simOUJ(
+paths = rt.sim_ouj(
     s0=5, mu=5, theta=0.5, sigma=0.2,
     jump_prob=0.05, jump_avgsize=3, jump_stdv=0.05,
     T=3, dt=1/12, sims=5, seed=42
@@ -566,7 +566,7 @@ plt.show()
 fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=True)
 
 # Without lag
-paths_no_lag = rt.simOUJ(
+paths_no_lag = rt.sim_ouj(
     s0=5, mu=5, theta=0.5, sigma=0.2,
     jump_prob=0.1, jump_avgsize=2, jump_stdv=0.05,
     T=3, dt=1/12, sims=3, mr_lag=None, seed=99
@@ -578,7 +578,7 @@ axes[0].set_xlabel("Time Step")
 axes[0].set_ylabel("Spread Level")
 
 # With lag of 4 months
-paths_with_lag = rt.simOUJ(
+paths_with_lag = rt.sim_ouj(
     s0=5, mu=5, theta=0.5, sigma=0.2,
     jump_prob=0.1, jump_avgsize=2, jump_stdv=0.05,
     T=3, dt=1/12, sims=3, mr_lag=4, seed=99
@@ -605,7 +605,7 @@ pipeline outages with an estimated repair timeline.
 
 Given an observed time series that we believe follows an OU process, we need
 to estimate the parameters \(\theta\), \(\mu\), and \(\sigma\).
-The function `fitOU()` provides two estimation methods: **OLS
+The function `fit_ou()` provides two estimation methods: **OLS
 regression** and **maximum likelihood estimation** (MLE).
 
 ### OLS Method
@@ -661,12 +661,12 @@ closed-form expressions for the parameter estimates. The MLE is
 asymptotically efficient (it achieves the Cramer--Rao lower bound) and does
 not depend on the choice of \(\Delta t\) in the same way as OLS.
 
-### Estimation with `fitOU`
+### Estimation with `fit_ou`
 
 **Function signature:**
 
 ```python
-fitOU(spread, dt=1/252, log_price=False, method="OLS", verbose=False)
+fit_ou(spread, dt=1/252, log_price=False, method="OLS", verbose=False)
 ```
 
 **Parameters:**
@@ -695,21 +695,21 @@ true_theta = 2.0
 true_sigma = 0.5
 
 # Simulate one long path
-paths = rt.simOU(s0=5, mu=true_mu, theta=true_theta, sigma=true_sigma,
+paths = rt.sim_ou(s0=5, mu=true_mu, theta=true_theta, sigma=true_sigma,
                   T=10, dt=1/252, sims=1, seed=42)
 
 # Extract the single path as a Series
 spread = paths.iloc[:, 0]
 
 # Estimate with OLS
-params_ols = rt.fitOU(spread, dt=1/252, method="OLS")
+params_ols = rt.fit_ou(spread, dt=1/252, method="OLS")
 print("OLS estimates:")
 print(f"  theta = {params_ols['theta']:.4f}  (true: {true_theta})")
 print(f"  mu    = {params_ols['mu']:.4f}  (true: {true_mu})")
 print(f"  sigma = {params_ols['annualized_sigma']:.4f}  (true: {true_sigma})")
 
 # Estimate with MLE
-params_mle = rt.fitOU(spread, method="MLE")
+params_mle = rt.fit_ou(spread, method="MLE")
 print("\nMLE estimates:")
 print(f"  theta = {params_mle['theta']:.4f}  (true: {true_theta})")
 print(f"  mu    = {params_mle['mu']:.4f}  (true: {true_mu})")
@@ -726,9 +726,9 @@ import pandas as pd
 
 results = []
 for i in range(200):
-    path = rt.simOU(s0=5, mu=5.0, theta=2.0, sigma=0.5,
+    path = rt.sim_ou(s0=5, mu=5.0, theta=2.0, sigma=0.5,
                      T=5, dt=1/252, sims=1, seed=i)
-    est = rt.fitOU(path.iloc[:, 0], dt=1/252, method="MLE")
+    est = rt.fit_ou(path.iloc[:, 0], dt=1/252, method="MLE")
     results.append(est)
 
 df = pd.DataFrame(results)
@@ -738,7 +738,7 @@ print(df.describe().round(4))
 
 ### Practical Considerations
 
-When applying `fitOU` to real data, keep the following points in mind:
+When applying `fit_ou` to real data, keep the following points in mind:
 
 1. **Data frequency and** `dt`. The `dt` parameter must match the actual
    sampling frequency of the data. For daily business-day data, use
@@ -781,14 +781,14 @@ import matplotlib.pyplot as plt
 
 # Step 1: Simulate an OU process (stand-in for observed market data)
 true_params = {"mu": 4.0, "theta": 1.5, "sigma": 0.4}
-observed = rt.simOU(
+observed = rt.sim_ou(
     s0=4.5, mu=true_params["mu"], theta=true_params["theta"],
     sigma=true_params["sigma"], T=5, dt=1/252, sims=1, seed=7
 )
 spread = observed.iloc[:, 0]
 
 # Step 2: Estimate parameters
-est = rt.fitOU(spread, dt=1/252, method="MLE")
+est = rt.fit_ou(spread, dt=1/252, method="MLE")
 print("Estimated parameters:")
 for k, v in est.items():
     print(f"  {k}: {v:.4f}")
@@ -799,7 +799,7 @@ print(f"\nEstimated half-life: {half_life_days:.0f} business days")
 
 # Step 4: Forward simulation from the last observed value
 last_value = spread.iloc[-1]
-forecasts = rt.simOU(
+forecasts = rt.sim_ou(
     s0=last_value, mu=est["mu"], theta=est["theta"],
     sigma=est["annualized_sigma"], T=1, dt=1/252, sims=500, seed=0
 )

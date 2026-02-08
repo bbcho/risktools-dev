@@ -4,6 +4,7 @@ import numpy as _np
 import quandl as _quandl
 from . import data
 import arch as _arch
+from typing import Union, Optional
 
 __all__ = [
     "ir_df_us",
@@ -24,7 +25,7 @@ from scipy import interpolate as _interpolate
 import plotly.express as _px
 import plotly.graph_objects as _go
 import matplotlib.pyplot as _plt
-from ._morningstar import *
+from ._morningstar import get_prices, get_curves
 from statsmodels.tsa.seasonal import STL as _STL
 from pandas.plotting import (
     register_matplotlib_converters as _register_matplotlib_converters,
@@ -32,10 +33,35 @@ from pandas.plotting import (
 import seaborn as _sns
 import time
 
-from ._pa import *
+from ._pa import (
+    return_cumulative,
+    return_annualized,
+    return_excess,
+    sd_annualized,
+    omega_sharpe_ratio,
+    upside_risk,
+    downside_deviation,
+    sharpe_ratio_annualized,
+    drawdowns,
+    find_drawdowns,
+    capm_beta,
+    CAPM_beta,  # deprecated alias
+    timing_ratio,
+)
 
 
-def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
+def _check_df(df: Union[_pd.Series, _pd.DataFrame]) -> Union[_pd.Series, _pd.DataFrame]:
+    """Validate that df is a pandas Series or DataFrame and return a copy."""
+    if not isinstance(df, (_pd.Series, _pd.DataFrame)):
+        raise TypeError("df must be a pandas Series or DataFrame")
+    return df.copy()
+
+
+def ir_df_us(
+    quandl_key: Optional[str] = None,
+    ir_sens: float = 0.01,
+    date: Optional[str] = None,
+) -> _pd.DataFrame:
     """
     Extracts US Tresury Zero Rates using Quandl
 
@@ -128,7 +154,13 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     return x
 
 
-def bond(ytm=0.05, c=0.05, T=1, m=2, output="price"):
+def bond(
+    ytm: float = 0.05,
+    c: float = 0.05,
+    T: float = 1,
+    m: int = 2,
+    output: str = "price",
+) -> Union[float, _pd.DataFrame]:
     """
     Compute bond price, cash flow table and duration
 
@@ -156,11 +188,8 @@ def bond(ytm=0.05, c=0.05, T=1, m=2, output="price"):
     >>> rt.bond(ytm = 0.05, c = 0.05, T = 1, m = 2, output = "df")
     >>> rt.bond(ytm = 0.05, c = 0.05, T = 1, m = 2, output = "duration")
     """
-    assert output in [
-        "df",
-        "price",
-        "duration",
-    ], "output not a member of ['df','price','duration']"
+    if output not in ("df", "price", "duration"):
+        raise ValueError("output must be one of 'df', 'price', or 'duration'")
 
     # init df
     df = _pd.DataFrame(
@@ -185,7 +214,10 @@ def bond(ytm=0.05, c=0.05, T=1, m=2, output="price"):
     return ret
 
 
-def trade_stats(R, Rf=0):
+def trade_stats(
+    R: Union[_pd.Series, _pd.DataFrame],
+    Rf: float = 0,
+) -> dict:
     """
     Compute list of risk reward metrics
 
@@ -193,14 +225,14 @@ def trade_stats(R, Rf=0):
     ----------
     R : Series or DataFrame
         pandas Series or DataFrame with a datetime index. If DataFrame, function will calculate
-        cummmulative returns on each column
+        cumulative returns on each column
     Rf : float
         risk free rate, in same period as your returns, or as a single
         digit average
 
     Returns
     -------
-    Dictionary with cummulative returns, annual returns, Annualized Sharpe ratio, Omega Sharpe ratio,
+    Dictionary with cumulative returns, annual returns, Annualized Sharpe ratio, Omega Sharpe ratio,
     Win &, % in the market, and drawdown specs
 
     Examples
@@ -242,13 +274,18 @@ def trade_stats(R, Rf=0):
         rs[lab]["dd_length"] = max(y["length"])
         rs[lab]["dd_max"] = min(y["return"])
 
-    if series_flag == True:
+    if series_flag:
         rs = rs["trade_stats"]
 
     return rs
 
 
-def returns(df, ret_type="abs", period_return=1, spread=False):
+def returns(
+    df: Union[_pd.Series, _pd.DataFrame],
+    ret_type: str = "abs",
+    period_return: int = 1,
+    spread: bool = False,
+) -> Union[_pd.Series, _pd.DataFrame]:
     """
     Computes periodic returns from a dataframe ordered by date
 
@@ -278,7 +315,7 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
 
     if isinstance(df, _pd.Series):
         df = _pd.DataFrame({df.name: df})
-    elif isinstance(df, _pd.DataFrame) == False:
+    elif not isinstance(df, _pd.DataFrame):
         raise ValueError("df is not a pandas Series or DataFrame")
 
     index_flag = False
@@ -289,7 +326,7 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
         df = df.swaplevel()
         index_flag = True
 
-    if (spread == True) & (len(df.index.names) == 1):
+    if spread and (len(df.index.names) == 1):
         raise ValueError(
             "You have set spread to True but only passed a single index, not a multi-index. There is nothing to spread"
         )
@@ -320,7 +357,7 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
         df = df.unstack(level=0).droplevel(level=0, axis=1)
         return df
     else:
-        if index_flag == True:
+        if index_flag:
             # drop dummy index to return single index
             df = df.droplevel(0)
         if len(df.columns) == 1:
@@ -330,8 +367,12 @@ def returns(df, ret_type="abs", period_return=1, spread=False):
 
 
 def roll_adjust(
-    df, commodity_name="cmewti", roll_type="Last_Trade", roll_sch=None, *args
-):
+    df: Union[_pd.Series, _pd.DataFrame],
+    commodity_name: str = "cmewti",
+    roll_type: str = "Last_Trade",
+    roll_sch: Optional[_pd.Series] = None,
+    *args,
+) -> Union[_pd.Series, _pd.DataFrame]:
     """
     Returns a pandas series adjusted for contract roll. The methodology used to adjust returns is to remove the daily returns on
     the day after expiry and for prices to adjust historical rolling front month contracts by the size of the roll at
@@ -370,7 +411,7 @@ def roll_adjust(
 
     if isinstance(df, _pd.Series):
         df = _pd.DataFrame({df.name: df})
-    elif isinstance(df, _pd.DataFrame) == False:
+    elif not isinstance(df, _pd.DataFrame):
         raise ValueError("df is not a pandas Series or DataFrame")
 
     if roll_sch is None:
@@ -389,10 +430,17 @@ def roll_adjust(
         return df.dropna()
 
 
-def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwargs):
+def garch(
+    df: Union[_pd.Series, _pd.DataFrame],
+    out: str = "data",
+    scale: Optional[int] = None,
+    show_fig: bool = True,
+    forecast_horizon: int = 1,
+    **kwargs,
+):
     """
     Computes annualised Garch(1,0,1) volatilities using arch package. Note that the
-    RTL package uses a sGarch model, but there is no similiar implementation in
+    RTL package uses a sGarch model, but there is no similar implementation in
     python.
 
     Parameters
@@ -464,17 +512,22 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
         return fig, ax
 
 
-def prompt_beta(df, period="all", beta_type="all", output="chart"):
+def prompt_beta(
+    df: _pd.DataFrame,
+    period: Union[str, int, float] = "all",
+    beta_type: str = "all",
+    output: str = "chart",
+):
     """
     Returns array/dataframe of betas for futures contract returns of a commodity
-    with it's front contract (i.e. next most expirying contract). For use with futures
+    with its front contract (i.e. next most expiring contract). For use with futures
     contracts (i.e. NYMEX WTI: CL01, CL02, CL03 and so forth) with standardized expiry periods.
 
     Using the WTI example, the betas will represent the covariance of daily returns of
     CL02, CL03, CL04 with CL01. The covariance of CL01 with CL01 is also returned, but is
     always 1.
 
-    This function uses the single factor model (CAPM) beta. See the function CAPM_beta
+    This function uses the single factor model (CAPM) beta. See the function capm_beta
     for more details
 
     Parameters
@@ -502,7 +555,7 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
         A scipy object from a least_squares fit of the betas by market type. Model used
         to fit betas was of the form:
         .. math:: \{beta} = x0 * exp(x1*t) + x2
-        where t is the contract order (1, 2, 3 etc..., lower for expirying sooner)
+        where t is the contract order (1, 2, 3 etc..., lower for expiring sooner)
 
     chart, df of betas or stats
 
@@ -533,9 +586,9 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
     df = df.sort_index()
 
     # calculate betas by market type (mkt is all types) using front contract as the benchmark
-    mkt = CAPM_beta(df, df.iloc[:, 0])
-    bull = CAPM_beta(df, df.iloc[:, 0], kind="bull")
-    bear = CAPM_beta(df, df.iloc[:, 0], kind="bear")
+    mkt = capm_beta(df, df.iloc[:, 0])
+    bull = capm_beta(df, df.iloc[:, 0], kind="bull")
+    bear = capm_beta(df, df.iloc[:, 0], kind="bear")
 
     # create array for non-linear least squares exponential
     prompt = _np.arange(0, mkt.shape[0]) + 1
@@ -589,15 +642,15 @@ def prompt_beta(df, period="all", beta_type="all", output="chart"):
 
 
 def npv(
-    init_cost=-375,
-    C=50,
-    cf_freq=0.25,
-    F=250,
-    T=2,
-    disc_factors=None,
-    break_even=False,
-    be_yield=0.01,
-):
+    init_cost: float = -375,
+    C: float = 50,
+    cf_freq: float = 0.25,
+    F: float = 250,
+    T: float = 2,
+    disc_factors: Optional[_pd.DataFrame] = None,
+    break_even: bool = False,
+    be_yield: float = 0.01,
+) -> _pd.DataFrame:
     """
     Compute Net Present Value using discount factors from ir_df_us()
 
@@ -637,7 +690,7 @@ def npv(
 
     disc_factors = disc_factors.copy()
 
-    if break_even == True:
+    if break_even:
         disc_factors["yield"] = be_yield
         disc_factors["discountfactor"] = _np.exp(
             -disc_factors["yield"] * disc_factors.maturity
@@ -665,7 +718,15 @@ def npv(
     return df
 
 
-def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
+def crr_euro(
+    s: float = 100,
+    x: float = 100,
+    sigma: float = 0.2,
+    Rf: float = 0.1,
+    T: float = 1,
+    n: int = 5,
+    type: str = "call",
+) -> dict:
     """
     European option binomial model on a stock without dividends. For academic purposes only.
     Use fOptions::CRRBinomialTreeOptions for real-life usage in R or Python equivalent.
@@ -740,12 +801,12 @@ def crr_euro(s=100, x=100, sigma=0.2, Rf=0.1, T=1, n=5, type="call"):
 
 
 def stl_decomposition(
-    df,
-    output="chart",
-    period=None,
-    seasonal=7,
-    seasonal_deg=1,
-    resample_freq="M",
+    df: _pd.Series,
+    output: str = "chart",
+    period: Optional[int] = None,
+    seasonal: int = 7,
+    seasonal_deg: int = 1,
+    resample_freq: Optional[str] = "M",
     **kwargs,
 ):
     """
@@ -814,7 +875,12 @@ def stl_decomposition(
         return res
 
 
-def get_eia_df(tables, key, version=2, sleep=1):
+def get_eia_df(
+    tables: Union[str, list],
+    key: str,
+    version: int = 2,
+    sleep: int = 1,
+) -> _pd.DataFrame:
     """
     Function for download data from the US Government EIA and return it as a pandas dataframe/series
 
@@ -874,7 +940,7 @@ def _get_eia_df_v1(tables, key):
     import requests
     import json
 
-    if isinstance(tables, list) == False:
+    if not isinstance(tables, list):
         tables = [tables]
 
     eia = _pd.DataFrame()
@@ -925,7 +991,7 @@ def _get_eia_df_v2(tables, key, sleep):
     import requests
     import json
 
-    if isinstance(tables, list) == False:
+    if not isinstance(tables, list):
         tables = [tables]
 
     eia = _pd.DataFrame()
@@ -954,15 +1020,10 @@ def _get_eia_df_v2(tables, key, sleep):
     return eia[["date", "value", "table_name", "series_id"]]
 
 
-def _check_df(df):
-    # if isinstance(df.index, _pd.DatetimeIndex):
-    #     # reset index if the df index is a datetime object
-    #     df = df.reset_index().copy()
-
-    return df.copy()
-
-
-def infer_freq(x, multiplier=False):
+def infer_freq(
+    x: Union[_pd.DataFrame, _pd.Series],
+    multiplier: bool = False,
+) -> Union[str, int]:
     """
     Function to infer the frequency of a time series. Improvement over
     pandas.infer_freq as it can handle missing days/holidays. Note that
@@ -993,7 +1054,7 @@ def infer_freq(x, multiplier=False):
     pos = _np.where(mask)[0][0]
 
     freq = _pd.infer_freq(x.index[pos : pos + 3])
-    if multiplier == False:
+    if not multiplier:
         return freq
     else:
         if freq in ["D", "B"]:
@@ -1006,3 +1067,5 @@ def infer_freq(x, multiplier=False):
             return 4
         elif freq[0] == "A":
             return 1
+        else:
+            raise ValueError(f"Unsupported frequency: {freq}")

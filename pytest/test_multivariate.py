@@ -20,7 +20,7 @@ def test_calc_spread_MV():
         )
     )
 
-    ans = rt.calc_spread_MV(df, {"spread": "A-B"})
+    ans = rt.calc_spread_mv(df, {"spread": "A-B"})
 
     assert ans["spread"].tolist() == [-1, -1, -1, -1, -1], "Spread calculation failed"
 
@@ -34,7 +34,7 @@ def test_fitOU_MV():
     dt = 1 / 252
 
     mm = "OLS"
-    df = rt.simOU(
+    df = rt.sim_ou(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -51,7 +51,7 @@ def test_fitOU_MV():
     sigma_avg = 0
 
     for i in range(df.shape[1]):
-        params = rt.fitOU(df.iloc[:, i], dt=dt, method=mm)
+        params = rt.fit_ou(df.iloc[:, i], dt=dt, method=mm)
         print(params)
         assert np.allclose(
             [*params.values()], [theta, mu, sigma], rtol=0.2
@@ -69,7 +69,7 @@ def test_generate_eps_MV():
     T = 10
     dt = 1 / 252
 
-    eps = rt.generate_eps_MV(cor, T, dt, sims, mu, seed=12345)
+    eps = rt.generate_eps_mv(cor, T, dt, sims, mu, seed=12345)
 
     df = pd.DataFrame()
     df["eps1"] = eps[:, 0, 0]
@@ -137,7 +137,7 @@ def test_simOU_MV_logic():
     ans = np.stack((ans, ans), axis=2)
 
     # test using dummy eps
-    df = rt.simOU_MV(
+    df = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, sigma=sigma, eps=eps, log_price=True
     )
 
@@ -156,11 +156,11 @@ def test_simOU_MV_eps():
     cor[1, 0] = 0.2
     cor[0, 1] = 0.2
 
-    eps = rt.generate_eps_MV(cor=cor, T=T, dt=dt, sims=2, seed=12345)
+    eps = rt.generate_eps_mv(cor=cor, T=T, dt=dt, sims=2, seed=12345)
     print(eps)
 
-    df1 = rt.simOU_MV(s0=s0, mu=mu, theta=theta, T=T, sigma=sigma, eps=eps)
-    df2 = rt.simOU_MV(
+    df1 = rt.sim_ou_mv(s0=s0, mu=mu, theta=theta, T=T, sigma=sigma, eps=eps)
+    df2 = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=2, seed=12345
     )
 
@@ -182,10 +182,10 @@ def test_simOU_MV_mu():
     cor[1, 0] = 0.2
     cor[0, 1] = 0.2
 
-    df1 = rt.simOU_MV(
+    df1 = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=2, seed=12345
     )
-    df2 = rt.simOU_MV(
+    df2 = rt.sim_ou_mv(
         s0=s0, mu=mus, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=2, seed=12345
     )
     assert np.allclose(df1, df2), "Time varying mu test failed"
@@ -207,19 +207,19 @@ def test_simOU_MV_sigma():
     cor[1, 0] = 0.2
     cor[0, 1] = 0.2
 
-    df1 = rt.simOU_MV(
+    df1 = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=2, seed=12345
     )
-    df2 = rt.simOU_MV(
+    df2 = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigmas, cor=cor, sims=2, seed=12345
     )
     assert np.allclose(df1, df2), "Time varying sigma test failed"
 
     sigmas = np.ones((N, 3, 2)) * sigma[0]
-    df1 = rt.simOU_MV(
+    df1 = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigma, cor=cor, sims=3, seed=12345
     )
-    df2 = rt.simOU_MV(
+    df2 = rt.sim_ou_mv(
         s0=s0, mu=mu, theta=theta, T=T, dt=dt, sigma=sigmas, cor=cor, sims=3, seed=12345
     )
     assert np.allclose(df1, df2), "Time varying sigma test failed"
@@ -258,7 +258,7 @@ def test_simOUJ_MV_logic():
     # fmt: on
 
     # test using dummy eps
-    df = rt.simOUJ_MV(
+    df = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -295,9 +295,9 @@ def test_simOUJ_MV_eps():
     jump_prob = [0.1] * 2
     jump_stdv = [0.32] * 2
 
-    eps = rt.generate_eps_MV(cor=cor, T=T, dt=dt, sims=2, seed=12345)
+    eps = rt.generate_eps_mv(cor=cor, T=T, dt=dt, sims=2, seed=12345)
 
-    df1 = rt.simOUJ_MV(
+    df1 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -311,7 +311,7 @@ def test_simOUJ_MV_eps():
         sims=sims,
         seed=12345,
     )
-    df2 = rt.simOUJ_MV(
+    df2 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -350,7 +350,7 @@ def test_simOUJ_MV_mu():
     jump_prob = [0.1] * 2
     jump_stdv = [0.32] * 2
 
-    df1 = rt.simOUJ_MV(
+    df1 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -364,7 +364,7 @@ def test_simOUJ_MV_mu():
         sims=2,
         seed=12345,
     )
-    df2 = rt.simOUJ_MV(
+    df2 = rt.sim_ouj_mv(
         s0=s0,
         mu=mus,
         theta=theta,
@@ -403,7 +403,7 @@ def test_simOUJ_MV_sigma():
     jump_prob = [0.1] * 2
     jump_stdv = [0.32] * 2
 
-    df1 = rt.simOUJ_MV(
+    df1 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -417,7 +417,7 @@ def test_simOUJ_MV_sigma():
         sims=2,
         seed=12345,
     )
-    df2 = rt.simOUJ_MV(
+    df2 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -434,7 +434,7 @@ def test_simOUJ_MV_sigma():
     assert np.allclose(df1, df2), "Time varying sigma test failed"
 
     sigmas = np.ones((N, 3, 2)) * sigma[0]
-    df1 = rt.simOUJ_MV(
+    df1 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -448,7 +448,7 @@ def test_simOUJ_MV_sigma():
         sims=3,
         seed=12345,
     )
-    df2 = rt.simOUJ_MV(
+    df2 = rt.sim_ouj_mv(
         s0=s0,
         mu=mu,
         theta=theta,

@@ -224,26 +224,26 @@ class TestSwapFutWeight:
 
 class TestCustomDateRange:
     def test_monthly(self):
-        from risktools._swap import custom_date_range
-        dr = custom_date_range("2020-01-01", "2020-06-01", freq="M")
+        from risktools._swap import _custom_date_range
+        dr = _custom_date_range("2020-01-01", "2020-06-01", freq="M")
         assert len(dr) >= 6
 
     def test_quarterly(self):
-        from risktools._swap import custom_date_range
-        dr = custom_date_range("2020-01-01", "2021-01-01", freq="Q")
+        from risktools._swap import _custom_date_range
+        dr = _custom_date_range("2020-01-01", "2021-01-01", freq="Q")
         assert len(dr) >= 4
 
     def test_semiannual(self):
-        from risktools._swap import custom_date_range
-        dr = custom_date_range("2020-01-01", "2022-01-01", freq="6M")
+        from risktools._swap import _custom_date_range
+        dr = _custom_date_range("2020-01-01", "2022-01-01", freq="6M")
         assert len(dr) >= 4
 
     def test_yearly(self):
-        from risktools._swap import custom_date_range
-        dr = custom_date_range("2020-01-01", "2025-01-01", freq="Y")
+        from risktools._swap import _custom_date_range
+        dr = _custom_date_range("2020-01-01", "2025-01-01", freq="Y")
         assert len(dr) >= 5
 
     def test_invalid_freq_raises(self):
-        from risktools._swap import custom_date_range
+        from risktools._swap import _custom_date_range
         with pytest.raises(ValueError):
-            custom_date_range("2020-01-01", "2021-01-01", freq="X")
+            _custom_date_range("2020-01-01", "2021-01-01", freq="X")

@@ -19,7 +19,7 @@ def test_fitOU():
     dt = 1 / 252
 
     mm = "OLS"
-    df = rt.simOU(
+    df = rt.sim_ou(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -36,7 +36,7 @@ def test_fitOU():
     sigma_avg = 0
 
     for i in range(df.shape[1]):
-        params = rt.fitOU(df.iloc[:, i], dt=dt, method=mm)
+        params = rt.fit_ou(df.iloc[:, i], dt=dt, method=mm)
         mu_avg += params["mu"]
         theta_avg += params["theta"]
         sigma_avg += params["annualized_sigma"]
@@ -52,7 +52,7 @@ def test_fitOU():
     # MLE is not as accurate as OLS
     mm = "MLE"
 
-    df = rt.simOU(
+    df = rt.sim_ou(
         s0=s0,
         mu=mu,
         theta=theta,
@@ -64,7 +64,7 @@ def test_fitOU():
         log_price=False,
         c=True,
     )
-    params = rt.fitOU(df.iloc[:, 0], dt=dt, method=mm)
+    params = rt.fit_ou(df.iloc[:, 0], dt=dt, method=mm)
 
     assert np.allclose(
         [*params.values()],
@@ -76,7 +76,7 @@ def test_fitOU():
 def test_simGBM():
     eps = pd.read_csv("./pytest/data/diffusion.csv", header=None)
 
-    df = rt.simGBM(
+    df = rt.sim_gbm(
         s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1 / 252, sims=20, eps=eps
     ).round(2)
 
@@ -87,7 +87,7 @@ def test_simGBM():
 
     np.random.seed(123)
     df = (
-        rt.simGBM(s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1 / 252, sims=20)
+        rt.sim_gbm(s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1 / 252, sims=20)
         .astype("float")
         .round(4)
     )
@@ -153,13 +153,13 @@ def test_simOU_logic():
     ans = pd.DataFrame(np.c_[ans, ans])
 
     # test using dummy eps in both C and Python
-    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True, c=True)
+    df = rt.sim_ou(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True, c=True)
     df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
     ans = ans.T.reset_index(drop=True).T.reset_index(drop=True)
 
     assert np.allclose(df, ans), "C eps test failed"
 
-    df = rt.simOU(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True, c=False)
+    df = rt.sim_ou(s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=True, c=False)
     df = df.T.reset_index(drop=True).T.reset_index(drop=True).round(5)
 
     assert np.allclose(df, ans), "Py eps test failed"
@@ -181,10 +181,10 @@ def test_simOU_eps():
     rng = Generator(SFC64(seed=12345))
     eps = pd.DataFrame(rng.normal(0, 1, size=(16, 2)))
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=False
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
     assert np.allclose(df1, df2), "Py seed eps test failed"
@@ -195,10 +195,10 @@ def test_simOU_eps():
     eps = eps.reshape((2, 17)).T
     eps = pd.DataFrame(eps).iloc[1:, :]
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, eps=eps, log_price=False, c=True
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
     assert np.allclose(df1, df2), "C seed eps test failed"
@@ -217,18 +217,18 @@ def test_simOU_mu():
     #################################
     mus = np.ones(16) * mu
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mus, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
     assert np.allclose(df1, df2), "Py time varying mu test failed"
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mus, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
     assert np.allclose(df1, df2), "C time varying mu test failed"
@@ -238,7 +238,7 @@ def test_simOU_mu():
     mu = np.ones((252, 1000)) * 4
     mu[100:, :100] = 8
 
-    df = rt.simOU(
+    df = rt.sim_ou(
         s0,
         mu,
         theta,
@@ -259,7 +259,7 @@ def test_simOU_mu():
         df.iloc[152, 100:].mean() / df.iloc[25, 100:].mean() < 1.5
     ), "Time varying mu test failed"
 
-    df = rt.simOU(
+    df = rt.sim_ou(
         s0,
         mu,
         theta,
@@ -294,36 +294,36 @@ def test_simOU_sigma():
     #################################
     sigmas = np.ones(16) * sigma
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mu, theta, sigmas, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
     assert np.allclose(df1, df2), "Py time varying sigma test failed"
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mu, theta, sigmas, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
     assert np.allclose(df1, df2), "C time varying sigma test failed"
 
     sigmas = np.ones((16, 2)) * sigma
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mu, theta, sigmas, T, dt, sims=2, seed=12345, log_price=False, c=False
     )
     assert np.allclose(df1, df2), "Py time varying sigma array test failed"
 
-    df1 = rt.simOU(
+    df1 = rt.sim_ou(
         s0, mu, theta, sigma, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
-    df2 = rt.simOU(
+    df2 = rt.sim_ou(
         s0, mu, theta, sigmas, T, dt, sims=2, seed=12345, log_price=False, c=True
     )
     assert np.allclose(df1, df2), "C time varying sigma array test failed"
@@ -333,7 +333,7 @@ def test_simOU_sigma():
     sigma = np.ones((252, 1000)) * 0.1
     sigma[100:, :] = 0.5
 
-    df = rt.simOU(
+    df = rt.sim_ou(
         s0,
         mu,
         theta,
@@ -391,7 +391,7 @@ def test_simOUJ_logic():
 
     for c in [True, False]:
 
-        df = rt.simOUJ(
+        df = rt.sim_ouj(
             T=T,
             s0=s0,
             mu=mu,
@@ -463,7 +463,7 @@ def test_simOUJ_eps():
     ejp = rng.poisson(lam=jump_prob * dt, size=(int(T / dt), sims))
 
     for c in [True, False]:
-        df1 = rt.simOUJ(
+        df1 = rt.sim_ouj(
             s0=s0,
             mu=mu,
             theta=theta,
@@ -479,7 +479,7 @@ def test_simOUJ_eps():
             jump_stdv=jump_stdv,
             c=c,
         )
-        df2 = rt.simOUJ(
+        df2 = rt.sim_ouj(
             s0=s0,
             mu=mu,
             theta=theta,
@@ -511,10 +511,10 @@ def test_simOUJ_mu():
         #################################
         mus = np.ones(int(T / dt)) * mu
 
-        df1 = rt.simOUJ(
+        df1 = rt.sim_ouj(
             s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c
         )
-        df2 = rt.simOUJ(
+        df2 = rt.sim_ouj(
             s0=s0, mu=mus, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c
         )
         assert np.allclose(
@@ -538,10 +538,10 @@ def test_simOUJ_sigma():
 
     for c in [True, False]:
 
-        df1 = rt.simOUJ(
+        df1 = rt.sim_ouj(
             s0=s0, mu=mu, theta=theta, sigma=sigma, T=T, dt=dt, sims=2, seed=12345, c=c
         )
-        df2 = rt.simOUJ(
+        df2 = rt.sim_ouj(
             s0=s0, mu=mu, theta=theta, sigma=sigmas, T=T, dt=dt, sims=2, seed=12345, c=c
         )
         assert np.allclose(
@@ -554,7 +554,7 @@ def test_simOUJ_sigma():
         sigma2[100:, :] = 0.5
 
         print(2)
-        df = rt.simOUJ(
+        df = rt.sim_ouj(
             sigma=sigma2, theta=20, T=1, dt=1 / 252, sims=1000, seed=12345, c=c
         )
 
@@ -576,7 +576,7 @@ def test_simOUJ_mr_lag():
     jump_stdv = 0.32
 
     for c in [True, False]:
-        df = rt.simOUJ(
+        df = rt.sim_ouj(
             s0=5,
             mu=4,
             theta=10,
@@ -613,13 +613,13 @@ def test_simOUJ_mr_lag():
 
 def test_simGBM_shape():
     """Output shape should be (periods+1, sims)."""
-    result = rt.simGBM(s0=10, T=1, dt=1/252, sims=100)
+    result = rt.sim_gbm(s0=10, T=1, dt=1/252, sims=100)
     assert result.shape == (253, 100)
 
 
 def test_simGBM_initial_value():
     """First row should equal s0."""
-    result = rt.simGBM(s0=42, T=1, dt=1/252, sims=50)
+    result = rt.sim_gbm(s0=42, T=1, dt=1/252, sims=50)
     assert np.allclose(result.iloc[0, :], 42.0)
 
 
@@ -628,7 +628,7 @@ def test_simGBM_deterministic_zero_eps():
     T, dt, sims = 1, 1/252, 5
     periods = int(T / dt)
     eps = np.zeros((periods, sims))
-    result = rt.simGBM(s0=100, mu=0, sigma=0.2, r=0, T=T, dt=dt, sims=sims, eps=eps)
+    result = rt.sim_gbm(s0=100, mu=0, sigma=0.2, r=0, T=T, dt=dt, sims=sims, eps=eps)
     step_factor = np.exp(-0.2**2 / 2 * dt)
     expected_final = 100 * step_factor ** periods
     assert np.allclose(result.iloc[-1, :], expected_final, rtol=1e-6)
@@ -637,36 +637,36 @@ def test_simGBM_deterministic_zero_eps():
 def test_simGBM_mean_convergence():
     """With many sims, mean final value ≈ s0 * exp(r*T)."""
     np.random.seed(123)
-    result = rt.simGBM(s0=100, mu=0, sigma=0.2, r=0.05, T=1, dt=1/252, sims=10000)
+    result = rt.sim_gbm(s0=100, mu=0, sigma=0.2, r=0.05, T=1, dt=1/252, sims=10000)
     mean_final = result.iloc[-1, :].mean()
     expected = 100 * np.exp(0.05)
     assert abs(mean_final - expected) / expected < 0.03
 
 
 def test_simOU_shape():
-    result = rt.simOU(s0=5, T=1, dt=1/252, sims=100, seed=42)
+    result = rt.sim_ou(s0=5, T=1, dt=1/252, sims=100, seed=42)
     assert result.shape == (253, 100)
 
 
 def test_simOU_initial_value():
-    result = rt.simOU(s0=42, T=1, dt=1/252, sims=50, seed=42)
+    result = rt.sim_ou(s0=42, T=1, dt=1/252, sims=50, seed=42)
     assert np.allclose(result.iloc[0, :], 42.0)
 
 
 def test_simOU_mean_reversion():
     """With many sims and long T, mean of final values ≈ mu."""
-    result = rt.simOU(s0=10, mu=5, theta=2, sigma=0.5, T=5, dt=1/252, sims=5000, seed=42)
+    result = rt.sim_ou(s0=10, mu=5, theta=2, sigma=0.5, T=5, dt=1/252, sims=5000, seed=42)
     mean_final = result.iloc[-1, :].mean()
     assert abs(mean_final - 5.0) < 0.5, f"Mean reversion failed: {mean_final} vs 5.0"
 
 
 def test_simOUJ_shape():
-    result = rt.simOUJ(s0=5, T=1, dt=1/12, sims=100, seed=42)
+    result = rt.sim_ouj(s0=5, T=1, dt=1/12, sims=100, seed=42)
     assert result.shape == (13, 100)
 
 
 def test_simOUJ_initial_value():
-    result = rt.simOUJ(s0=42, T=1, dt=1/12, sims=50, seed=42)
+    result = rt.sim_ouj(s0=42, T=1, dt=1/12, sims=50, seed=42)
     assert np.allclose(result.iloc[0, :], 42.0)
 
 
@@ -675,7 +675,7 @@ def test_fitOU_raises_on_dataframe():
     df = pd.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6]})
     import pytest
     with pytest.raises(ValueError):
-        rt.fitOU(df, method="OLS")
+        rt.fit_ou(df, method="OLS")
 
 
 if __name__ == "__main__":

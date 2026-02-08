@@ -69,7 +69,7 @@ mathematical theory behind these measures.
 
 ## Factor Models
 
-::: risktools.CAPM_beta
+::: risktools.capm_beta
     options:
       show_root_heading: true
       heading_level: 3

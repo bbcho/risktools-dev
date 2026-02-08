@@ -8,9 +8,10 @@ from zipfile import ZipFile as _ZipFile
 import warnings as _warnings
 from io import BytesIO
 from pandas.errors import ParserError
+from typing import Union, Optional
 
 
-def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip"):
+def get_gis(url: str = "https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip") -> 'geopandas.GeoDataFrame':
     """
     Returns a SpatialPointsDataFrame from a shapefile URL. Examples with EIA and Government of Alberta
 
@@ -66,7 +67,7 @@ def get_gis(url="https://www.eia.gov/maps/map_data/CrudeOil_Pipelines_US_EIA.zip
     return _geopandas.GeoDataFrame.from_features(shp, crs=shp.crs)
 
 
-def get_names():
+def get_names() -> list:
     """
     return valid names for the open_data() function.
 
@@ -82,7 +83,7 @@ def get_names():
     return list(_file_actions.keys())
 
 
-def open_data(nm):
+def open_data(nm: str) -> Union[_pd.DataFrame, _pd.Series, dict]:
     """
     Function used to return built-in datasets from risktools. To get a list of valid datasets, use the get_names() function.
 
@@ -104,8 +105,8 @@ def open_data(nm):
     path = _os.path.dirname(__file__)
     try:
         fn = _file_actions[nm]["file"]
-    except ValueError:
-        print(f"{nm} is not a valid file name to open")
+    except KeyError:
+        raise KeyError(f"'{nm}' is not a valid dataset name. Valid names: {list(_file_actions.keys())}")
 
     fp = _os.path.join(_path, fn)
 
@@ -140,7 +141,7 @@ def _norm_df(fn):
     df = dict()
 
     for key in tmp.keys():
-        
+
         # if structure of dict is {key : DataFrame}
         try:
             df[key] = _pd.DataFrame.from_records(tmp[key])
@@ -165,7 +166,7 @@ def _norm_df(fn):
 
         except (TypeError, ValueError, KeyError, AttributeError):
             pass
-    
+
     return df
 
 
@@ -225,10 +226,10 @@ def _read_curves(fn):
         dd = _json.load(f)
 
     for key in dd.keys():
-        if isinstance(dd[key], list) == True:
+        if isinstance(dd[key], list):
             dd[key] = _np.array(dd[key])
 
-        if isinstance(dd[key], dict) == True:
+        if isinstance(dd[key], dict):
             # print(dd[key])
             for k in dd[key].keys():
                 dd[key][k] = _np.array(dd[key][k])

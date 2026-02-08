@@ -2,6 +2,7 @@ import logging as _logging
 import pandas as _pd
 import numpy as _np
 import statsmodels.formula.api as _smf
+from typing import Union, Optional
 from numpy.random import Generator, SFC64
 from .extensions import csimOU as _csimOU
 from .extensions import csimOUJ as _csimOUJ
@@ -9,6 +10,11 @@ from .extensions import csimOUJ as _csimOUJ
 _logger = _logging.getLogger(__name__)
 
 __all__ = [
+    "sim_gbm",
+    "sim_ou",
+    "sim_ouj",
+    "fit_ou",
+    # Deprecated aliases (will be removed in v3.0)
     "simGBM",
     "simOU",
     "simOUJ",
@@ -35,7 +41,7 @@ def is_iterable(x):
 def make_into_array(x, N):
     # make an array of same size as N+1
     if is_iterable(x):
-        if isinstance(x, _pd.DataFrame) == False:
+        if not isinstance(x, _pd.DataFrame):
             x = _pd.DataFrame(x)
         if x.shape[1] >= 2:
             # if a 2D array is passed, return it as is
@@ -54,12 +60,12 @@ def make_into_array(x, N):
 
     else:
         x = _np.ones(N + 1) * x
-    
+
 
     return x
 
 
-def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
+def sim_gbm(s0: float = 10, mu: float = 0, sigma: float = 0.2, r: float = 0, T: float = 1, dt: float = 1 / 252, sims: int = 1000, eps: Optional[_np.ndarray] = None) -> _pd.DataFrame:
     """
     Simulates a Geometric Brownian Motion stochastic process (random walk)
 
@@ -92,7 +98,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.simGBM(s0=5, mu=0, sigma=0.2, r=0.01, T=2, dt=1/252, sims=1000)
+    >>> rt.sim_gbm(s0=5, mu=0, sigma=0.2, r=0.01, T=2, dt=1/252, sims=1000)
     """
 
     periods = int(T / dt)
@@ -115,42 +121,7 @@ def simGBM(s0=10, mu=0, sigma=0.2, r=0, T=1, dt=1 / 252, sims=1000, eps=None):
     return s
 
 
-def _import_csimOU():
-    dir = os.path.dirname(os.path.realpath(__file__)) + "/../"  # + "/c/"
-
-    ext = ".so"
-    if platform.system() == "Windows":
-        ext = ".dll"
-
-    lib = ctypes.cdll.LoadLibrary(dir + "simOU" + ext)
-    fun = lib.csimOU
-    fun.restype = None
-    fun.argtypes = [
-        ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-        ctypes.c_double,
-        ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-        ctypes.c_double,
-        ctypes.c_double,
-        ctypes.c_size_t,
-        ctypes.c_size_t,
-    ]
-    fun.restype = ndpointer(ctypes.c_double, flags="C_CONTIGUOUS")
-    return fun
-
-
-def simOU(
-    s0=5,
-    mu=4,
-    theta=2,
-    sigma=1,
-    T=1,
-    dt=1 / 252,
-    sims=1000,
-    eps=None,
-    seed=None,
-    log_price=False,
-    c=True,
-):
+def sim_ou(s0: float = 5, mu: Union[float, _np.ndarray] = 4, theta: float = 2, sigma: Union[float, _np.ndarray] = 1, T: float = 1, dt: float = 1 / 252, sims: int = 1000, eps: Optional[_np.ndarray] = None, seed: Optional[int] = None, log_price: bool = False, c: bool = True) -> _pd.DataFrame:
     """
     Function for calculating an Ornstein-Uhlenbeck Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -159,7 +130,7 @@ def simOU(
 
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
 
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
+    The process is a stationary Gauss-Markov process, which means that it is a Gaussian process, a Markov process,
     and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
     up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
     towards its mean function: such a process is called mean-reverting.
@@ -207,7 +178,7 @@ def simOU(
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.simOU()
+    >>> rt.sim_ou()
     """
     if eps is not None:
         sims = eps.shape[1]
@@ -230,7 +201,7 @@ def simOU(
         mu = _np.tile(_np.array(mu), sims)
     else:
         mu = mu.flatten("F")
-    
+
 
     # Don't run if 2D array passed for sigma
     if len(sigma.shape) == 1:
@@ -238,7 +209,7 @@ def simOU(
     else:
         sigma = sigma.flatten("F")
 
-    if c == True:
+    if c:
         return _simOUc(
             s0=s0,
             mu=mu,
@@ -355,24 +326,7 @@ def _simOUpy(
     return out
 
 
-def simOUJ(
-    s0=5,
-    mu=5,
-    theta=0.5,
-    sigma=0.2,
-    jump_prob=0.05,
-    jump_avgsize=3,
-    jump_stdv=0.05,
-    T=1,
-    dt=1 / 12,
-    sims=1000,
-    mr_lag=None,
-    eps=None,
-    elp=None,
-    ejp=None,
-    seed=None,
-    c=True,
-):
+def sim_ouj(s0: float = 5, mu: Union[float, _pd.Series] = 5, theta: float = 0.5, sigma: Union[float, _np.ndarray] = 0.2, jump_prob: float = 0.05, jump_avgsize: float = 3, jump_stdv: float = 0.05, T: float = 1, dt: float = 1 / 12, sims: int = 1000, mr_lag: Optional[int] = None, eps: Optional[_np.ndarray] = None, elp: Optional[_np.ndarray] = None, ejp: Optional[_np.ndarray] = None, seed: Optional[int] = None, c: bool = True) -> _pd.DataFrame:
     """
     Function for calculating an Ornstein-Uhlenbeck Jump Mean Reversion stochastic process (random walk) with multiple
     simulations
@@ -381,7 +335,7 @@ def simOUJ(
 
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
 
-    The process is a stationary Gauss–Markov process, which means that it is a Gaussian process, a Markov process,
+    The process is a stationary Gauss-Markov process, which means that it is a Gaussian process, a Markov process,
     and is temporally homogeneous. In fact, it is the only nontrivial process that satisfies these three conditions,
     up to allowing linear transformations of the space and time variables. Over time, the process tends to drift
     towards its mean function: such a process is called mean-reverting.
@@ -401,7 +355,7 @@ def simOUJ(
         periods). 2D arrays are also supported for stochastic volatility where the first dimension is the number of
         periods and the second dimension is the number of simulations.
     jump_prob : float
-        Probablity of jumps for a Possion process.
+        Probability of jumps for a Poisson process.
     jump_avgsize : float
         Average size of jumps for a log normal distribution
     jump_stdv : float
@@ -441,7 +395,7 @@ def simOUJ(
     Examples
     --------
     >>> import risktools as rt
-    >>> rt.simOUJ()
+    >>> rt.sim_ouj()
     """
     # number of business days in a year
     bdays_in_year = 252
@@ -486,7 +440,7 @@ def simOUJ(
     elp = make_into_array(elp, N).astype(float)
     ejp = make_into_array(ejp, N).astype(float)
 
-    if c == True:
+    if c:
         if len(sigma.shape) == 2:
             sigma = sigma.T.reshape((N + 1) * sims)
 
@@ -609,7 +563,7 @@ def _simOUJpy(
     return s
 
 
-def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
+def fit_ou(spread: Union[_pd.Series, list, _np.ndarray], dt: float = 1 / 252, log_price: bool = False, method: str = "OLS", verbose: bool = False) -> dict:
     """
     Parameter estimation for the Ornstein-Uhlenbeck process
 
@@ -637,8 +591,8 @@ def fitOU(spread, dt=1 / 252, log_price=False, method="OLS", verbose=False):
     Examples
     --------
     >>> import risktools as rt
-    >>> spread = rt.simOU(mu=5, theta=0.5, sigma=0.2, T=5, dt=1/252)
-    >>> rt.fitOU(spread[0], method='MLE')
+    >>> spread = rt.sim_ou(mu=5, theta=0.5, sigma=0.2, T=5, dt=1/252)
+    >>> rt.fit_ou(spread[0], method='MLE')
     """
 
     if log_price == True:
@@ -666,8 +620,8 @@ def _fitOU_MLE(spread):
     Examples
     --------
     >>> import risktools as rt
-    >>> spread = rt.simOU(mu=5, theta=0.5, signma=0.2, T=5, dt=1/250)
-    >>> rt.fitOU(spread)
+    >>> spread = rt.sim_ou(mu=5, theta=0.5, sigma=0.2, T=5, dt=1/250)
+    >>> rt.fit_ou(spread)
     """
     spread = _np.array(spread)
     n = len(spread)
@@ -724,8 +678,8 @@ def _fitOU_OLS(spread, dt, verbose=False):
     Examples
     --------
     >>> import risktools as rt
-    >>> spread = rt.simOU(mu=5, theta=0.5, signma=0.2, T=5, dt=1/250)
-    >>> rt.fitOU(spread)
+    >>> spread = rt.sim_ou(mu=5, theta=0.5, sigma=0.2, T=5, dt=1/250)
+    >>> rt.fit_ou(spread)
     """
 
     if isinstance(spread, _pd.DataFrame):
@@ -759,6 +713,32 @@ def _fitOU_OLS(spread, dt, verbose=False):
     return {"theta": theta, "mu": mu, "annualized_sigma": sigma}
 
 
+# Deprecated aliases (will be removed in v3.0)
+def simGBM(*args, **kwargs):
+    """Deprecated: Use sim_gbm() instead."""
+    import warnings
+    warnings.warn("simGBM is deprecated, use sim_gbm instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return sim_gbm(*args, **kwargs)
+
+def simOU(*args, **kwargs):
+    """Deprecated: Use sim_ou() instead."""
+    import warnings
+    warnings.warn("simOU is deprecated, use sim_ou instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return sim_ou(*args, **kwargs)
+
+def simOUJ(*args, **kwargs):
+    """Deprecated: Use sim_ouj() instead."""
+    import warnings
+    warnings.warn("simOUJ is deprecated, use sim_ouj instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return sim_ouj(*args, **kwargs)
+
+def fitOU(*args, **kwargs):
+    """Deprecated: Use fit_ou() instead."""
+    import warnings
+    warnings.warn("fitOU is deprecated, use fit_ou instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return fit_ou(*args, **kwargs)
+
+
 if __name__ == "__main__":
     import os
     import sys
@@ -767,7 +747,7 @@ if __name__ == "__main__":
 
     eps = _pd.read_csv("./pytest/data/diffusion.csv", header=None)
 
-    df = simGBM(
+    df = sim_gbm(
         s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1 / 252, sims=20, eps=eps
     ).round(2)
 
@@ -778,7 +758,7 @@ if __name__ == "__main__":
 
     _np.random.seed(123)
     df = (
-        simGBM(s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1 / 252, sims=20)
+        sim_gbm(s0=10, mu=0.0, sigma=0.2, r=0.05, T=1, dt=1 / 252, sims=20)
         .astype("float")
         .round(4)
     )
@@ -814,7 +794,7 @@ def stochastic_mu(mu, jump_prob, jump_size, dt, lag, N, sims, seed=None):
     mu : float
         The mean of the GBM process
     jump_prob : float
-        The probability of a jump from a possion distribution
+        The probability of a jump from a Poisson distribution
     jump_size : float
         The size of a jump in the mean
     jump_stdv : float

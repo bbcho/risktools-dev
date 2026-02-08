@@ -96,17 +96,17 @@ fig.show()
 Generate Monte Carlo paths using Geometric Brownian Motion:
 
 ```python
-paths = rt.simGBM(s0=70, mu=0, sigma=0.3, r=0.02, T=1, dt=1/252, sims=100)
+paths = rt.sim_gbm(s0=70, mu=0, sigma=0.3, r=0.02, T=1, dt=1/252, sims=100)
 print(f"Simulated {paths.shape[1]} paths over {paths.shape[0]} time steps")
 ```
 
 Or a mean-reverting Ornstein-Uhlenbeck process:
 
 ```python
-ou_paths = rt.simOU(s0=5, mu=4, theta=2, sigma=0.5, T=2, dt=1/252, sims=50, seed=42)
+ou_paths = rt.sim_ou(s0=5, mu=4, theta=2, sigma=0.5, T=2, dt=1/252, sims=50, seed=42)
 
 # Estimate parameters from a single path
-params = rt.fitOU(ou_paths.iloc[:, 0], dt=1/252, method='OLS')
+params = rt.fit_ou(ou_paths.iloc[:, 0], dt=1/252, method='OLS')
 print(f"Estimated mu={params['mu']:.2f}, theta={params['theta']:.2f}")
 ```
 
@@ -139,7 +139,7 @@ Optimize a refinery crude slate:
 
 ```python
 data = rt.data.open_data('refineryLPdata')
-result = rt.refineryLP(data['inputs'], data['outputs'])
+result = rt.refinery_lp(data['inputs'], data['outputs'])
 print(f"Optimal profit: ${result['profit']:,.0f}")
 print(f"Crude slate: {result['slate']}")
 ```

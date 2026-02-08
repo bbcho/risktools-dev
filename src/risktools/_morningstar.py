@@ -3,6 +3,7 @@ import requests as _requests
 import urllib as _urllib
 import re as _re
 import io as _io
+from typing import Union, Optional
 
 __all__ = [
     "get_prices",
@@ -11,14 +12,14 @@ __all__ = [
 
 
 def get_prices(
-    username,
-    password,
-    feed="CME_NymexFutures_EOD",
-    codes=["CL9Z", "CL0F", "CL0M"],
-    start_dt="2019-01-01",
-    end_dt=None,
-    intraday=False,
-):
+    username: str,
+    password: str,
+    feed: str = "CME_NymexFutures_EOD",
+    codes: Optional[Union[str, list]] = None,
+    start_dt: Union[str, _pd.Timestamp] = "2019-01-01",
+    end_dt: Optional[Union[str, _pd.Timestamp]] = None,
+    intraday: bool = False,
+) -> _pd.DataFrame:
     """
     function to get prices from the Morningstar data API. The following feeds are supported
 
@@ -47,11 +48,11 @@ def get_prices(
     feed : str
         API feed to get data from, by default "CME_NymexFutures_EOD"
     codes : list[tuple[str]]
-        either a string ticker code or a list of ticker codes or a futures contract type to return, by default ["CL9Z", "CL0F", "CL0M"]. 
+        either a string ticker code or a list of ticker codes or a futures contract type to return, by default ["CL9Z", "CL0F", "CL0M"].
     start_dt : str | datetime, optional
         earliest date to return data from, by default "2019-01-01"
     end_dt : str | datetime, optional
-        lastest date to return data from, by default None. If None, the function return everything from start_dt forward
+        latest date to return data from, by default None. If None, the function return everything from start_dt forward
     intraday : bool
         not implemented yet
 
@@ -64,7 +65,9 @@ def get_prices(
     -------
     Pandas dataframe with prices
     """
-    if isinstance(codes, list) == False:
+    if codes is None:
+        codes = ["CL9Z", "CL0F", "CL0M"]
+    if not isinstance(codes, list):
         codes = [codes]
     s = _requests.Session()
     s.auth = (username, password)
@@ -73,7 +76,7 @@ def get_prices(
 
     url = "https://mp.morningstarcommodity.com/lds/feeds/{}/ts?{}"
 
-    df = _pd.DataFrame()
+    dfs = []
 
     for code in codes:
         p_dict = dict()
@@ -141,20 +144,21 @@ def get_prices(
         )  # clean up columns by removing ticker/code names
         tf = _pd.concat([tf], keys=[code])
 
-        # df = df.append(tf)
-        df = _pd.concat([df, tf], axis=0)
+        dfs.append(tf)
+
+    df = _pd.concat(dfs, axis=0)
 
     return df
 
 
 def get_curves(
-    username,
-    password,
-    feed="Crb_Futures_Price_Volume_And_Open_Interest",
-    contract_roots=["CL", "BG"],
-    fields=["Open", "High", "Low", "Close"],
-    date=None,
-):
+    username: str,
+    password: str,
+    feed: str = "Crb_Futures_Price_Volume_And_Open_Interest",
+    contract_roots: Optional[Union[str, list]] = None,
+    fields: Optional[list] = None,
+    date: Optional[Union[str, _pd.Timestamp]] = None,
+) -> _pd.DataFrame:
     """
     function to get forward curves from the Morningstar data API. The following feeds are supported
 
@@ -172,7 +176,7 @@ def get_curves(
     feed : str
         API feed to get data from, by default "CME_NymexFutures_EOD"
     contract_roots : list[tuple[str]]
-        either a string contract root code (i.e. "CL" for NYMEX WTI) or a list roots to return, by default ["CL", "BG"]. 
+        either a string contract root code (i.e. "CL" for NYMEX WTI) or a list roots to return, by default ["CL", "BG"].
     date : str | datetime, optional
         Date of curve to pull. By default None which causes function to return data for today.
 
@@ -180,15 +184,19 @@ def get_curves(
     --------
     >>> import risktools as rt
     >>> rt.get_curves(
-        username=username, 
-        password=password, 
-        feed='Crb_Futures_Price_Volume_And_Open_Interest', 
-        contract_roots=['CL', 'BG'], 
-        fields=['Open', 'High', 'Low', 'Close'], 
+        username=username,
+        password=password,
+        feed='Crb_Futures_Price_Volume_And_Open_Interest',
+        contract_roots=['CL', 'BG'],
+        fields=['Open', 'High', 'Low', 'Close'],
         date=None
         )
     """
-    if isinstance(contract_roots, list) == False:
+    if contract_roots is None:
+        contract_roots = ["CL", "BG"]
+    if fields is None:
+        fields = ["Open", "High", "Low", "Close"]
+    if not isinstance(contract_roots, list):
         contract_roots = [contract_roots]
     s = _requests.Session()
     s.auth = (username, password)
@@ -200,7 +208,7 @@ def get_curves(
 
     url = "https://mp.morningstarcommodity.com/lds/feeds/{}/curve?{}"
 
-    df = _pd.DataFrame()
+    dfs = []
 
     for root in contract_roots:
         p_dict = dict()
@@ -265,8 +273,9 @@ def get_curves(
                 ]
             ]
 
-        # df = df.append(tf)
-        df = _pd.concat([df,tf], axis=0)
+        dfs.append(tf)
+
+    df = _pd.concat(dfs, axis=0)
 
     return df
 

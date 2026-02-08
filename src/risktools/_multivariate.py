@@ -4,29 +4,38 @@ import numpy as _np
 import pandas as _pd
 import matplotlib.pyplot as _plt
 import plotly.graph_objects as _go
-from ._sims import fitOU, simOU, simOUJ
+from ._sims import fit_ou, sim_ou, sim_ouj
 from abc import ABC as _ABC, abstractmethod as _abstractmethod
 from numpy.random import Generator, SFC64
 
 __all__ = [
-    "calc_spread_MV",
-    "fitOU_MV",
-    "generate_eps_MV",
-    "simGBM_MV",
-    "simOU_MV",
-    "simOUJ_MV",
+    "calc_spread_mv",
+    "fit_ou_mv",
+    "generate_eps_mv",
+    "sim_gbm_mv",
+    "sim_ou_mv",
+    "sim_ouj_mv",
     "generate_random_portfolio_weights",
     "calculate_payoffs",
     "simulate_efficient_frontier",
     "make_efficient_frontier_table",
     "plot_efficient_frontier",
     "plot_portfolio",
+    "MvGbm",
+    "MvOu",
+    # Deprecated aliases
+    "calc_spread_MV",
+    "fitOU_MV",
+    "generate_eps_MV",
+    "simGBM_MV",
+    "simOU_MV",
+    "simOUJ_MV",
     "MVGBM",
     "MVOU",
 ]
 
 
-def calc_spread_MV(df, formulas):
+def calc_spread_mv(df, formulas):
     """
     Calculate a series of spreads for a multivariate stochastic process.
 
@@ -51,8 +60,8 @@ def calc_spread_MV(df, formulas):
     Example
     -------
     >>> import risktools as rt
-    >>> df = rt.simGBM_MV([100, 100], 0.05, [0.2, 0.3], 1, 0.01, cor=[[1, 0.5], [0.5, 1]], sims=10)
-    >>> rt.calc_spread_MV(df, {'spread':'1-2'})
+    >>> df = rt.sim_gbm_mv([100, 100], 0.05, [0.2, 0.3], 1, 0.01, cor=[[1, 0.5], [0.5, 1]], sims=10)
+    >>> rt.calc_spread_mv(df, {'spread':'1-2'})
     """
     spreads = _pd.DataFrame(index=df.index)
 
@@ -64,7 +73,7 @@ def calc_spread_MV(df, formulas):
     return spreads
 
 
-def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
+def fit_ou_mv(df, dt, log_price=False, method="OLS", verbose=False):
     """
     Fit multiple OU processes
 
@@ -100,7 +109,7 @@ def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
     params = _pd.DataFrame()
 
     for c in df.columns:
-        ret = fitOU(df[c], dt, log_price=log_price, method=method, verbose=verbose)
+        ret = fit_ou(df[c], dt, log_price=log_price, method=method, verbose=verbose)
         params.loc["theta", c] = ret["theta"]
         params.loc["annualized_sigma", c] = ret["annualized_sigma"]
         params.loc["mu", c] = ret["mu"]
@@ -108,7 +117,7 @@ def fitOU_MV(df, dt, log_price=False, method="OLS", verbose=False):
     return params
 
 
-def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
+def generate_eps_mv(cor, T, dt, sims=1000, mu=None, seed=None):
     """
     Generate epsilons from a multivariate normal distribution
     for use in multivariate stochastic simulations
@@ -140,7 +149,7 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
     Example
     -------
     >>> import risktools as rt
-    >>> rt.generate_eps_MV([0.2, 0.3], [[1, 0.5], [0.5, 1]], 1, 0.01, 10)
+    >>> rt.generate_eps_mv([0.2, 0.3], [[1, 0.5], [0.5, 1]], 1, 0.01, 10)
     """
     N = int(T / dt)
 
@@ -168,7 +177,7 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
     return eps
 
 
-def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=None):
+def sim_gbm_mv(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=None):
     """
     Simulate Geometric Brownian Motion for stochastic processes with
     multiple assets using a multivariate normal distribution.
@@ -215,9 +224,9 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=
     Example
     -------
     >>> import risktools as rt
-    >>> rt.simGBM_MV(s0=[100,100], r=0.0, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
+    >>> rt.sim_gbm_mv(s0=[100,100], r=0.0, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
     """
-    if (cor is None) & (eps is None):
+    if cor is None and eps is None:
         raise ValueError("correlation matrix cor required if eps not passed")
 
     if not isinstance(s0, _np.ndarray):
@@ -238,7 +247,7 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=
     N = int(T / dt)
 
     if eps is None:
-        eps = generate_eps_MV(cor, T, dt, sims, mu, seed=seed)
+        eps = generate_eps_mv(cor, T, dt, sims, mu, seed=seed)
 
     s = _np.zeros((N + 1, sims, len(s0)))
 
@@ -251,7 +260,7 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=
     return s.cumprod(axis=0)
 
 
-def simOU_MV(
+def sim_ou_mv(
     s0,
     mu,
     theta,
@@ -319,7 +328,7 @@ def simOU_MV(
         Adds adjustment term to the mean reversion term if the prices passed are log prices. By
         default False.
     **kwargs : optional
-        Keyword arguments to pass to simOU function.
+        Keyword arguments to pass to sim_ou function.
 
     Returns
     -------
@@ -330,7 +339,7 @@ def simOU_MV(
     Example
     -------
     >>> import risktools as rt
-    >>> rt.simOU_MV(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10],
+    >>> rt.sim_ou_mv(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10],
             T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
     """
     if eps is None:
@@ -338,7 +347,7 @@ def simOU_MV(
             raise ValueError("Must provide dt if eps is not provided.")
         if cor is None:
             raise ValueError("Must provide cor if eps is not provided.")
-        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
+        eps = generate_eps_mv(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
     else:
         dt = T / eps.shape[0]
 
@@ -381,7 +390,7 @@ def simOU_MV(
         pass
 
     for i in range(0, eps.shape[2]):
-        s[:, :, i] = simOU(
+        s[:, :, i] = sim_ou(
             s0=s0[i],
             mu=mu_arr[:, i],
             theta=theta[i],
@@ -396,7 +405,7 @@ def simOU_MV(
     return s
 
 
-def simOUJ_MV(
+def sim_ouj_mv(
     s0,
     mu,
     theta,
@@ -451,7 +460,7 @@ def simOUJ_MV(
             simulation (stochastic volatility). The size of the array must be N x sims x M where N is the number of time
             steps, sims is the number of simulations, and M is the number of assets.
     jump_prob : array_like[float]
-        Probablity of jumps for a Possion process. Must be a 1D array of length M
+        Probability of jumps for a Poisson process. Must be a 1D array of length M
         where M is the number of assets.
     jump_avgsize : array_like[float]
         Average size of jumps for a log normal distribution. Must be a 1D array of length M
@@ -489,7 +498,7 @@ def simOUJ_MV(
     seed : int, optional
         To pass to numpy random number generator as seed. For testing only.
     **kwargs : optional
-        Keyword arguments to pass to simOUJ function.
+        Keyword arguments to pass to sim_ouj function.
 
     Returns
     -------
@@ -500,7 +509,7 @@ def simOUJ_MV(
     Example
     -------
     >>> import risktools as rt
-    >>> rt.simOUJ_MV(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10],
+    >>> rt.sim_ouj_mv(s0=[100,100], mu=[0.1,0.1], sigma=[0.3,0.3], theta=[10,10],
             jump_prob=[0.1,0.1], jump_avgsize=[10,10], jump_stdv=[0.1,0.1],
             T=1, dt=1/252, cor=[[1,0],[0,1]], sims=100)
     """
@@ -509,7 +518,7 @@ def simOUJ_MV(
             raise ValueError("Must provide dt if eps is not provided.")
         if cor is None:
             raise ValueError("Must provide cor if eps is not provided.")
-        eps = generate_eps_MV(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
+        eps = generate_eps_mv(cor=cor, T=T, dt=dt, sims=sims, seed=seed)
     else:
         dt = T / eps.shape[0]
 
@@ -548,7 +557,7 @@ def simOUJ_MV(
         ejp_tmp = ejp[:, :, i] if ejp is not None else None
         elp_tmp = elp[:, :, i] if elp is not None else None
 
-        s[:, :, i] = simOUJ(
+        s[:, :, i] = sim_ouj(
             s0=s0[i],
             mu=mu_arr[:, i],
             theta=theta[i],
@@ -662,7 +671,7 @@ def simulate_efficient_frontier(assets, weights):
     Example
     -------
     >>> import risktools as rt
-    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.sim_gbm_mv(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
     >>> assets = rt.calc_payoffs(assets)
     >>> weights = rt.generate_random_portfolio_weights(5, 1000)
     >>> rt.sim_efficient_frontier(assets, weights)
@@ -703,7 +712,7 @@ def make_efficient_frontier_table(returns, weights, asset_names=None):
     Examples
     --------
     >>> import risktools as rt
-    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.sim_gbm_mv(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
     >>> assets = rt.calc_payoffs(assets)
     >>> weights = rt.generate_random_portfolio_weights(5, 1000)
     >>> port = rt.sim_efficient_frontier(assets, weights)
@@ -739,7 +748,7 @@ def plot_efficient_frontier(df):
     Examples
     --------
     >>> import risktools as rt
-    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.sim_gbm_mv(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
     >>> assets = rt.calc_payoffs(assets)
     >>> weights = rt.generate_random_portfolio_weights(5, 1000)
     >>> port = rt.sim_efficient_frontier(assets, weights)
@@ -820,7 +829,7 @@ def plot_portfolio(df, weights, fig, weight_names=None, label=True):
     Examples
     --------
     >>> import risktools as rt
-    >>> assets = rt.simGBM_MV(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
+    >>> assets = rt.sim_gbm_mv(s0=[100,100], r=0.01, sigma=[0.1,0.1], T=1, dt=1/252, cor=[[1,0.5],[0.5,1]])
     >>> assets = rt.calc_payoffs(assets)
     >>> weights = rt.generate_random_portfolio_weights(5, 1000)
     >>> port = rt.sim_efficient_frontier(assets, weights)
@@ -861,7 +870,7 @@ def plot_portfolio(df, weights, fig, weight_names=None, label=True):
         )
     )
 
-    if label == True:
+    if label:
         fig.add_annotation(
             x=x[0],
             y=y[0],
@@ -996,9 +1005,8 @@ class _MVSIM(_ABC):
     @property
     def prices(self):
         if self._prices is None:
-            return "No time series we given to initialize the objects"
-        else:
-            return self._prices
+            raise AttributeError("No time series was given to initialize the object")
+        return self._prices
 
     @property
     def parameters(self):
@@ -1034,7 +1042,7 @@ class _MVSIM(_ABC):
         )
 
 
-class MVGBM(_MVSIM):
+class MvGbm(_MVSIM):
     """
     Class for simulating a multivariate GBM process for a portfolio of assets
 
@@ -1065,7 +1073,7 @@ class MVGBM(_MVSIM):
     Example
     -------
     >>> import risktools as rt
-    >>> mvgbm = rt.MVGBM(
+    >>> mvgbm = rt.MvGbm(
             s0=[100,100, 100],
             r=0.01,
             sigma=[0.1,0.1,0.1],
@@ -1117,7 +1125,7 @@ class MVGBM(_MVSIM):
 
     def simulate(self, sims=1000, seed=None):
 
-        self._sims = simGBM_MV(
+        self._sims = sim_gbm_mv(
             self._s0,
             self._r,
             self._sigma,
@@ -1152,7 +1160,7 @@ class MVGBM(_MVSIM):
 
         df = self._sims.copy()
 
-        if (names is None) & (self._prices is not None):
+        if names is None and self._prices is not None:
             names = self._prices.columns
         else:
             names = [f"Asset {str(i)}" for i in range(0, df.shape[2])]
@@ -1162,20 +1170,19 @@ class MVGBM(_MVSIM):
 
         dates = _pd.date_range(start=start_date, periods=df.shape[0], freq=freq)
 
-        out = _pd.DataFrame()
+        frames = []
         for i, nm in enumerate(names):
             tf = _pd.DataFrame(df[:, :, i], index=dates)
             tf["asset"] = nm
             tf.index.name = "date"
             tf.columns.name = "sims"
             tf = tf.reset_index().set_index(["asset", "date"])
+            frames.append(tf)
 
-            out = _pd.concat([out, tf], axis=0)
-
-        return out
+        return _pd.concat(frames, axis=0)
 
 
-class MVOU(_MVSIM):
+class MvOu(_MVSIM):
     """
     Class for simulating a multivariate OU process for a portfolio of assets
 
@@ -1210,7 +1217,7 @@ class MVOU(_MVSIM):
     Example
     -------
     >>> import risktools as rt
-    >>> ou = rt.MVOU(
+    >>> ou = rt.MvOu(
             s0=[5,5,5],
             mu=[4,4,4],
             theta=[2,2,2],
@@ -1286,7 +1293,7 @@ class MVOU(_MVSIM):
             self._s0 = prices.iloc[-1, :] if s0 is None else s0
             self._s0 = _np.array(self._s0)
 
-            self._params = fitOU_MV(
+            self._params = fit_ou_mv(
                 df=prices, dt=self._dt, log_price=log_price, method=method, verbose=verbose
             )
             self._cor = returns.corr()
@@ -1302,7 +1309,7 @@ class MVOU(_MVSIM):
 
     def simulate(self, sims=1000, seed=None):
 
-        self._sims = simOU_MV(
+        self._sims = sim_ou_mv(
             s0=self._s0,
             mu=self._params.loc["mu", :],
             theta=self._params.loc["theta", :],
@@ -1339,7 +1346,7 @@ class MVOU(_MVSIM):
 
         df = self._sims.copy()
 
-        if (names is None) & (self._prices is not None):
+        if names is None and self._prices is not None:
             names = self._prices.columns
         else:
             names = [f"Asset {str(i)}" for i in range(0, df.shape[2])]
@@ -1349,14 +1356,51 @@ class MVOU(_MVSIM):
 
         dates = _pd.date_range(start=start_date, periods=df.shape[0], freq=freq)
 
-        out = _pd.DataFrame()
+        frames = []
         for i, nm in enumerate(names):
             tf = _pd.DataFrame(df[:, :, i], index=dates)
             tf["asset"] = nm
             tf.index.name = "date"
             tf.columns.name = "sims"
             tf = tf.reset_index().set_index(["asset", "date"])
+            frames.append(tf)
 
-            out = _pd.concat([out, tf], axis=0)
+        return _pd.concat(frames, axis=0)
 
-        return out
+
+# Deprecated aliases (will be removed in v3.0)
+import warnings as _warnings
+
+def calc_spread_MV(*args, **kwargs):
+    """Deprecated: Use calc_spread_mv() instead."""
+    _warnings.warn("calc_spread_MV is deprecated, use calc_spread_mv instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return calc_spread_mv(*args, **kwargs)
+
+def fitOU_MV(*args, **kwargs):
+    """Deprecated: Use fit_ou_mv() instead."""
+    _warnings.warn("fitOU_MV is deprecated, use fit_ou_mv instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return fit_ou_mv(*args, **kwargs)
+
+def generate_eps_MV(*args, **kwargs):
+    """Deprecated: Use generate_eps_mv() instead."""
+    _warnings.warn("generate_eps_MV is deprecated, use generate_eps_mv instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return generate_eps_mv(*args, **kwargs)
+
+def simGBM_MV(*args, **kwargs):
+    """Deprecated: Use sim_gbm_mv() instead."""
+    _warnings.warn("simGBM_MV is deprecated, use sim_gbm_mv instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return sim_gbm_mv(*args, **kwargs)
+
+def simOU_MV(*args, **kwargs):
+    """Deprecated: Use sim_ou_mv() instead."""
+    _warnings.warn("simOU_MV is deprecated, use sim_ou_mv instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return sim_ou_mv(*args, **kwargs)
+
+def simOUJ_MV(*args, **kwargs):
+    """Deprecated: Use sim_ouj_mv() instead."""
+    _warnings.warn("simOUJ_MV is deprecated, use sim_ouj_mv instead. Will be removed in v3.0.", DeprecationWarning, stacklevel=2)
+    return sim_ouj_mv(*args, **kwargs)
+
+# Class aliases
+MVGBM = MvGbm
+MVOU = MvOu

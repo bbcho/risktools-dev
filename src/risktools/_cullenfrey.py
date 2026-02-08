@@ -1,6 +1,7 @@
 import numpy as _np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as _plt
 from matplotlib.ticker import AutoMinorLocator as _AML
+from typing import Union, Optional
 
 __all__ = [
     "describe_distribution",
@@ -122,7 +123,7 @@ def _cont_plot(ax, kurtmax):
     # added to only show +ve x once I overrode above
     y = y[s2>=0]
     s2 = s2[s2>=0]
-   
+
     ax.plot(s2,y,":", label='lognormal')
     # fmt: on
     ax.plot(0, 3, "*", label="normal")
@@ -146,8 +147,8 @@ def _boot(x, boot, skewness, kurtosis):
 
 
 def describe_distribution(
-    x, discrete=False, boot=None, method="unbiased", graph=True, ax=None, **plot_args
-):
+    x: Union[list, _np.ndarray], discrete: bool = False, boot: Optional[int] = None, method: str = "unbiased", graph: bool = True, ax: Optional['_plt.Axes'] = None, **plot_args
+) -> Union[dict, '_plt.Figure', '_plt.Axes']:
     """
     Function for generating population/sample statistics as well as plotting
     a Cullen and Frey graph for identifying distribution types based on data.
@@ -163,13 +164,13 @@ def describe_distribution(
         If not None, function will bootstrap samples from the data to generate
         bootstrapped statistics for the Cullen and Frey graph
     method : str["unbiased"|"sample"]
-        Method to be used to generate data statistics. If "sample" is used, 
+        Method to be used to generate data statistics. If "sample" is used,
         statistics such as standard deviation, skewness and kurtosis will be
         calculated using the formulas for population samples (i.e. 1 degree of freedom).
         If "unbiased" is used, the calculations will use the formulas for the
         full population (i.e. 0 degrees of freedom). By default "unbiased".
-    graph : bool 
-        If True, the function will return the Cullen and Frey graph for the 
+    graph : bool
+        If True, the function will return the Cullen and Frey graph for the
         data x. If False, it will return a dictionary with the population/sample
         statistics. By default True.
     ax : matplotlib Axes object
@@ -179,7 +180,7 @@ def describe_distribution(
     **plot_args
         Parameters to be passed to the matplotlib.pyplot.subplots() function.
         For example figsize=(10,10)
-    
+
     Returns
     -------
     graph = False : returns a dictionary
@@ -232,7 +233,7 @@ def describe_distribution(
 
         ymax = kurtmax  # in orginal code is kurtmax-1 but ugly graph with high kurt
         if ax is None:
-            fig, ax = plt.subplots(**plot_args)
+            fig, ax = _plt.subplots(**plot_args)
             fig_flag = True
         ax.set_ylim((ymax + 1, 0))
         ax.set_xlim((-0.1, xmax + 0.1))
@@ -245,7 +246,7 @@ def describe_distribution(
         # ax.xaxis.set_ticks(_np.arange(0, xmax + 1, 1))
         # ax.yaxis.set_ticks(_np.arange(0, ymax + 1, 1))
 
-        if discrete == False:
+        if not discrete:
             ax = _cont_plot(ax, kurtmax)
         else:
             ax = _discrete_plot(ax, kurtmax)
@@ -258,8 +259,8 @@ def describe_distribution(
 
         ax.plot([skewdata ** 2], [kurtdata], "bo", label="observation")
         ax.legend()
-    if graph == True:
-        if fig_flag == True:
+    if graph:
+        if fig_flag:
             return fig
         else:
             return ax
@@ -272,4 +273,3 @@ if __name__ == "__main__":
     n = len(x)
 
     describe_distribution(x, method="sample")
-

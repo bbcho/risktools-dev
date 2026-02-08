@@ -1,117 +1,201 @@
-from ._charts import *
-from ._pa import *
-from ._swap import *
-from ._sims import *
-from ._main_functions import *
-from ._multivariate import *
+# risktools - Python port of R's RTL (Risk Tools Library)
+# Commodity trading analytics and financial risk management
+
+from . import data
+
+# --- Performance Analytics ---
+from ._pa import (
+    return_cumulative,
+    return_annualized,
+    return_excess,
+    sd_annualized,
+    omega_sharpe_ratio,
+    upside_risk,
+    downside_deviation,
+    sharpe_ratio_annualized,
+    drawdowns,
+    find_drawdowns,
+    capm_beta,
+    timing_ratio,
+)
+
+# --- Main Functions ---
+from ._main_functions import (
+    ir_df_us,
+    bond,
+    trade_stats,
+    returns,
+    roll_adjust,
+    garch,
+    prompt_beta,
+    npv,
+    crr_euro,
+    stl_decomposition,
+    get_eia_df,
+    infer_freq,
+)
+
+# --- Simulations ---
+from ._sims import (
+    sim_gbm,
+    sim_ou,
+    sim_ouj,
+    fit_ou,
+)
+
+# --- Multivariate Simulations ---
+from ._multivariate import (
+    calc_spread_mv,
+    fit_ou_mv,
+    generate_eps_mv,
+    sim_gbm_mv,
+    sim_ou_mv,
+    sim_ouj_mv,
+    generate_random_portfolio_weights,
+    calculate_payoffs,
+    simulate_efficient_frontier,
+    make_efficient_frontier_table,
+    plot_efficient_frontier,
+    plot_portfolio,
+    MvGbm,
+    MvOu,
+)
+
+# --- Cython Extensions ---
 from .extensions import *
 
-# from .data import get_gis
-from ._refineryLP import *
+# --- Swap Pricing ---
+from ._swap import (
+    swap_irs,
+    swap_com,
+    swap_info,
+    swap_fut_weight,
+    get_ir_swap_curve,
+)
+
+# --- Charting ---
+from ._charts import (
+    chart_zscore,
+    chart_eia_sd,
+    chart_five_year_plot,
+    chart_eia_steo,
+    chart_perf_summary,
+    chart_forward_curves,
+    chart_pairs,
+    chart_spreads,
+    dist_desc_plot,
+)
+
+# --- Refinery Optimization ---
+from ._refineryLP import refinery_lp
+
+# --- Distribution Analysis ---
 from ._cullenfrey import describe_distribution
 
-#####################################################################
-# TODO
-# * Add legend to chart_eia_sd function
-#####################################################################
+# --- Morningstar API ---
+from ._morningstar import get_prices, get_curves
 
+# --- Deprecated Aliases (will be removed in v3.0) ---
+# These provide backwards compatibility for code using the old camelCase names.
+from ._pa import CAPM_beta
+from ._sims import simGBM, simOU, simOUJ, fitOU
+from ._multivariate import (
+    calc_spread_MV,
+    fitOU_MV,
+    generate_eps_MV,
+    simGBM_MV,
+    simOU_MV,
+    simOUJ_MV,
+    MVGBM,
+    MVOU,
+)
+from ._refineryLP import refineryLP
 
-# if __name__ == "__main__":
-#     _np.random.seed(42)
-#     import json
-
-#     with open("../../user.json") as jfile:
-#         userfile = jfile.read()
-
-#     up = json.loads(userfile)
-
-#     username = up["m*"]["user"
-#     password = up["m*"]["pass"]
-
-#     print(
-#         chart_spreads(
-#             [("@HO4H", "@HO4J", "2014"), ("@HO9H", "@HO9J", "2019")],
-#             200,
-#             username,
-#             password,
-#             feed="CME_NymexFutures_EOD",
-#             output="chart",
-#             start_dt="2012-01-01",
-#         )
-#     )
-
-# sp = simOU()
-# print(fitOU(sp))
-# print(sp)
-
-# print(bond(output='price'))
-# print(bond(output='duration'))
-# print(bond(output='df'))
-
-# dflong = data.open_data('dflong')
-# ret = returns(df=dflong, ret_type="abs", period_return=1, spread=True).iloc[:,0:2]
-# roll_adjust(df=ret, commodity_name="cmewti", roll_type="Last_Trade").head(50)
-
-# from pandas_datareader import data, wb
-# from datetime import datetime
-# df = data.DataReader(["SPY","AAPL"],  "yahoo", datetime(2000,1,1), datetime(2012,1,1))
-# df = df.pct_change()
-# df = df.asfreq('B')
-
-# R = df[('Adj Close','SPY')]
-
-# rt.returns(df = rt.data.open_data('dflong'), ret_type = "rel", period_return = 1, spread = False)
-# rt.returns(df = rt.data.open_data('dflong'), ret_type = "log", period_return = 1, spread = True)
-
-# print(y)
-
-# print(_check_ts(R.dropna(), scale=252))
-
-# print(trade_stats(df[('Adj Close','SPY')]))
-# print(trade_stats(df['Adj Close']))
-
-# tt = _sr(df['Adj Close'], Rf=0, scale=252)
-# print(tt)
-
-# print(drawdowns(df['Adj Close']))
-# print(drawdowns(df[('Adj Close','SPY')]))
-
-# rs = find_drawdowns(df['Adj Close'])
-# print(rs['SPY']['peaktotrough'])
-# print(find_drawdowns(df[('Adj Close','SPY')]))
-
-# print(sharpe_ratio_annualized(df['Adj Close']))
-# print(sharpe_ratio_annualized(df[('Adj Close','SPY')]))
-
-# print(omega_sharpe_ratio(df['Adj Close'],MAR=0))
-# print(upside_risk(df['Adj Close'], MAR=0))
-# print(upside_risk(df[('Adj Close','SPY')], MAR=0))
-# print(upside_risk(df['Adj Close'], MAR=0, stat='variance'))
-# print(upside_risk(df['Adj Close'], MAR=0, stat='potential'))
-
-# print(downside_deviation(df[('Adj Close','SPY')], MAR=0))
-# print(downside_deviation(df['Adj Close'], MAR=0))
-
-# print(return_cumulative(r=df['Adj Close'], geometric=True))
-# print(return_cumulative(r=df['Adj Close'], geometric=False))
-
-# print(return_annualized(r=df[('Adj Close','SPY')], geometric=True))
-# print(return_annualized(r=df[('Adj Close','SPY')], geometric=False))
-
-# print(return_annualized(r=df['Adj Close'], geometric=True))
-# print(return_annualized(r=df['Adj Close'], geometric=False))
-
-# print(sd_annualized(x=df[('Adj Close','SPY')]))
-# print(sd_annualized(x=df['Adj Close']))
-
-####################
-# R code for testing
-# library(timetk)
-# library(tidyverse)
-# library(PerformanceAnalytics)
-# df <- tq_get('SPY', from='2000-01-01', to='2012-01-01')
-# df <- df %>% dplyr::mutate(adjusted = adjusted/lag(adjusted)-1)
-# R = tk_xts(df, select=adjusted, date_var=date)
-# DownsideDeviation(R, MAR=0)
-# UpsideRisk(R, 0)
-# OmegaSharpeRatio(R, 0)
+__all__ = [
+    # Data
+    "data",
+    # Performance Analytics
+    "return_cumulative",
+    "return_annualized",
+    "return_excess",
+    "sd_annualized",
+    "omega_sharpe_ratio",
+    "upside_risk",
+    "downside_deviation",
+    "sharpe_ratio_annualized",
+    "drawdowns",
+    "find_drawdowns",
+    "capm_beta",
+    "timing_ratio",
+    # Main Functions
+    "ir_df_us",
+    "bond",
+    "trade_stats",
+    "returns",
+    "roll_adjust",
+    "garch",
+    "prompt_beta",
+    "npv",
+    "crr_euro",
+    "stl_decomposition",
+    "get_eia_df",
+    "infer_freq",
+    # Simulations
+    "sim_gbm",
+    "sim_ou",
+    "sim_ouj",
+    "fit_ou",
+    # Multivariate Simulations
+    "calc_spread_mv",
+    "fit_ou_mv",
+    "generate_eps_mv",
+    "sim_gbm_mv",
+    "sim_ou_mv",
+    "sim_ouj_mv",
+    "generate_random_portfolio_weights",
+    "calculate_payoffs",
+    "simulate_efficient_frontier",
+    "make_efficient_frontier_table",
+    "plot_efficient_frontier",
+    "plot_portfolio",
+    "MvGbm",
+    "MvOu",
+    # Swap Pricing
+    "swap_irs",
+    "swap_com",
+    "swap_info",
+    "swap_fut_weight",
+    "get_ir_swap_curve",
+    # Charting
+    "chart_zscore",
+    "chart_eia_sd",
+    "chart_five_year_plot",
+    "chart_eia_steo",
+    "chart_perf_summary",
+    "chart_forward_curves",
+    "chart_pairs",
+    "chart_spreads",
+    "dist_desc_plot",
+    # Refinery Optimization
+    "refinery_lp",
+    # Distribution Analysis
+    "describe_distribution",
+    # Morningstar API
+    "get_prices",
+    "get_curves",
+    # Deprecated Aliases
+    "CAPM_beta",
+    "simGBM",
+    "simOU",
+    "simOUJ",
+    "fitOU",
+    "calc_spread_MV",
+    "fitOU_MV",
+    "generate_eps_MV",
+    "simGBM_MV",
+    "simOU_MV",
+    "simOUJ_MV",
+    "MVGBM",
+    "MVOU",
+    "refineryLP",
+]

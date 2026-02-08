@@ -221,7 +221,7 @@ Input data for the refinery LP optimizer (dictionary):
 
 ```python
 data = rt.data.open_data('refineryLPdata')
-result = rt.refineryLP(data['inputs'], data['outputs'])
+result = rt.refinery_lp(data['inputs'], data['outputs'])
 ```
 
 ## API Reference
