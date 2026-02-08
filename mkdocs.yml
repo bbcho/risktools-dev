@@ -71,6 +71,14 @@ nav:
     - Fixed Income: guides/fixed_income.md
     - Options Pricing: guides/options_pricing.md
   - API Reference:
+    - Risk Measurement: api/risk.md
+    - Options Pricing: api/options.md
+    - Portfolio Optimization: api/portfolio.md
+    - Commodity Spreads: api/spreads.md
+    - Volatility Analytics: api/volatility.md
+    - Rolling Analytics: api/rolling.md
+    - Regime Detection: api/regimes.md
+    - Forward Curves: api/curves.md
     - Performance Analytics: api/performance.md
     - Simulations: api/simulations.md
     - Fixed Income & Derivatives: api/fixed_income.md

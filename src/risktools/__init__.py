@@ -95,6 +95,86 @@ from ._cullenfrey import describe_distribution
 # --- Morningstar API ---
 from ._morningstar import get_prices, get_curves
 
+# --- Risk Measurement ---
+from ._risk import (
+    value_at_risk,
+    cvar,
+    cfar,
+    npv_at_risk,
+    rolling_var,
+    rolling_cvar,
+    parametric_var_portfolio,
+)
+
+# --- Options Pricing ---
+from ._options import (
+    black_scholes,
+    black_scholes_greeks,
+    implied_vol,
+    black76,
+    black76_greeks,
+    american_option_lsm,
+    option_payoff,
+)
+
+# --- Portfolio Optimization ---
+from ._portfolio import (
+    portfolio_optimize,
+    portfolio_var,
+    portfolio_performance,
+)
+
+# --- Commodity Spreads ---
+from ._spreads import (
+    crack_spread,
+    spark_spread,
+    crush_spread,
+    convenience_yield,
+    optimal_hedge_ratio,
+    calendar_spread,
+    fly_spread,
+)
+
+# --- Volatility Analytics ---
+from ._volatility import (
+    vol_cone,
+    vol_term_structure,
+    realized_vol,
+    parkinson_vol,
+    garman_klass_vol,
+    yang_zhang_vol,
+)
+
+# --- Rolling Analytics ---
+from ._rolling import (
+    rolling_sharpe,
+    rolling_beta,
+    rolling_correlation,
+    rolling_volatility,
+    rolling_skewness,
+    rolling_kurtosis,
+    rolling_drawdown,
+    rolling_sortino,
+)
+
+# --- Regime Detection ---
+from ._regimes import (
+    detect_regimes,
+    structural_break,
+    regime_summary,
+)
+
+# --- Forward Curve Analytics ---
+from ._curves import (
+    curve_calendar_spread,
+    curve_fly,
+    curve_shape,
+    basis,
+    roll_yield,
+    term_structure_slope,
+    curve_seasonality,
+)
+
 # --- Deprecated Aliases (will be removed in v3.0) ---
 # These provide backwards compatibility for code using the old camelCase names.
 from ._pa import CAPM_beta
@@ -183,6 +263,62 @@ __all__ = [
     # Morningstar API
     "get_prices",
     "get_curves",
+    # Risk Measurement
+    "value_at_risk",
+    "cvar",
+    "cfar",
+    "npv_at_risk",
+    "rolling_var",
+    "rolling_cvar",
+    "parametric_var_portfolio",
+    # Options Pricing
+    "black_scholes",
+    "black_scholes_greeks",
+    "implied_vol",
+    "black76",
+    "black76_greeks",
+    "american_option_lsm",
+    "option_payoff",
+    # Portfolio Optimization
+    "portfolio_optimize",
+    "portfolio_var",
+    "portfolio_performance",
+    # Commodity Spreads
+    "crack_spread",
+    "spark_spread",
+    "crush_spread",
+    "convenience_yield",
+    "optimal_hedge_ratio",
+    "calendar_spread",
+    "fly_spread",
+    # Volatility Analytics
+    "vol_cone",
+    "vol_term_structure",
+    "realized_vol",
+    "parkinson_vol",
+    "garman_klass_vol",
+    "yang_zhang_vol",
+    # Rolling Analytics
+    "rolling_sharpe",
+    "rolling_beta",
+    "rolling_correlation",
+    "rolling_volatility",
+    "rolling_skewness",
+    "rolling_kurtosis",
+    "rolling_drawdown",
+    "rolling_sortino",
+    # Regime Detection
+    "detect_regimes",
+    "structural_break",
+    "regime_summary",
+    # Forward Curve Analytics
+    "curve_calendar_spread",
+    "curve_fly",
+    "curve_shape",
+    "basis",
+    "roll_yield",
+    "term_structure_slope",
+    "curve_seasonality",
     # Deprecated Aliases
     "CAPM_beta",
     "simGBM",
