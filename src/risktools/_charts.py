@@ -432,7 +432,8 @@ def chart_perf_summary(df, geometric=True, title=None):
     title : str
         Title for plot
 
-
+    Examples
+    --------
     >>> import risktools as rt
     >>> df = rt.data.open_data('dfwide')
     >>> df = df[['CL01', 'CL12', 'CL36']]
@@ -511,9 +512,9 @@ def chart_forward_curves(
         number of days between forward curves, must be 1 or greater
     curve_len : int
         how long the draw the curve on the plot, in days. Required if cmdty is not given.
-    uom : str
+    yaxis_title : str
         Unit of Measure to show on the final chart y-axis
-    ***kwargs
+    **kwargs
         keyword arguments to pass to fig.update_layout function for Plotly figures. Mainly
         to adjust figure layout.
 

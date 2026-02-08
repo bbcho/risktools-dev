@@ -488,8 +488,6 @@ def downside_deviation(R: Union[_pd.Series, _pd.DataFrame], MAR: Union[float, _p
         the MAR as the denominator, defaults to "full"
     potential : bool
         potential if True, calculate downside potential instead, by default False
-    *args :
-        any other passthru parameters
 
     Examples
     --------

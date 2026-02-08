@@ -827,16 +827,10 @@ def stl_decomposition(
     resample_freq : str
         Resampling frequency to use in pandas resample function. Set to None to not resample
     **kwargs :
-        Other parms
-
-
-
-    season - The length of the seasonal smoother. Must be odd.
-
-    trend - The length of the trend smoother, usually around 150% of season. Must be odd and larger than season.
-
-    low_pass - The length of the low-pass estimation window, usually the smallest odd number larger than the periodicity of the data.
-
+        Other parms. Useful keyword arguments include:
+        ``season`` (length of seasonal smoother, must be odd),
+        ``trend`` (length of trend smoother, usually ~150% of season),
+        ``low_pass`` (length of low-pass estimation window).
 
     Returns
     -------

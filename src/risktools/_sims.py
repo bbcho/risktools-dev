@@ -382,9 +382,6 @@ def sim_ouj(s0: float = 5, mu: Union[float, _pd.Series] = 5, theta: float = 0.5,
         By default, this is None.
     seed : int, optional
         To pass to numpy random number generator as seed. For testing only.
-    log_price : bool, optional
-        Adds adjustment term to the mean reversion term if the prices passed are log prices. By
-        default False.
     c : bool, optional
         Whether or not to run C optimized code. By default True. Otherwise use python loop.
 
