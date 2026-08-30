@@ -3,8 +3,10 @@ import numpy as np
 import os
 import json
 import sys
+import socket
 import plotly.graph_objects as go
 import time
+import pytest
 import yfinance as yf
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../src/")
@@ -37,6 +39,23 @@ up["m*"]["pass"] = os.getenv("MS_PASS", upf["m*"]["pass"] )
 up["m*"]["user"] = os.getenv("MS_USER", upf["m*"]["user"])
 
 ms = dict(username=os.getenv("MS_USER"), password=os.getenv("MS_PASS"))
+
+
+def _network_available(host="8.8.8.8", port=53, timeout=2):
+    """Return True if a network connection can be established."""
+    try:
+        import socket
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except OSError:
+        return False
+
+
+requires_network = pytest.mark.skipif(
+    not _network_available(), reason="Network not available"
+)
+
 
 
 def _load_json(fn, dataframe=True):
@@ -107,6 +126,7 @@ def test_get_prices():
     #     i += 1
 
 
+@requires_network
 def test_ir_df_us():
     
     df = _load_json("./data/ir_df_us.json")
@@ -150,6 +170,7 @@ def test_bond():
     assert round(bo, 4) == 0.9878, "bond Test 3 failed"
 
 
+@requires_network
 def test_trade_stats():
     
     # df = data.DataReader(["SPY", "AAPL"], "yahoo", "2000-01-01", "2012-01-01")
@@ -322,7 +343,7 @@ def test_prompt_beta():
 
     x = rt.returns(df=dfwide, ret_type="abs", period_return=1)
     x = rt.roll_adjust(df=x, commodity_name="cmewti", roll_type="Last_Trade")
-    x = x[~x.index.isin(["2020-04-20", "2020-04-21"])]
+    x = x[~x.index.isin(pd.to_datetime(["2020-04-20", "2020-04-21"]))]
     x = x.loc['2010-01-04':'2022-12-30',:]
 
     ts = (
@@ -441,6 +462,7 @@ def test_stl_decomposition():
     pass
 
 
+@requires_network
 def test_get_eia_df():
     ts = rt.get_eia_df("PET.MCRFPTX2.M", key=up["eia"])
 
@@ -488,11 +510,13 @@ def test_chart_zscore():
     assert isinstance(stl, go.Figure), "chart_zscore Test failed"
 
 
+@requires_network
 def test_chart_eia_sd():
     fig = rt.chart_eia_sd("mogas", up["eia"])
     assert isinstance(fig, go.Figure), "chart_eia_sd Test failed"
 
 
+@requires_network
 def test_chart_eia_steo():
     fig = rt.chart_eia_steo(up["eia"])
     assert isinstance(fig, go.Figure), "chart_eia_steo Test failed"
