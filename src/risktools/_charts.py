@@ -180,6 +180,8 @@ def chart_eia_sd(market, key, start_dt="2010-01-01", output="chart", **kwargs):
     eia = eia[eia.sd_category == market]
 
     df = get_eia_df(eia.tick_eia.to_list(), key=key)
+    if df.empty:
+        raise ValueError("No EIA data returned. Check your API key and network connection.")
     df = df.merge(
         eia[["tick_eia", "category"]], left_on=["series_id"], right_on=["tick_eia"]
     ).drop("tick_eia", axis=1)
@@ -374,6 +376,8 @@ def chart_eia_steo(key, start_dt=None, market="globalOil", output="chart", **kwa
         }
 
     df = get_eia_df(list(tickers.keys()), key=key)
+    if df.empty:
+        raise ValueError("No EIA data returned. Check your API key and network connection.")
     df["name"] = df["series_id"].map(tickers)
     df = (
         df[["date", "value", "name"]]

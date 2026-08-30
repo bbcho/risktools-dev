@@ -123,7 +123,7 @@ def swap_irs(
 
     # in case mat_date does not fall evenly on freq, take last date before
     dates = dates[dates <= mat_date]
-    dates = _pd.Index([_pd.to_datetime(trade_date)]).append(dates)
+    dates = _pd.Index([_pd.to_datetime(trade_date), *dates])
 
     if (days_in_year in [360, 365]) == False:
         raise ValueError("days_in_year must be either 360 or 365")
@@ -135,9 +135,7 @@ def swap_irs(
     df = _pd.DataFrame(
         {
             "dates": dates,
-            "day2next": (dates[1:] - dates[:-1]).days.append(
-                _pd.Index([0])
-            ),  # calc days to next period, short one element at end so add zero
+            "day2next": _np.append((dates[1:] - dates[:-1]).days, 0),  # calc days to next period, short one element at end so add zero
             "times": (dates - dates[0]).days
             / 365,  # calc days to maturity from trade_date
         }

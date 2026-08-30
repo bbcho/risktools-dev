@@ -6,7 +6,7 @@ from sklearn.linear_model import LinearRegression as _LinearRegression
 
 
 def return_cumulative(r, geometric=True):
-    """
+    r"""
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
 
@@ -52,7 +52,7 @@ def return_cumulative(r, geometric=True):
 
 
 def return_annualized(r, scale=None, geometric=True):
-    """
+    r"""
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
 
@@ -115,6 +115,9 @@ def return_annualized(r, scale=None, geometric=True):
     r = r.dropna()
     n = r.shape[0]
 
+    if n == 0:
+        return _np.nan
+
     if geometric:
         res = (r.add(1).cumprod() ** (scale / n) - 1).iloc[-1]
     else:
@@ -123,7 +126,7 @@ def return_annualized(r, scale=None, geometric=True):
 
 
 def return_excess(R, Rf=0):
-    """
+    r"""
     Calculates the returns of an asset in excess of the given risk free rate
 
     Calculates the returns of an asset in excess of the given "risk free rate"
@@ -176,7 +179,7 @@ def return_excess(R, Rf=0):
 
 
 def sd_annualized(x, scale=None, *args):
-    """
+    r"""
     calculate a multiperiod or annualized Standard Deviation
 
     Standard Deviation of a set of observations \eqn{R_{a}} is given by:
@@ -232,7 +235,7 @@ def sd_annualized(x, scale=None, *args):
     >>> rt.sd_annualized(x=df[('Adj Close','SPY')])
     >>> rt.sd_annualized(x=df['Adj Close'])
     """
-    if (~isinstance(x, _pd.DataFrame) & ~isinstance(x, _pd.Series)) == True:
+    if (not isinstance(x, _pd.DataFrame) and not isinstance(x, _pd.Series)):
         raise ValueError("x must be a pandas Series or DataFrame")
 
     if isinstance(x.index, _pd.DatetimeIndex):
@@ -263,7 +266,7 @@ def sd_annualized(x, scale=None, *args):
 
 
 def omega_sharpe_ratio(R, MAR, *args):
-    """
+    r"""
     Omega-Sharpe ratio of the return distribution
 
     The Omega-Sharpe ratio is a conversion of the omega ratio to a ranking statistic
@@ -301,11 +304,11 @@ def omega_sharpe_ratio(R, MAR, *args):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -336,7 +339,7 @@ def omega_sharpe_ratio(R, MAR, *args):
 
 
 def upside_risk(R, MAR=0, method="full", stat="risk"):
-    """
+    r"""
     upside risk, variance and potential of the return distribution
 
     Upside Risk is the similar of semideviation taking the return above the
@@ -403,11 +406,11 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -489,11 +492,11 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -531,7 +534,7 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
 
 
 def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
-    """
+    r"""
     calculate annualized Sharpe Ratio
 
     The Sharpe Ratio is a risk-adjusted measure of return that uses standard
@@ -619,7 +622,7 @@ def drawdowns(R, geometric=True):
 
 
 def find_drawdowns(R, geometric=True, *args):
-    """
+    r"""
     Find the drawdowns and drawdown levels in a timeseries.
 
     find_drawdowns() will find the starting period, the ending period, and
@@ -691,8 +694,13 @@ def find_drawdowns(R, geometric=True, *args):
         rs[lab]["to"] = _np.array([]).astype(int)
         rs[lab]["length"] = _np.array([]).astype(int)
         rs[lab]["trough"] = _np.array([]).astype(int)
+        rs[lab]["peaktotrough"] = _np.array([]).astype(int)
+        rs[lab]["recovery"] = _np.array([]).astype(int)
 
-        if con[0] >= 0:
+        if con.empty:
+            continue
+
+        if con.iloc[0] >= 0:
             prior_sign = 1
         else:
             prior_sign = 0
@@ -700,7 +708,7 @@ def find_drawdowns(R, geometric=True, *args):
         frm = 0
         to = 0
         dmin = 0
-        sofar = con[0]
+        sofar = con.iloc[0]
 
         for i, r in enumerate(con):  # .iteritems():
             if r < 0:
@@ -734,10 +742,10 @@ def find_drawdowns(R, geometric=True, *args):
         rs[lab]["peaktotrough"] = rs[lab]["trough"] - rs[lab]["from"] + 1
         rs[lab]["recovery"] = rs[lab]["to"] - rs[lab]["trough"]
 
-        # if original parameter was a series, remove top layer of
-        # results dictionary
-        if series_flag == True:
-            rs = rs["drawdown"]
+    # if original parameter was a series, remove top layer of
+    # results dictionary
+    if series_flag == True:
+        rs = rs["drawdown"]
 
     return rs
 
@@ -798,7 +806,7 @@ def _beta(y, x, subset=None):
 
 
 def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
-    """
+    r"""
     calculate single factor model (CAPM) beta
 
     The single factor model or CAPM Beta is the beta of an asset to the variance
@@ -959,7 +967,7 @@ def _check_ts(R, scale, name="R"):
     -------
     tuple with R as Series or Dataframe and scale as int
     """
-    if (~isinstance(R, _pd.DataFrame) & ~isinstance(R, _pd.Series)) == True:
+    if (not isinstance(R, _pd.DataFrame) and not isinstance(R, _pd.Series)):
         raise ValueError(f"{name} must be a pandas Series or DataFrame")
 
     if isinstance(R.index, _pd.DatetimeIndex):

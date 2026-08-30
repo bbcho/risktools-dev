@@ -79,7 +79,7 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     x.columns = ["maturity", "yield"]
     x["index"] = x["maturity"]
     x["yield"] /= 100
-    x["maturity"] = x.maturity.str.extract("(\d+)").astype("float")
+    x["maturity"] = x.maturity.str.extract(r"(\d+)").astype("float")
 
     # change maturity numbers to year fraction for first four rows
     x.iloc[1:4, x.columns.get_loc("maturity")] /= 12.0
@@ -219,13 +219,14 @@ def trade_stats(R, Rf=0):
 
         # need to dropna to calc perc_win properly
         con_clean = con.dropna()
+        n_nonzero = con_clean[con_clean != 0].shape[0]
         rs[lab]["perc_win"] = (
-            con_clean[con_clean > 0].shape[0] / con_clean[con_clean != 0].shape[0]
+            con_clean[con_clean > 0].shape[0] / n_nonzero if n_nonzero > 0 else _np.nan
         )
-        rs[lab]["perc_in_mkt"] = con_clean[con_clean != 0].shape[0] / con_clean.shape[0]
+        rs[lab]["perc_in_mkt"] = n_nonzero / con_clean.shape[0] if con_clean.shape[0] > 0 else _np.nan
 
-        rs[lab]["dd_length"] = max(y["length"])
-        rs[lab]["dd_max"] = min(y["return"])
+        rs[lab]["dd_length"] = max(y["length"]) if len(y["length"]) > 0 else _np.nan
+        rs[lab]["dd_max"] = min(y["return"]) if len(y["return"]) > 0 else _np.nan
 
     if series_flag == True:
         rs = rs["trade_stats"]
@@ -465,7 +466,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
 
 
 def prompt_beta(df, period="all", beta_type="all", output="chart"):
-    """
+    r"""
     Returns array/dataframe of betas for futures contract returns of a commodity
     with it's front contract (i.e. next most expirying contract). For use with futures
     contracts (i.e. NYMEX WTI: CL01, CL02, CL03 and so forth) with standardized expiry periods.
@@ -940,9 +941,8 @@ def _get_eia_df_v2(tables, key, sleep):
                 tmp["response"]["data"],
                 columns=["period", "series-description", "value"],
             )
-        except:
-            print(f"Error in table {tbl}")
-            print(r.text)
+        except Exception as e:
+            print(f"Error in table {tbl}: {e}")
             continue
         tf["series_id"] = tbl
         eia = _pd.concat([eia, tf], axis=0)
@@ -950,6 +950,8 @@ def _get_eia_df_v2(tables, key, sleep):
         # eia = eia.append(tf)
 
     eia = eia.rename(columns={"period": "date", "series-description": "table_name"})
+    if eia.empty:
+        return _pd.DataFrame(columns=["date", "value", "table_name", "series_id"])
     eia.loc[eia.date.str.len() < 7, "date"] += "01"
     eia.date = _pd.to_datetime(eia.date)
     return eia[["date", "value", "table_name", "series_id"]]
