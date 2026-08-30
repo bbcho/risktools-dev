@@ -308,7 +308,7 @@ def omega_sharpe_ratio(R, MAR, *args):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif (not isinstance(R.index, _pd.DatetimeIndex)) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -410,7 +410,7 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif (not isinstance(R.index, _pd.DatetimeIndex)) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -496,7 +496,7 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif (not isinstance(R.index, _pd.DatetimeIndex)) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) and isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
