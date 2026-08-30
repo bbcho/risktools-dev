@@ -1,4 +1,3 @@
-from numpy.linalg.linalg import eigvals
 import pandas as pd
 import numpy as np
 import os

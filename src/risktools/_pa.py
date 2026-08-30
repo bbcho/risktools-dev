@@ -115,6 +115,9 @@ def return_annualized(r, scale=None, geometric=True):
     r = r.dropna()
     n = r.shape[0]
 
+    if n == 0:
+        return _np.nan
+
     if geometric:
         res = (r.add(1).cumprod() ** (scale / n) - 1).iloc[-1]
     else:
@@ -232,7 +235,7 @@ def sd_annualized(x, scale=None, *args):
     >>> rt.sd_annualized(x=df[('Adj Close','SPY')])
     >>> rt.sd_annualized(x=df['Adj Close'])
     """
-    if (~isinstance(x, _pd.DataFrame) & ~isinstance(x, _pd.Series)) == True:
+    if (not isinstance(x, _pd.DataFrame) and not isinstance(x, _pd.Series)):
         raise ValueError("x must be a pandas Series or DataFrame")
 
     if isinstance(x.index, _pd.DatetimeIndex):
@@ -301,11 +304,11 @@ def omega_sharpe_ratio(R, MAR, *args):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -403,11 +406,11 @@ def upside_risk(R, MAR=0, method="full", stat="risk"):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -489,11 +492,11 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
         if isinstance(R.index, _pd.DatetimeIndex) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
-            if ~isinstance(MAR.index, _pd.DatetimeIndex):
+            if not isinstance(MAR.index, _pd.DatetimeIndex):
                 raise ValueError(
                     "MAR index must be a datatime index if MAR and R are a Dataframe or Series with a datetime index"
                 )
-        elif ~isinstance(R.index, _pd.DatetimeIndex) & isinstance(
+        elif (not isinstance(R.index, _pd.DatetimeIndex)) & isinstance(
             MAR, (_pd.Series, _pd.DataFrame)
         ):
             if isinstance(MAR.index, _pd.DatetimeIndex):
@@ -691,8 +694,13 @@ def find_drawdowns(R, geometric=True, *args):
         rs[lab]["to"] = _np.array([]).astype(int)
         rs[lab]["length"] = _np.array([]).astype(int)
         rs[lab]["trough"] = _np.array([]).astype(int)
+        rs[lab]["peaktotrough"] = _np.array([]).astype(int)
+        rs[lab]["recovery"] = _np.array([]).astype(int)
 
-        if con[0] >= 0:
+        if con.empty:
+            continue
+
+        if con.iloc[0] >= 0:
             prior_sign = 1
         else:
             prior_sign = 0
@@ -700,7 +708,7 @@ def find_drawdowns(R, geometric=True, *args):
         frm = 0
         to = 0
         dmin = 0
-        sofar = con[0]
+        sofar = con.iloc[0]
 
         for i, r in enumerate(con):  # .iteritems():
             if r < 0:
@@ -734,10 +742,10 @@ def find_drawdowns(R, geometric=True, *args):
         rs[lab]["peaktotrough"] = rs[lab]["trough"] - rs[lab]["from"] + 1
         rs[lab]["recovery"] = rs[lab]["to"] - rs[lab]["trough"]
 
-        # if original parameter was a series, remove top layer of
-        # results dictionary
-        if series_flag == True:
-            rs = rs["drawdown"]
+    # if original parameter was a series, remove top layer of
+    # results dictionary
+    if series_flag == True:
+        rs = rs["drawdown"]
 
     return rs
 
@@ -959,7 +967,7 @@ def _check_ts(R, scale, name="R"):
     -------
     tuple with R as Series or Dataframe and scale as int
     """
-    if (~isinstance(R, _pd.DataFrame) & ~isinstance(R, _pd.Series)) == True:
+    if (not isinstance(R, _pd.DataFrame) and not isinstance(R, _pd.Series)):
         raise ValueError(f"{name} must be a pandas Series or DataFrame")
 
     if isinstance(R.index, _pd.DatetimeIndex):

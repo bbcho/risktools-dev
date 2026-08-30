@@ -130,11 +130,11 @@ def generate_eps_MV(cor, T, dt, sims=1000, mu=None, seed=None):
 
     # if ~isinstance(sigma, _np.ndarray):
     #     sigma = _np.array(sigma)
-    if ~isinstance(cor, _np.ndarray):
+    if not isinstance(cor, _np.ndarray):
         cor = _np.array(cor)
 
     if mu is not None:
-        if ~isinstance(mu, _np.ndarray):
+        if not isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
     else:
         mu = _np.zeros(cor.shape[0])
@@ -204,17 +204,17 @@ def simGBM_MV(s0, r, sigma, T, dt, mu=None, cor=None, eps=None, sims=1000, seed=
     if (cor is None) & (eps is None):
         raise ValueError("correlation matrix cor required if eps not passed")
 
-    if ~isinstance(s0, _np.ndarray):
+    if not isinstance(s0, _np.ndarray):
         s0 = _np.array(s0)
-    if ~isinstance(sigma, _np.ndarray):
+    if not isinstance(sigma, _np.ndarray):
         sigma = _np.array(sigma)
-    if ~isinstance(r, _np.ndarray):
+    if not isinstance(r, _np.ndarray):
         r = _np.array(r)
-    if ~isinstance(cor, _np.matrix):
+    if not isinstance(cor, _np.matrix):
         cor = _np.matrix(cor)
 
     if mu is not None:
-        if ~isinstance(mu, _np.ndarray):
+        if not isinstance(mu, _np.ndarray):
             mu = _np.array(mu)
     else:
         mu = _np.zeros(len(s0))
