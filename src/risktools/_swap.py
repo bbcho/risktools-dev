@@ -135,7 +135,7 @@ def swap_irs(
     df = _pd.DataFrame(
         {
             "dates": dates,
-            "day2next": _pd.Index([*(dates[1:] - dates[:-1]).days, 0]),  # calc days to next period, short one element at end so add zero
+            "day2next": _np.append((dates[1:] - dates[:-1]).days, 0),  # calc days to next period, short one element at end so add zero
             "times": (dates - dates[0]).days
             / 365,  # calc days to maturity from trade_date
         }
