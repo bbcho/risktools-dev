@@ -6,7 +6,7 @@ from sklearn.linear_model import LinearRegression as _LinearRegression
 
 
 def return_cumulative(r, geometric=True):
-    """
+    r"""
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
 
@@ -52,7 +52,7 @@ def return_cumulative(r, geometric=True):
 
 
 def return_annualized(r, scale=None, geometric=True):
-    """
+    r"""
     Based on the function Return.annualize from the R package PerformanceAnalytics
     by Peter Carl and Brian G. Peterson
 
@@ -123,7 +123,7 @@ def return_annualized(r, scale=None, geometric=True):
 
 
 def return_excess(R, Rf=0):
-    """
+    r"""
     Calculates the returns of an asset in excess of the given risk free rate
 
     Calculates the returns of an asset in excess of the given "risk free rate"
@@ -176,7 +176,7 @@ def return_excess(R, Rf=0):
 
 
 def sd_annualized(x, scale=None, *args):
-    """
+    r"""
     calculate a multiperiod or annualized Standard Deviation
 
     Standard Deviation of a set of observations \eqn{R_{a}} is given by:
@@ -263,7 +263,7 @@ def sd_annualized(x, scale=None, *args):
 
 
 def omega_sharpe_ratio(R, MAR, *args):
-    """
+    r"""
     Omega-Sharpe ratio of the return distribution
 
     The Omega-Sharpe ratio is a conversion of the omega ratio to a ranking statistic
@@ -336,7 +336,7 @@ def omega_sharpe_ratio(R, MAR, *args):
 
 
 def upside_risk(R, MAR=0, method="full", stat="risk"):
-    """
+    r"""
     upside risk, variance and potential of the return distribution
 
     Upside Risk is the similar of semideviation taking the return above the
@@ -531,7 +531,7 @@ def downside_deviation(R, MAR=0, method="full", potential=False):
 
 
 def sharpe_ratio_annualized(R, Rf=0, scale=None, geometric=True):
-    """
+    r"""
     calculate annualized Sharpe Ratio
 
     The Sharpe Ratio is a risk-adjusted measure of return that uses standard
@@ -619,7 +619,7 @@ def drawdowns(R, geometric=True):
 
 
 def find_drawdowns(R, geometric=True, *args):
-    """
+    r"""
     Find the drawdowns and drawdown levels in a timeseries.
 
     find_drawdowns() will find the starting period, the ending period, and
@@ -798,7 +798,7 @@ def _beta(y, x, subset=None):
 
 
 def CAPM_beta(Ra, Rb, Rf=0, kind="all"):
-    """
+    r"""
     calculate single factor model (CAPM) beta
 
     The single factor model or CAPM Beta is the beta of an asset to the variance

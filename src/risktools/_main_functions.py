@@ -79,7 +79,7 @@ def ir_df_us(quandl_key=None, ir_sens=0.01, date=None):
     x.columns = ["maturity", "yield"]
     x["index"] = x["maturity"]
     x["yield"] /= 100
-    x["maturity"] = x.maturity.str.extract("(\d+)").astype("float")
+    x["maturity"] = x.maturity.str.extract(r"(\d+)").astype("float")
 
     # change maturity numbers to year fraction for first four rows
     x.iloc[1:4, x.columns.get_loc("maturity")] /= 12.0
@@ -465,7 +465,7 @@ def garch(df, out="data", scale=None, show_fig=True, forecast_horizon=1, **kwarg
 
 
 def prompt_beta(df, period="all", beta_type="all", output="chart"):
-    """
+    r"""
     Returns array/dataframe of betas for futures contract returns of a commodity
     with it's front contract (i.e. next most expirying contract). For use with futures
     contracts (i.e. NYMEX WTI: CL01, CL02, CL03 and so forth) with standardized expiry periods.
